@@ -90,7 +90,7 @@ function ProjectCard({ project }: { project: Project }) {
         .filter(Boolean);
 
     // Fallback logic: 1. DB Thumbnail -> 2. Last Edited Workbench Image -> 3. Placeholder
-    let thumbnail = project.thumbnailUrl || thumbnailUrls[0];
+    const thumbnail = project.thumbnailUrl || thumbnailUrls[0];
 
     // Determine which thumbnail to show based on hover
     const displayThumbnail = hoverIndex !== null && thumbnailUrls[hoverIndex]
@@ -239,4 +239,3 @@ function ProjectCard({ project }: { project: Project }) {
         </>
     );
 }
-

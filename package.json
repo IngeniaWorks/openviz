@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=8192' next dev",
-    "build": "NODE_OPTIONS='--max-old-space-size=16384' next build",
+    "build": "NODE_OPTIONS='--max-old-space-size=16384' next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
@@ -13,8 +13,14 @@
     "preview": "next start",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "npx tsx migrate.ts"
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "npx tsx migrate.ts",
+    "setup": "npx tsx scripts/setup.ts",
+    "setup:container": "npx tsx scripts/setup.ts --mode=container --no-start",
+    "init": "npm run setup",
+    "dev:docker": "sh -c 'if [ -f .env.docker ]; then docker compose --env-file .env.docker up --build; else docker compose up --build; fi'",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app postgres redis"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
@@ -55,7 +61,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.39.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/file-saver": "^2.0.7",
@@ -66,7 +72,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.24",
-    "drizzle-kit": "^0.18.1",
+    "drizzle-kit": "^0.31.5",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^17.3.0",

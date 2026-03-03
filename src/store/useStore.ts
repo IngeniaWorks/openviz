@@ -9,6 +9,7 @@ import { createRenderSlice } from './slices/renderSlice';
 import { createLayerSlice } from './slices/layerSlice';
 import { createWorkbenchSlice } from './slices/workbenchSlice';
 import { createHistorySlice } from './slices/historySlice';
+import { createWorkbenchCollaborationSlice } from './slices/workbenchCollaborationSlice';
 
 // Custom storage object for IndexedDB with debouncing
 let saveTimeout: any = null;
@@ -36,6 +37,7 @@ export const useStore = create<AppState>()(
             ...createRenderSlice(...a),
             ...createLayerSlice(...a),
             ...createWorkbenchSlice(...a),
+            ...createWorkbenchCollaborationSlice(...a),
             ...createHistorySlice(...a),
         }),
         {
@@ -52,7 +54,8 @@ export const useStore = create<AppState>()(
                 projectNodes: state.projectNodes,
                 connections: state.connections,
                 activeNodeId: state.activeNodeId,
-                clipboard: state.clipboard
+                clipboard: state.clipboard,
+                currentSceneVersion: state.currentSceneVersion,
             }),
         }
     )

@@ -113,6 +113,8 @@ export interface Connection {
     id: string;
     from: string; // Node ID
     to: string;   // Node ID
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
 }
 
 export interface ToolSettings {
@@ -148,3 +150,52 @@ export interface RenderGroup {
     sourceNodeId?: string;
 }
 
+export interface SceneData {
+    nodes: WorkbenchNode[];
+    connections: Connection[];
+}
+
+export type ScenePatchRequest = {
+    data: SceneData;
+    expectedVersion: number;
+};
+
+export type ScenePatchResponse = {
+    scene: SceneData;
+    version: number;
+};
+
+export type SceneEventType =
+    | 'scene.node.created'
+    | 'scene.node.updated'
+    | 'scene.node.deleted'
+    | 'scene.connection.created'
+    | 'scene.connection.deleted'
+    | 'scene.selection.locked'
+    | 'scene.selection.unlocked'
+    | 'scene.presence.updated';
+
+export interface SceneEvent<TPayload = unknown> {
+    type: SceneEventType;
+    projectId: string;
+    timestamp: number;
+    payload: TPayload;
+}
+
+export interface NodeLockState {
+    nodeId: string;
+    userId: string;
+    userName?: string;
+    expiresAt: number;
+}
+
+export interface PresenceState {
+    userId: string;
+    userName?: string;
+    selectedNodeIds: string[];
+    cursor?: {
+        x: number;
+        y: number;
+    };
+    updatedAt: number;
+}

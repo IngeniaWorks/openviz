@@ -1,0 +1,65 @@
+import { useEffect } from "react";
+
+type UseWorkbenchKeyboardShortcutsOptions = {
+    copyToClipboard: () => void;
+    pasteFromClipboard: (pos: { x: number; y: number }) => void;
+    duplicateWorkbenchNode: () => void;
+    removeWorkbenchNode: () => void;
+    reorderWorkbenchNode: (id: string, direction: "front" | "back") => void;
+    activeNodeId: string | null;
+    selectedNodeIds: string[];
+    getMousePosition: () => { x: number; y: number };
+    screenToFlowPosition: (point: { x: number; y: number }) => { x: number; y: number };
+};
+
+export function useWorkbenchKeyboardShortcuts({
+    copyToClipboard,
+    pasteFromClipboard,
+    duplicateWorkbenchNode,
+    removeWorkbenchNode,
+    reorderWorkbenchNode,
+    activeNodeId,
+    selectedNodeIds,
+    getMousePosition,
+    screenToFlowPosition,
+}: UseWorkbenchKeyboardShortcutsOptions) {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+            const isMod = e.ctrlKey || e.metaKey;
+
+            if (isMod && e.key === "c") {
+                copyToClipboard();
+            } else if (isMod && e.key === "v") {
+                const mousePosition = getMousePosition();
+                const pos = screenToFlowPosition({ x: mousePosition.x, y: mousePosition.y });
+                pasteFromClipboard(pos);
+            } else if (isMod && e.key === "d") {
+                e.preventDefault();
+                duplicateWorkbenchNode();
+            } else if (e.key === "Delete" || e.key === "Backspace") {
+                if (selectedNodeIds.length > 0) {
+                    removeWorkbenchNode();
+                }
+            } else if (e.key === "[") {
+                if (activeNodeId) reorderWorkbenchNode(activeNodeId, "back");
+            } else if (e.key === "]") {
+                if (activeNodeId) reorderWorkbenchNode(activeNodeId, "front");
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [
+        copyToClipboard,
+        pasteFromClipboard,
+        duplicateWorkbenchNode,
+        removeWorkbenchNode,
+        reorderWorkbenchNode,
+        activeNodeId,
+        selectedNodeIds,
+        getMousePosition,
+        screenToFlowPosition,
+    ]);
+}

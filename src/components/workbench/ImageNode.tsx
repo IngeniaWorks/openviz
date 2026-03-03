@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Handle, NodeResizer, Position, useConnection } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { ImageNode as ImageNodeType } from '../../types';
+import { imageLikeHandleStyle } from '../nodes/nodeUi';
 
 interface ImageNodeData extends ImageNodeType {
     onSourceClick?: (nodeId: string) => void;
@@ -83,23 +84,12 @@ export const ImageNode: React.FC<ImageNodeProps> = ({ id, data, selected, isConn
                 position={Position.Right}
                 id="image-source"
                 style={{
+                    ...imageLikeHandleStyle,
                     right: '0px',
                     top: '50%',  // Add this back
-                    background: '#6366f1',
-                    width: '26px',
-                    height: '26px',
-                    border: '3px solid white',
-                    cursor: 'hand',
                     zIndex: 1000,
                     opacity: selected ? 1 : 0,
-                    transformOrigin: 'center',  // Change to 'center'
-                    //transform: `scale(${1 / zoom})`,  // Only zoom scaling here
-                    transition: 'opacity 300ms ease',
                     pointerEvents: selected ? 'auto' : 'none',
-                    display: 'flex',
-                    //translate: '50% -50%',  // Use CSS translate for positioning
-                    alignItems: 'center',
-                    justifyContent: 'center',
                 }}
                 isConnectable={isConnectable}
                 onClick={handleSourceClick}

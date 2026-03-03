@@ -1,4 +1,17 @@
-import { Project, ToolSettings, RenderSettings, RenderGroup, ViewMode, WorkbenchNode, Connection, ToolType, AspectRatio, Layer } from '../types';
+import {
+    Project,
+    ToolSettings,
+    RenderSettings,
+    RenderGroup,
+    ViewMode,
+    WorkbenchNode,
+    Connection,
+    ToolType,
+    AspectRatio,
+    Layer,
+    NodeLockState,
+    PresenceState,
+} from '../types';
 
 export interface AppState {
     project: Project;
@@ -21,6 +34,9 @@ export interface AppState {
     selectedNodeIds: string[];
     clipboard: WorkbenchNode[] | null;
     isExitingStudio: boolean;
+    currentSceneVersion: number;
+    nodeLocks: Record<string, NodeLockState>;
+    presenceByUser: Record<string, PresenceState>;
 
     history: Project[];
     historyIndex: number;
@@ -80,7 +96,12 @@ export interface AppState {
     // Workbench Actions
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
-    addConnection: (fromId: string, toId: string) => void;
+    addConnection: (
+        fromId: string,
+        toId: string,
+        sourceHandle?: string | null,
+        targetHandle?: string | null
+    ) => void;
     removeConnection: (id: string) => void;
     updateWorkbenchNode: (id: string, updates: Partial<WorkbenchNode>) => void;
     removeWorkbenchNode: (id?: string) => void;
@@ -99,4 +120,10 @@ export interface AppState {
     setProjectNodes: (projectId: string, nodes: WorkbenchNode[]) => void;
     setConnections: (connections: Connection[]) => void;
     setCurrentProjectId: (id: string | null) => void;
+    setCurrentSceneVersion: (version: number) => void;
+    setNodeLockState: (lock: NodeLockState) => void;
+    clearNodeLockState: (nodeId: string) => void;
+    upsertPresenceState: (presence: PresenceState) => void;
+    clearPresenceState: (userId: string) => void;
+    clearCollaborationState: () => void;
 }

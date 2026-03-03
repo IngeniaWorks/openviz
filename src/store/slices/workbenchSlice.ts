@@ -1,22 +1,37 @@
 import { StateCreator } from 'zustand';
 import { AppState } from '../storeTypes';
-import { ViewMode, WorkbenchNode, ImageNode, VideoNode, Project, AspectRatio, RenderGroup } from '../../types';
+import {
+    ViewMode,
+    WorkbenchNode,
+    ImageNode,
+    VideoNode,
+    Project,
+    AspectRatio,
+    RenderGroup,
+    Connection,
+} from '../../types';
 import { INITIAL_PROJECT } from '../initialState';
 import { findNonOverlappingPosition } from '../../services/nodePositioning';
+import { addConnectionWithPolicy, normalizeConnections } from '../../services/workbench/connectionPolicy';
 
 export interface WorkbenchSlice {
     viewMode: ViewMode;
     currentProjectId: string | null;
     workbenchNodes: WorkbenchNode[];
     projectNodes: Record<string, WorkbenchNode[] | undefined>;
-    connections: any[];
+    connections: Connection[];
     activeNodeId: string | null;
     selectedNodeIds: string[];
     clipboard: WorkbenchNode[] | null;
     isExitingStudio: boolean;
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
-    addConnection: (fromId: string, toId: string) => void;
+    addConnection: (
+        fromId: string,
+        toId: string,
+        sourceHandle?: string | null,
+        targetHandle?: string | null
+    ) => void;
     removeConnection: (id: string) => void;
     updateWorkbenchNode: (id: string, updates: Partial<WorkbenchNode>) => void;
     removeWorkbenchNode: (id?: string) => void;
@@ -35,7 +50,7 @@ export interface WorkbenchSlice {
     addImageToWorkbench: (image: string) => void;
     setWorkbenchNodes: (nodes: WorkbenchNode[]) => void;
     setProjectNodes: (projectId: string, nodes: WorkbenchNode[]) => void;
-    setConnections: (connections: any[]) => void;
+    setConnections: (connections: Connection[]) => void;
     setCurrentProjectId: (id: string | null) => void;
 }
 
@@ -64,16 +79,19 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return newState;
     }),
 
-    addConnection: (fromId, toId) => set((state: AppState) => ({
-        connections: [...state.connections, {
-            id: Math.random().toString(36).substr(2, 9),
-            from: fromId,
-            to: toId
-        }]
+    addConnection: (fromId, toId, sourceHandle, targetHandle) => set((state: AppState) => ({
+        connections: addConnectionWithPolicy(
+            state.connections,
+            state.workbenchNodes,
+            fromId,
+            toId,
+            sourceHandle,
+            targetHandle
+        ),
     })),
 
     removeConnection: (id) => set((state: AppState) => ({
-        connections: state.connections.filter((c: any) => c.id !== id)
+        connections: state.connections.filter((c) => c.id !== id)
     })),
 
     updateWorkbenchNode: (id, updates) => set((state: AppState) => {
@@ -102,7 +120,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         const newNodes = state.workbenchNodes.filter(n => !idsToRemove.includes(n.id));
         const newState: Partial<AppState> = {
             workbenchNodes: newNodes,
-            connections: state.connections.filter((c: any) => !idsToRemove.includes(c.from) && !idsToRemove.includes(c.to)),
+            connections: state.connections.filter((c) => !idsToRemove.includes(c.from) && !idsToRemove.includes(c.to)),
             selectedNodeIds: state.selectedNodeIds.filter(sid => !idsToRemove.includes(sid)),
             activeNodeId: idsToRemove.includes(state.activeNodeId as string) ? null : state.activeNodeId
         };
@@ -146,7 +164,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             .map(c => ({
                 id: Math.random().toString(36).substr(2, 9),
                 from: idMap[c.from],
-                to: idMap[c.to]
+                to: idMap[c.to],
+                sourceHandle: c.sourceHandle,
+                targetHandle: c.targetHandle,
             }));
 
         const newState: Partial<AppState> = {
@@ -228,7 +248,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             .map(c => ({
                 id: Math.random().toString(36).substr(2, 9),
                 from: idMap[c.from],
-                to: idMap[c.to]
+                to: idMap[c.to],
+                sourceHandle: c.sourceHandle,
+                targetHandle: c.targetHandle,
             }));
 
         return {
@@ -695,7 +717,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             [projectId]: nodes
         }
     })),
-    setConnections: (connections) => set({ connections }),
+    setConnections: (connections) => set((state: AppState) => ({
+        connections: normalizeConnections(connections, state.workbenchNodes),
+    })),
     setCurrentProjectId: (id) => set((state: AppState) => {
         const newState: Partial<AppState> = { currentProjectId: id };
         if (id && state.projectNodes[id]) {

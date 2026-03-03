@@ -24,12 +24,10 @@ export const CustomEdge = ({
 }: EdgeProps) => {
     const { zoom } = useViewport();
     const [edgePath, labelX, labelY] = getSmoothStepPath({
-        // sourceX - 26 to account for the delete button size and ensure the edge connects to the center of the button
-        
-        sourceX: sourceX - 25,
+        sourceX,
         sourceY,
         sourcePosition,
-        targetX: targetX + 25,
+        targetX,
         targetY,
         targetPosition,
         borderRadius: 15,
@@ -46,7 +44,11 @@ export const CustomEdge = ({
 
     return (
         <>
-            <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ ...style, stroke: isDeleteButtonVisible ? '#3b82f6' : '#000' }} />
+            <BaseEdge
+                path={edgePath}
+                markerEnd={markerEnd}
+                style={{ ...style, stroke: isDeleteButtonVisible ? '#3b82f6' : '#475569' }}
+            />
             {isDeleteButtonVisible && (
                 <EdgeLabelRenderer>
                     <div

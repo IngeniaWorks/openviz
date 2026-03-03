@@ -1,7 +1,58 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
-import { OnNodesChange, OnConnect, Connection, Node, useReactFlow } from '@xyflow/react';
+import {
+    OnNodesChange,
+    OnConnect,
+    Connection,
+    Node,
+    useReactFlow,
+    applyNodeChanges,
+    NodeChange,
+    OnConnectStart,
+    OnConnectEnd,
+} from '@xyflow/react';
 import { useStore } from '../../../store/useStore';
 import { WorkbenchNode } from '../../../types';
+import { useShallow } from 'zustand/react/shallow';
+import { useWorkbenchKeyboardShortcuts } from './useWorkbenchKeyboardShortcuts';
+import { sketchFormats, useWorkbenchFormatMenu } from './useWorkbenchFormatMenu';
+
+type ConnectionStartRef = { nodeId: string; handleType: string } | null;
+
+type CanonicalConnection = {
+    fromId: string;
+    toId: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+};
+
+export function getCanonicalConnectionFromDrop(
+    connectionStart: ConnectionStartRef,
+    targetNodeId: string | null,
+    workbenchNodes: WorkbenchNode[]
+): CanonicalConnection | null {
+    if (!connectionStart || !targetNodeId) {
+        return null;
+    }
+
+    const sourceNode = workbenchNodes.find((n) => n.id === connectionStart.nodeId);
+    const targetNode = workbenchNodes.find((n) => n.id === targetNodeId);
+
+    if (!sourceNode || !targetNode) {
+        return null;
+    }
+
+    const sourceIsTransformNode = sourceNode.type === 'animate' || sourceNode.type === 'render';
+    if (connectionStart.handleType === 'target' && targetNode.type === 'image' && sourceIsTransformNode) {
+        return {
+            fromId: targetNode.id,
+            toId: sourceNode.id,
+            sourceHandle: 'image-source',
+            targetHandle: null,
+        };
+    }
+
+    return null;
+}
 
 export const useWorkbench = () => {
     const {
@@ -21,36 +72,33 @@ export const useWorkbench = () => {
         setSelectedNodeIds,
         addConnection,
         createSketchWithFormat,
-    } = useStore();
+    } = useStore(
+        useShallow((state) => ({
+            workbenchNodes: state.workbenchNodes,
+            connections: state.connections,
+            updateWorkbenchNode: state.updateWorkbenchNode,
+            addWorkbenchNode: state.addWorkbenchNode,
+            removeWorkbenchNode: state.removeWorkbenchNode,
+            duplicateWorkbenchNode: state.duplicateWorkbenchNode,
+            reorderWorkbenchNode: state.reorderWorkbenchNode,
+            copyToClipboard: state.copyToClipboard,
+            pasteFromClipboard: state.pasteFromClipboard,
+            openNodeInStudio: state.openNodeInStudio,
+            activeNodeId: state.activeNodeId,
+            setActiveNodeId: state.setActiveNodeId,
+            selectedNodeIds: state.selectedNodeIds,
+            setSelectedNodeIds: state.setSelectedNodeIds,
+            addConnection: state.addConnection,
+            createSketchWithFormat: state.createSketchWithFormat,
+        }))
+    );
 
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
-    const [showFormatDropdown, setShowFormatDropdown] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
     const [basicBlocksMenu, setBasicBlocksMenu] = useState<{ visible: boolean; x: number; y: number; sourceNodeId: string } | null>(null);
-    const connectionStart = useRef<{ nodeId: string; handleType: string } | null>(null);
+    const connectionStart = useRef<ConnectionStartRef>(null);
 
-    const sketchFormats = [
-        { label: '1:1 Square', width: 1024, height: 1024 },
-        { label: '2:3 Portrait', width: 682, height: 1024 },
-        { label: '3:2 Landscape', width: 1024, height: 682 },
-        { label: '16:9 Wide', width: 1024, height: 576 },
-        { label: '9:16 Tall', width: 576, height: 1024 },
-    ];
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Element)) {
-                setShowFormatDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const handleFormatSelect = (width: number, height: number) => {
-        createSketchWithFormat(width, height);
-        setShowFormatDropdown(false);
-    };
+    const { showFormatDropdown, setShowFormatDropdown, dropdownRef, handleFormatSelect } =
+        useWorkbenchFormatMenu({ createSketchWithFormat });
 
     const mousePos = useRef({ x: 0, y: 0 });
 
@@ -63,8 +111,13 @@ export const useWorkbench = () => {
     }, []);
 
     const handleNodesChange: OnNodesChange = useCallback((changes) => {
-        const newSelection: string[] = [...selectedNodeIds];
-        let selectionChanged = false;
+        const flowNodes = workbenchNodes.map((node) => ({
+            id: node.id,
+            position: { x: node.x, y: node.y },
+            selected: selectedNodeIds.includes(node.id),
+            data: {},
+        }));
+        const nextNodes = applyNodeChanges(changes as NodeChange[], flowNodes);
 
         changes.forEach((change) => {
             if (change.type === 'position' && change.position) {
@@ -72,57 +125,18 @@ export const useWorkbench = () => {
                     x: change.position.x,
                     y: change.position.y,
                 });
-            } else if (change.type === 'select') {
-                const index = newSelection.indexOf(change.id);
-                if (change.selected && index === -1) {
-                    newSelection.push(change.id);
-                    selectionChanged = true;
-                } else if (!change.selected && index !== -1) {
-                    newSelection.splice(index, 1);
-                    selectionChanged = true;
-                }
             } else if (change.type === 'remove') {
                 removeWorkbenchNode(change.id);
             }
         });
 
-        if (selectionChanged) {
-            setSelectedNodeIds(newSelection);
-        }
-
-        return changes;
+        const nextSelectedNodeIds = nextNodes.filter((node) => node.selected).map((node) => node.id);
+        setSelectedNodeIds(nextSelectedNodeIds);
     }, [updateWorkbenchNode, removeWorkbenchNode, setSelectedNodeIds, selectedNodeIds]);
 
     const { screenToFlowPosition } = useReactFlow();
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-            const isMod = e.ctrlKey || e.metaKey;
-
-            if (isMod && e.key === 'c') {
-                copyToClipboard();
-            } else if (isMod && e.key === 'v') {
-                const pos = screenToFlowPosition({ x: mousePos.current.x, y: mousePos.current.y });
-                pasteFromClipboard(pos);
-            } else if (isMod && e.key === 'd') {
-                e.preventDefault();
-                duplicateWorkbenchNode();
-            } else if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (selectedNodeIds.length > 0) {
-                    removeWorkbenchNode();
-                }
-            } else if (e.key === '[') {
-                if (activeNodeId) reorderWorkbenchNode(activeNodeId, 'back');
-            } else if (e.key === ']') {
-                if (activeNodeId) reorderWorkbenchNode(activeNodeId, 'front');
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [
+    useWorkbenchKeyboardShortcuts({
         copyToClipboard, 
         pasteFromClipboard, 
         duplicateWorkbenchNode, 
@@ -130,34 +144,52 @@ export const useWorkbench = () => {
         reorderWorkbenchNode, 
         activeNodeId, 
         selectedNodeIds, 
-        screenToFlowPosition
-    ]);
+        screenToFlowPosition,
+        getMousePosition: () => mousePos.current,
+    });
 
     const handleConnect: OnConnect = useCallback((params: Connection) => {
         if (params.source && params.target) {
-            addConnection(params.source, params.target);
+            addConnection(
+                params.source,
+                params.target,
+                params.sourceHandle ?? null,
+                params.targetHandle ?? null
+            );
         }
     }, [addConnection]);
 
-    const onConnectStart = useCallback((_: any, { nodeId, handleType }: any) => {
+    const onConnectStart: OnConnectStart = useCallback((_, { nodeId, handleType }) => {
+        if (!nodeId || !handleType) return;
         connectionStart.current = { nodeId, handleType };
     }, []);
 
-    const onConnectEnd = useCallback((event: any) => {
+    const onConnectEnd: OnConnectEnd = useCallback((event) => {
         if (!connectionStart.current) return;
-        const nodeElement = event.target.closest('.react-flow__node');
+        const target = event.target;
+        if (!(target instanceof Element)) {
+            connectionStart.current = null;
+            return;
+        }
+
+        const nodeElement = target.closest('.react-flow__node');
         if (nodeElement) {
             const targetNodeId = nodeElement.getAttribute('data-id');
-            const targetNode = workbenchNodes.find((n: any) => n.id === targetNodeId);
-            if (targetNode?.type === 'image' && connectionStart.current.handleType === 'target') {
-                addConnection(targetNode.id, connectionStart.current.nodeId);
+            const canonical = getCanonicalConnectionFromDrop(connectionStart.current, targetNodeId, workbenchNodes);
+            if (canonical) {
+                addConnection(
+                    canonical.fromId,
+                    canonical.toId,
+                    canonical.sourceHandle ?? null,
+                    canonical.targetHandle ?? null
+                );
             }
         }
         connectionStart.current = null;
     }, [workbenchNodes, addConnection]);
 
     const handleNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
-        const workbenchNode = workbenchNodes.find((n: any) => n.id === node.id);
+        const workbenchNode = workbenchNodes.find((n) => n.id === node.id);
         if (workbenchNode?.type === 'image') {
             openNodeInStudio(node.id);
         }
@@ -174,7 +206,7 @@ export const useWorkbench = () => {
     }, [setActiveNodeId]);
 
     const handleSourceClick = useCallback((nodeId: string) => {
-        const sourceNode = workbenchNodes.find((n: any) => n.id === nodeId);
+        const sourceNode = workbenchNodes.find((n) => n.id === nodeId);
         if (sourceNode) {
             const rect = document.querySelector(`[data-id="${nodeId}"]`)?.getBoundingClientRect();
             if (rect) {
@@ -194,14 +226,24 @@ export const useWorkbench = () => {
             return;
         }
 
-        const sourceNode = workbenchNodes.find((n: any) => n.id === basicBlocksMenu.sourceNodeId);
+        const sourceNode = workbenchNodes.find((n) => n.id === basicBlocksMenu.sourceNodeId);
         if (!sourceNode) {
             setBasicBlocksMenu(null);
             return;
         }
 
-        const sourceWidth = sourceNode.width ?? (sourceNode.scale && (sourceNode as any).project?.canvas?.width ? sourceNode.scale * (sourceNode as any).project.canvas.width : 320);
-        const sourceHeight = sourceNode.height ?? (sourceNode.scale && (sourceNode as any).project?.canvas?.height ? sourceNode.scale * (sourceNode as any).project.canvas.height : 320);
+        const sourceWidth = sourceNode.width ??
+            ((sourceNode.type === 'image' || sourceNode.type === 'video') &&
+            sourceNode.scale &&
+            sourceNode.project?.canvas?.width
+                ? sourceNode.scale * sourceNode.project.canvas.width
+                : 320);
+        const sourceHeight = sourceNode.height ??
+            ((sourceNode.type === 'image' || sourceNode.type === 'video') &&
+            sourceNode.scale &&
+            sourceNode.project?.canvas?.height
+                ? sourceNode.scale * sourceNode.project.canvas.height
+                : 320);
 
         if (type === 'render') {
             const newNodeId = crypto.randomUUID();
@@ -251,7 +293,7 @@ export const useWorkbench = () => {
     }, [basicBlocksMenu, workbenchNodes, addWorkbenchNode, addConnection]);
 
     const handleResize = useCallback((nodeId: string, width: number, height: number) => {
-        const node = workbenchNodes.find((n: any) => n.id === nodeId);
+        const node = workbenchNodes.find((n) => n.id === nodeId);
         if (node && (node.type === 'image' || node.type === 'video') && node.project?.canvas) {
             const scale = width / node.project.canvas.width;
             updateWorkbenchNode(nodeId, { scale, width, height });

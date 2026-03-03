@@ -61,6 +61,8 @@ export const scenes = pgTable('scenes', {
     name: text('name').notNull(),
     data: jsonb('data').notNull(),
     isMain: boolean('is_main').default(true).notNull(),
+    version: integer('version').default(1).notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

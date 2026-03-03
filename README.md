@@ -83,12 +83,65 @@ Your central hub for organizing creative work.
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+ 
-- [PostgreSQL](https://www.postgresql.org/) 14+ (for project storage)
-- [Redis](https://redis.io/) (for job queues)
-- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) (for AI rendering)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine + Compose
+- Optional for manual host mode only:
+  - [Node.js](https://nodejs.org/) 18+
+  - [PostgreSQL](https://www.postgresql.org/) 14+
+  - [Redis](https://redis.io/)
+  - [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 
-### Environment Setup
+### Quick Setup (Docker-First, Recommended)
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Sander-HR/openviz.git
+   cd openviz
+   ```
+
+2. **(Optional) customize Docker env values**
+   ```bash
+   cp .env.docker.example .env.docker
+   ```
+   If `.env.docker` is present, `npm run dev:docker` will automatically use it.
+   If ports are already in use on your machine, change these values in `.env.docker`:
+   - `POSTGRES_HOST_PORT=5433`
+   - `REDIS_HOST_PORT=6380`
+   - `APP_HOST_PORT=3001`
+
+3. **Start the full local stack**
+   ```bash
+   docker compose up --build
+   ```
+   Or run:
+   ```bash
+   npm run dev:docker
+   ```
+
+   This starts:
+   - `app` (Next.js dev server, source-mounted),
+   - `postgres` (persistent volume),
+   - `redis` (persistent volume),
+   - automatic setup on app start:
+     - dependency check/install,
+     - DB readiness check,
+     - schema apply (`db:push`),
+     - default workspace + example project bootstrap.
+
+4. **Open in browser**
+   ```
+   http://localhost:3000
+   ```
+
+Useful Docker commands:
+```bash
+npm run dev:docker    # same as docker compose up --build
+npm run docker:logs   # tail app/postgres/redis logs
+npm run docker:down   # stop containers
+```
+
+If you hit `bind: address already in use`, free that host port or remap it in `.env.docker`.
+
+### Manual Host Setup (Fallback)
 
 1. **Clone the repository**
    ```bash
@@ -111,12 +164,17 @@ Your central hub for organizing creative work.
    # Database
    DATABASE_URL=postgresql://user:password@localhost:5432/openviz
    
-   # Redis (for BullMQ job queues)
-   REDIS_URL=redis://localhost:6379
-   
    # NextAuth
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=your-secret-key-here
+  
+   # Local dev login
+   DEV_ADMIN_ID=00000000-0000-0000-0000-000000000000
+   DEV_ADMIN_EMAIL=admin@example.com
+   DEV_ADMIN_NAME=Demo Admin
+   DEMO_PASSWORD=your-demo-password
+   NEXT_PUBLIC_DEMO_PASSWORD=your-demo-password
+   NEXT_PUBLIC_DEV_ADMIN_EMAIL=admin@example.com
    
    # OAuth (optional)
    GITHUB_ID=your-github-client-id
@@ -124,22 +182,27 @@ Your central hub for organizing creative work.
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
    
-   # AWS S3 (for asset storage)
-   AWS_REGION=us-east-1
-   AWS_ACCESS_KEY_ID=your-access-key
-   AWS_SECRET_ACCESS_KEY=your-secret-key
-   AWS_BUCKET_NAME=your-bucket-name
+   # S3 (optional)
+   S3_ENDPOINT=
+   S3_ACCESS_KEY_ID=
+   S3_SECRET_ACCESS_KEY=
+   S3_BUCKET=
    
-   # ComfyUI
-   COMFYUI_URL=http://localhost:7821
+   # Redis (optional in local mock mode)
+   REDIS_URL=redis://localhost:6379
    ```
 
-4. **Initialize database**
+4. **Initialize database and seed defaults**
    ```bash
-   npm run db:push
+   npm run setup
+   ```
+   
+   If you need setup only (without auto-starting dev server in scripted contexts):
+   ```bash
+   npm run setup:container
    ```
 
-5. **Launch ComfyUI**
+5. **Launch ComfyUI (optional for mock mode)**
    ```bash
    # In your ComfyUI directory
    python main.py --listen --port 7821
@@ -266,6 +329,12 @@ openviz/
 ```bash
 # Development
 npm run dev           # Start Next.js dev server
+npm run setup         # First-run setup + start dev server
+npm run setup:container # Non-interactive setup (no dev start), used by Docker entrypoint
+npm run init          # Alias for setup
+npm run dev:docker    # Docker-first dev startup
+npm run docker:logs   # Tail Docker logs
+npm run docker:down   # Stop Docker services
 npm run db:studio     # Open Drizzle Studio (DB GUI)
 
 # Build

@@ -1,12 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Handle, NodeResizer, Position } from '@xyflow/react';
-import { Plus, Play, Pause, Maximize2, X } from 'lucide-react';
+import { NodeResizer } from '@xyflow/react';
+import { Play, Pause, Maximize2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoNode as VideoNodeType } from '../../types';
 
 interface VideoNodeData extends VideoNodeType {
-    onSourceClick?: (nodeId: string) => void;
     onResize?: (nodeId: string, width: number, height: number) => void;
 }
 
@@ -14,18 +13,12 @@ interface VideoNodeProps {
     id: string;
     data: VideoNodeData;
     selected: boolean;
-    isConnectable: boolean;
 }
 
-export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected, isConnectable = true }) => {
+export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
-
-    const handleSourceClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        data.onSourceClick?.(data.id);
-    };
 
     const togglePlay = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -128,32 +121,6 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected, isConn
                     data.onResize?.(data.id, width, height);
                 }}
             />
-            <Handle
-                type="source"
-                position={Position.Right}
-                id="video-source"
-                style={{
-                    right: '0px',
-                    top: '50%',
-                    background: '#6366f1',
-                    width: '26px',
-                    height: '26px',
-                    border: '3px solid white',
-                    cursor: 'hand',
-                    zIndex: 1000,
-                    opacity: selected ? 1 : 0,
-                    transformOrigin: 'center',
-                    transition: 'opacity 300ms ease',
-                    pointerEvents: selected ? 'auto' : 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}
-                isConnectable={isConnectable}
-                onClick={handleSourceClick}
-            >
-                <Plus size={16} color="white" strokeWidth={3} />
-            </Handle>
 
             {/* Fullscreen Modal Overlay */}
             {typeof document !== 'undefined' && createPortal(

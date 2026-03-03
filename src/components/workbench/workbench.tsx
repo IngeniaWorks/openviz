@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
     ReactFlow,
     Background,
@@ -15,8 +15,8 @@ import { Plus, ChevronDown } from 'lucide-react';
 
 import { ImageNode } from './ImageNode';
 import { VideoNode } from './VideoNode';
-import { WorkbenchAnimateNode } from './AnimateNode';
-import { WorkbenchRenderNode } from './RenderNode';
+import { AnimateNode } from '../nodes/AnimateNode';
+import { RenderNode } from '../nodes/RenderNode';
 import { CustomEdge } from './CustomEdge';
 import { PositionedMenu } from '../ContextMenu';
 import { BasicBlocksMenu } from '../nodes/BasicBlocksMenu';
@@ -25,12 +25,17 @@ import { useStore } from '../../store/useStore';
 import { useAutoSaveScene } from '../../hooks/useAutoSaveScene';
 import { CanvasControls } from '../studio/CanvasControls';
 import { ProjectHeader } from '../common/ProjectHeader';
+import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
+import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
+import { useSceneStream } from './hooks/useSceneStream';
+import { useShallow } from 'zustand/react/shallow';
+import { WorkbenchConnectionLine } from './WorkbenchConnectionLine';
 
 const nodeTypes: NodeTypes = {
     imageNode: ImageNode,
     videoNode: VideoNode,
-    animateNode: WorkbenchAnimateNode,
-    renderNode: WorkbenchRenderNode,
+    animateNode: AnimateNode,
+    renderNode: RenderNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -40,10 +45,19 @@ const edgeTypes: EdgeTypes = {
 const WorkbenchContent: React.FC = () => {
     const { setCenter, zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
     const { zoom } = useViewport();
-    const { viewMode, currentProjectId } = useStore();
+    const { viewMode, currentProjectId, nodeLocks, presenceByUser } = useStore(
+        useShallow((state) => ({
+            viewMode: state.viewMode,
+            currentProjectId: state.currentProjectId,
+            nodeLocks: state.nodeLocks,
+            presenceByUser: state.presenceByUser,
+        }))
+    );
+    const lockCount = Object.keys(nodeLocks).length;
+    const collaboratorCount = Object.keys(presenceByUser).length;
     
     useAutoSaveScene(currentProjectId);
-    const prevViewModeRef = useRef(viewMode);
+    useSceneStream(currentProjectId);
     const {
         workbenchNodes,
         connections,
@@ -74,57 +88,14 @@ const WorkbenchContent: React.FC = () => {
         removeWorkbenchNode
     } = useWorkbench();
 
-    useEffect(() => {
-        // Only center when returning from Studio to Workbench
-        if (viewMode === 'WORKBENCH' && prevViewModeRef.current === 'STUDIO' && activeNodeId) {
-            const node = workbenchNodes.find((n: any) => n.id === activeNodeId);
-            if (node) {
-                let width = node.width;
-                let height = node.height;
-                if ((node.type === 'image' || node.type === 'video') && node.project?.canvas && typeof node.scale === 'number') {
-                    width = node.project.canvas.width * node.scale;
-                    height = node.project.canvas.height * node.scale;
-                }
-                width = width ?? 256;
-                height = height ?? 256;
-
-                const centerX = node.x + width / 2;
-                const centerY = node.y + height / 2;
-                setCenter(centerX, centerY, { zoom: 1, duration: 500 });
-            }
-        }
-        // Update previous viewMode for next comparison
-        prevViewModeRef.current = viewMode;
-    }, [viewMode, activeNodeId, workbenchNodes, setCenter]);
-
-    const nodes = workbenchNodes.map((node: any) => {
-        let width = node.width;
-        let height = node.height;
-
-        if ((node.type === 'image' || node.type === 'video') && node.project?.canvas && typeof node.scale === 'number') {
-            width = node.project.canvas.width * node.scale;
-            height = node.project.canvas.height * node.scale;
-        }
-
-        return {
-            id: node.id,
-            type: node.type === 'image' ? 'imageNode' : node.type === 'video' ? 'videoNode' : node.type === 'animate' ? 'animateNode' : 'renderNode',
-            position: { x: node.x, y: node.y },
-            width,
-            height,
-            data: { ...node, onSourceClick: handleSourceClick, onResize: handleResize } as unknown as Record<string, unknown>,
-            selected: selectedNodeIds.includes(node.id),
-        };
+    useWorkbenchCenterOnReturn({ viewMode, activeNodeId, workbenchNodes, setCenter });
+    const { nodes, edges } = useWorkbenchGraph({
+        workbenchNodes,
+        connections,
+        selectedNodeIds,
+        handleSourceClick,
+        handleResize,
     });
-
-    const edges = connections.map((conn: any) => ({
-        id: conn.id,
-        source: conn.from,
-        target: conn.to,
-        type: 'customEdge',
-        style: { stroke: '#6366f1', strokeWidth: 2 },
-        animated: false,
-    }));
 
     const contextMenuActions = contextMenu ? [
         { label: 'Wrap in section', onClick: () => console.log('Wrap in section'), divider: true },
@@ -147,7 +118,7 @@ const WorkbenchContent: React.FC = () => {
     ] : [];
 
     return (
-        <div className="w-full h-screen bg-white">
+        <div className="relative w-full h-screen bg-white">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -170,9 +141,10 @@ const WorkbenchContent: React.FC = () => {
                 minZoom={0.1}
                 maxZoom={2}
                 connectionRadius={60}
+                connectionLineComponent={WorkbenchConnectionLine}
             >
-                <Background id='smalldots' variant={BackgroundVariant.Dots} gap={10} size={1} color="#c0c0c0" />
-                <Background id="fatdots" color="#191919" variant={BackgroundVariant.Dots} gap={50} size={1} />
+                <Background id='smalldots' variant={BackgroundVariant.Dots} gap={12} size={1} color="#c6cfdb" />
+                <Background id="fatdots" color="#a0afc3" variant={BackgroundVariant.Dots} gap={56} size={1.1} />
             </ReactFlow>
 
             <div className="absolute top-4 left-4 z-20">
@@ -187,6 +159,18 @@ const WorkbenchContent: React.FC = () => {
                     onResetZoom={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 })}
                     onFitToScreen={() => fitView({ duration: 300 })}
                 />
+            </div>
+
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none">
+                <div className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-full border border-panel-border bg-panel/85 backdrop-blur-md shadow-xl text-xs text-text-secondary">
+                    <span>Workbench Command Surface</span>
+                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
+                        Locks {lockCount}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
+                        Presence {collaboratorCount}
+                    </span>
+                </div>
             </div>
 
             <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10" ref={dropdownRef}>

@@ -20,14 +20,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: './coverage',
-      // Baseline captured 2026-09-21 (see spec-kit-tdd-plan.md). Floor = baseline - 1pt:
+      // Baseline captured 2026-09-21 (see spec-kit-tdd-plan.md). Floor = last ratchet - 1pt:
       // any regression fails CI. Ratchet up after each feature lands.
-      // Actual baseline (stmts/branch/funcs/lines): 42.45 / 38.53 / 31.44 / 43.97
+      // Original baseline (stmts/branch/funcs/lines): 42.45 / 38.53 / 31.44 / 43.97
+      // Ratcheted after 001-workbench-toolbar-tools (2026-09-21): 47.53 / 42.88 / 40.54 / 49.19
       thresholds: {
-        statements: 41,
-        branches: 37,
-        functions: 30,
-        lines: 42,
+        statements: 46,
+        branches: 41,
+        functions: 39,
+        lines: 48,
       },
       exclude: [
         'node_modules/**',

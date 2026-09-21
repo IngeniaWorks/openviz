@@ -28,9 +28,15 @@ Formalize and complete the workbench toolbar: eight tools (Select, Hand, Draw, E
 | II | Test-first layered | ⚠️ Gap → tasks | Tool state machine, one-shot/sticky logic, arrow geometry, media upload logic have **no tests yet** — implementation tasks must be test-first (red→green) |
 | III | State architecture | ✅ Pass | `activeWorkbenchTool` in zustand workbench slice; effects in `useWorkbench*` hooks; no server state involved |
 | IV | Styling & UI primitives | ⚠️ Gap → tasks | Media/Create-new submenus are custom dropdowns — migrate to Radix `DropdownMenu` (dep already present) for keyboard nav + focus management |
-| V | Module boundaries & file limits | ❌ Violation → tasks | `workbenchSlice.ts` = 909 lines, `workbench.tsx` = 636 lines (limit 300). Must split into focused hooks/slice modules as part of this feature |
+| V | Module boundaries & file limits | ⚠️ Partial → exception | `workbench.tsx` 636→**284** lines (split ✅). `workbenchSlice.ts` stays **951 lines** — resolved as an **accepted exception** (see below): a forced split would fragment one cohesive slice that shares `commitWorkbenchHistory()` + `projectNodes` sync across every action. |
 
 **Gate result**: two gaps + one violation — all have dedicated tasks (T-REF*, T-RADIX, test-first T-TEST*). No unjustified violations.
+
+### Accepted exceptions
+
+| File | Line count | Why not split | Follow-up |
+|------|-----------|---------------|-----------|
+| `src/store/slices/workbenchSlice.ts` | 951 | One cohesive zustand slice: ~30 actions all route through the shared `commitWorkbenchHistory()` snapshot mechanism and the `projectNodes` per-project sync. A line-count or concern-based split produces interdependent fragments (e.g. a ~20-line connections file beside a ~600-line nodes file) with more cross-file indirection and no clarity gain — i.e. forced, not improving. | The real smell is 4×-duplicated sketch/node construction in `createNewSketch` / `createSketchWithFormat` / `addGroupToWorkbench` / `addImageToWorkbench`. That cluster has **zero test coverage**, so deduping it now would violate Constitution II (test-first). Out-of-pilot follow-up: add characterization tests for those actions, then extract a pure `workbenchNodeFactory` module. |
 
 ## Project Structure
 
@@ -52,7 +58,7 @@ specs/001-workbench-toolbar-tools/
 Existing layout per AGENTS.md folder mapping; this feature touches:
 ```
 src/types/index.ts                          # WorkbenchToolType, node unions (exists)
-src/store/slices/workbenchSlice.ts          # tool state + actions (SPLIT — 909 lines)
+src/store/slices/workbenchSlice.ts          # tool state + actions (accepted exception — see Accepted exceptions)
 src/store/workbenchTools.ts                 # NEW: pure tool semantics (sticky/one-shot, key map)
 src/components/workbench/workbench.tsx      # view (SPLIT — 636 lines)
 src/components/workbench/WorkbenchToolbar.tsx   # toolbar UI (Radix submenus)
@@ -67,7 +73,7 @@ src/services/workbench/arrowGeometry.ts     # NEW: pure arrow path/resize math +
 
 | Complexity | Justification | Task |
 |------------|---------------|------|
-| Splitting a 909-line store slice | Constitution V violation; behavior-preserving extraction of tool/media/creation actions into focused modules with tests | T027 |
+| `workbenchSlice.ts` kept whole (accepted exception) | Forced split would fragment one cohesive slice sharing history + project-sync; dedup blocked by missing tests (see Accepted exceptions) | T027 |
 | Radix submenu migration | Constitution IV; replaces custom dropdown lacking keyboard nav | T026 |
 | Arrow geometry module | Resize-normalization edge case (spec) needs pure, unit-testable math | T014 |
 
@@ -83,6 +89,6 @@ See [research.md](./research.md). All NEEDS CLARIFICATION resolved during clarif
 
 1. **Test-first logic completion** (Constitution II): pure tool-semantics module + tests; arrow geometry module + tests; media upload logic extraction + tests; one-shot behavior store action + tests.
 2. **Radix submenu migration** (Constitution IV): Media + Create-new menus via `DropdownMenu` (T026).
-3. **Refactors** (Constitution V): split `workbenchSlice.ts` (T027) and `workbench.tsx` (T028) without behavior change (tests from step 1 guard the extraction).
+3. **Refactors** (Constitution V): split `workbench.tsx` 636→284 lines into hooks + `WorkbenchChrome` (T028 ✅); `workbenchSlice.ts` resolved as an accepted exception rather than a forced split (T027 — see Accepted exceptions).
 4. **Object-URL lifecycle**: revoke on media node deletion (T024).
 5. **Verification**: full acceptance matrix (quickstart.md), coverage ratchet, converge (T029–T030).

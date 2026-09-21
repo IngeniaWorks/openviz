@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
     ArrowUpRight,
     Eraser,
@@ -48,6 +49,10 @@ const clampStrokeWidth = (value: number, min = 1, max = 64): number => {
     return Math.min(Math.max(value, min), max);
 };
 
+// Shared Radix menu-item styling (Constitution IV: accessible primitives).
+const menuItemClass =
+    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-text-secondary outline-none transition-colors data-[highlighted]:bg-panel-light data-[highlighted]:text-white';
+
 const TOOL_CONFIG: Array<{ id: WorkbenchToolType; label: string; shortcut: string; icon: LucideIcon }> = [
     { id: 'select', label: 'Select', shortcut: 'V', icon: MousePointer2 },
     { id: 'hand', label: 'Hand', shortcut: 'H', icon: Hand },
@@ -74,20 +79,19 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
     onFormatSelect,
 }) => {
     const [showColorMenu, setShowColorMenu] = useState(false);
-    const [showMediaMenu, setShowMediaMenu] = useState(false);
-    const [showCreateMenu, setShowCreateMenu] = useState(false);
 
+    // The Media/Create-new menus are Radix DropdownMenu (T026): they manage
+    // their own open state, Escape-to-close, outside-click dismissal, and
+    // focus return. Only the color picker still uses local state.
     const closeMenus = () => {
         setShowColorMenu(false);
-        setShowMediaMenu(false);
-        setShowCreateMenu(false);
     };
 
     const isDrawTool = activeTool === 'draw';
 
     return (
         <div className="pointer-events-none flex flex-col items-center gap-2">
-            {(showColorMenu || showMediaMenu || showCreateMenu) && (
+            {showColorMenu && (
                 <button
                     type="button"
                     className="fixed inset-0 z-[30] cursor-default"
@@ -100,7 +104,66 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                 {TOOL_CONFIG.map((tool) => {
                     const Icon = tool.icon;
                     const isActive = activeTool === tool.id;
-                    const isMediaButton = tool.id === 'media';
+
+                    if (tool.id === 'media') {
+                        // C-1.4/C-1.5: Media submenu via Radix DropdownMenu —
+                        // keyboard navigation, Escape-to-close, focus return (T026).
+                        return (
+                            <DropdownMenu.Root key={tool.id}>
+                                <DropdownMenu.Trigger asChild>
+                                    <button
+                                        type="button"
+                                        onClick={() => onSelectTool(tool.id)}
+                                        className={`group relative rounded-full p-1.5 transition-all duration-200 ${
+                                            isActive
+                                                ? 'bg-primary text-white shadow-lg'
+                                                : 'text-text-secondary hover:bg-neutral-800 hover:text-white'
+                                        }`}
+                                        title={`${tool.label} (${tool.shortcut})`}
+                                        aria-pressed={isActive}
+                                    >
+                                        <Icon size={16} strokeWidth={2.3} />
+                                    </button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Content
+                                    sideOffset={16}
+                                    align="center"
+                                    className="z-[50] w-60 overflow-hidden rounded-xl border border-panel-border bg-panel p-1 shadow-2xl backdrop-blur-md"
+                                >
+                                    <DropdownMenu.Item onSelect={() => onMediaUpload()} className={menuItemClass}>
+                                        <Upload size={14} />
+                                        Upload
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item onSelect={() => onMediaUploadFromPhone()} className={menuItemClass}>
+                                        <Smartphone size={14} />
+                                        Upload from phone
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Sub>
+                                        <DropdownMenu.SubTrigger className={`${menuItemClass} justify-between`}>
+                                            <span className="inline-flex items-center gap-2">
+                                                <Plus size={14} />
+                                                Create new
+                                            </span>
+                                        </DropdownMenu.SubTrigger>
+                                        <DropdownMenu.SubContent className="z-[50] min-w-[12rem] overflow-hidden rounded-xl border border-panel-border bg-panel p-1 shadow-2xl backdrop-blur-md">
+                                            {sketchFormats.map((format) => (
+                                                <DropdownMenu.Item
+                                                    key={format.label}
+                                                    onSelect={() => onFormatSelect(format.width, format.height)}
+                                                    className={`${menuItemClass} justify-between`}
+                                                >
+                                                    <span className="text-sm font-medium">{format.label}</span>
+                                                    <span className="text-xs opacity-50">
+                                                        {format.width}x{format.height}
+                                                    </span>
+                                                </DropdownMenu.Item>
+                                            ))}
+                                        </DropdownMenu.SubContent>
+                                    </DropdownMenu.Sub>
+                                </DropdownMenu.Content>
+                            </DropdownMenu.Root>
+                        );
+                    }
 
                     return (
                         <div key={tool.id} className="relative flex items-center">
@@ -108,16 +171,8 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                                 type="button"
                                 onClick={() => {
                                     onSelectTool(tool.id);
-                                    if (tool.id === 'media') {
-                                        setShowMediaMenu((current) => !current);
-                                        setShowCreateMenu(false);
+                                    if (tool.id !== 'draw') {
                                         setShowColorMenu(false);
-                                    } else {
-                                        setShowMediaMenu(false);
-                                        setShowCreateMenu(false);
-                                        if (tool.id !== 'draw') {
-                                            setShowColorMenu(false);
-                                        }
                                     }
                                 }}
                                 className={`group relative rounded-full p-1.5 transition-all duration-200 ${
@@ -130,69 +185,6 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                             >
                                 <Icon size={16} strokeWidth={2.3} />
                             </button>
-
-                            {isMediaButton && showMediaMenu && (
-                                <div
-                                    className="absolute left-1/2 top-full z-[50] mt-4 w-60 -translate-x-1/2 overflow-hidden rounded-xl border border-panel-border bg-panel shadow-2xl backdrop-blur-md"
-                                    onClick={(event) => event.stopPropagation()}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            onMediaUpload();
-                                            setShowMediaMenu(false);
-                                            setShowCreateMenu(false);
-                                        }}
-                                        className="flex w-full items-center gap-2 border-b border-panel-border px-4 py-3 text-left text-sm text-text-secondary transition-colors hover:bg-panel-light hover:text-white"
-                                    >
-                                        <Upload size={14} />
-                                        Upload
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            onMediaUploadFromPhone();
-                                            setShowMediaMenu(false);
-                                        }}
-                                        className="flex w-full items-center gap-2 border-b border-panel-border px-4 py-3 text-left text-sm text-text-secondary transition-colors hover:bg-panel-light hover:text-white"
-                                    >
-                                        <Smartphone size={14} />
-                                        Upload from phone
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateMenu((current) => !current)}
-                                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-text-secondary transition-colors hover:bg-panel-light hover:text-white"
-                                    >
-                                        <span className="inline-flex items-center gap-2">
-                                            <Plus size={14} />
-                                            Create new
-                                        </span>
-                                    </button>
-
-                                    {showCreateMenu && (
-                                        <div className="border-t border-panel-border">
-                                            {sketchFormats.map((format) => (
-                                                <button
-                                                    key={format.label}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        onFormatSelect(format.width, format.height);
-                                                        setShowMediaMenu(false);
-                                                        setShowCreateMenu(false);
-                                                    }}
-                                                    className="flex w-full items-center justify-between border-b border-panel-border px-4 py-2.5 text-left text-text-secondary transition-colors last:border-b-0 hover:bg-panel-light hover:text-white"
-                                                >
-                                                    <span className="text-sm font-medium">{format.label}</span>
-                                                    <span className="text-xs opacity-50">
-                                                        {format.width}x{format.height}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     );
                 })}

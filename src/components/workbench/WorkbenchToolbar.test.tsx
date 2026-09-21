@@ -90,7 +90,8 @@ describe('WorkbenchToolbar — click activation (C-2.1)', () => {
 describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
     it('opens a submenu containing Upload and Upload from phone', () => {
         renderToolbar();
-        fireEvent.click(screen.getByTitle('Media (M)'));
+        // Radix DropdownMenu.Trigger opens on pointerdown (button 0)
+        fireEvent.pointerDown(screen.getByTitle('Media (M)'), { button: 0 });
 
         expect(screen.getByText('Upload')).toBeTruthy();
         expect(screen.getByText('Upload from phone')).toBeTruthy();
@@ -98,7 +99,8 @@ describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
 
     it('Upload triggers onMediaUpload and closes the submenu', () => {
         const { onMediaUpload } = renderToolbar();
-        fireEvent.click(screen.getByTitle('Media (M)'));
+        // Radix DropdownMenu.Trigger opens on pointerdown (button 0)
+        fireEvent.pointerDown(screen.getByTitle('Media (M)'), { button: 0 });
 
         fireEvent.click(screen.getByText('Upload'));
 
@@ -108,7 +110,8 @@ describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
 
     it('Upload from phone triggers onMediaUploadFromPhone', () => {
         const { onMediaUploadFromPhone } = renderToolbar();
-        fireEvent.click(screen.getByTitle('Media (M)'));
+        // Radix DropdownMenu.Trigger opens on pointerdown (button 0)
+        fireEvent.pointerDown(screen.getByTitle('Media (M)'), { button: 0 });
 
         fireEvent.click(screen.getByText('Upload from phone'));
 
@@ -120,7 +123,8 @@ describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
             { label: 'A4 portrait', width: 794, height: 1123 },
             { label: 'Square 1:1', width: 1024, height: 1024 },
         ]);
-        fireEvent.click(screen.getByTitle('Media (M)'));
+        // Radix DropdownMenu.Trigger opens on pointerdown (button 0)
+        fireEvent.pointerDown(screen.getByTitle('Media (M)'), { button: 0 });
 
         expect(screen.getByText('Create new')).toBeTruthy();
         // The format list expands on demand (pre-existing sketch creation, FR-017)

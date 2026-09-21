@@ -136,6 +136,8 @@ Current state (verified):
 ---
 
 ## Sprint 3: Pilot Feature — Workbench Toolbar Tools (full SDD+TDD loop)
+**Status: COMPLETE (2026-09-21)** — branch `001-workbench-toolbar-tools`. Full SDD loop ran end-to-end (specify→clarify→plan→tasks→analyze→implement), 30 tasks done. Tests **48 → 154** (25 files), all green; `lint + tsc + test:ci` pass; coverage ratcheted up on all four metrics. Constitution V: `workbench.tsx` split 636→284 lines; `workbenchSlice.ts` resolved as a documented **accepted exception** (forced split rejected — see `specs/001-workbench-toolbar-tools/plan.md`). Convergence: in-scope except one unrelated secure-context UUID fix that was committed separately.
+
 **Goal**: Prove the loop end-to-end on a real bounded feature, converting `plans/workbench-toolbar-tools-plan.md` into spec-driven, test-first work.
 **Demo/Validation**:
 - Toolbar renders Select/Hand/Draw/Eraser/Arrow/Text/Note/Media with shortcuts `V/H/D/E/A/T/N/M`
@@ -217,13 +219,13 @@ Current state (verified):
 - **Dependencies**: Sprint 3 complete
 
 ## Coverage Baseline
-_Captured 2026-09-21 (v8 provider, 13 files / 48 tests):_
-| Metric | Value | CI floor (−1pt) |
-|---|---|---|
-| Statements | 42.45% | 41 |
-| Branches | 38.53% | 37 |
-| Functions | 31.44% | 30 |
-| Lines | 43.97% | 42 |
+_Original baseline captured 2026-09-21 (v8 provider, 13 files / 48 tests). Ratcheted after 001-workbench-toolbar-tools landed (25 files / 154 tests):_
+| Metric | Original baseline | After pilot | CI floor (−1pt) |
+|---|---|---|---|
+| Statements | 42.45% | 47.53% | **46** |
+| Branches | 38.53% | 42.88% | **41** |
+| Functions | 31.44% | 40.54% | **39** |
+| Lines | 43.97% | 49.19% | **48** |
 
 > Note: v8 coverage table column order is Stmts / Branch / Funcs / Lines — don't misread.
 

@@ -87,6 +87,14 @@ export function useAutoSaveScene(projectId: string | null) {
     // Extract save logic into a callback
     const saveScene = useCallback(
         async (currentProjectId: string, isRetry = false, overrideData?: PendingSceneRecord["data"]) => {
+            // Single-writer rule (FR-012): while a collaboration session owns
+            // the scene, room persistence on the collab server is the only
+            // writer — the JSON-PATCH autosave path must stay silent.
+            if (useStore.getState().collabSessionActive) {
+                processQueue();
+                return;
+            }
+
             // If already saving and not a retry, queue the save
             if (isSavingRef.current && !isRetry) {
                 retryQueueRef.current.push(() => saveScene(currentProjectId, false));
@@ -204,6 +212,10 @@ export function useAutoSaveScene(projectId: string | null) {
     useEffect(() => {
         const handlePageHide = () => {
             const currentProjectId = projectIdRef.current;
+            // Single-writer rule (FR-012): never PATCH while the room owns writes.
+            if (useStore.getState().collabSessionActive) {
+                return;
+            }
             if (activeWorkbenchGesture || !currentProjectId || !PROJECT_ID_PATTERN.test(currentProjectId)) {
                 return;
             }

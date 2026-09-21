@@ -50,6 +50,8 @@ export interface AppState {
     isExitingStudio: boolean;
     currentSceneVersion: number;
     sceneHydrated: boolean;
+    /** True while a real-time collaboration session owns this scene's writes. */
+    collabSessionActive: boolean;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
     isDrawMode: boolean;
@@ -151,6 +153,7 @@ export interface AppState {
     setCurrentProjectId: (id: string | null) => void;
     setCurrentSceneVersion: (version: number) => void;
     setSceneHydrated: (hydrated: boolean) => void;
+    setCollabSessionActive: (active: boolean) => void;
     setNodeLockState: (lock: NodeLockState) => void;
     clearNodeLockState: (nodeId: string) => void;
     upsertPresenceState: (presence: PresenceState) => void;

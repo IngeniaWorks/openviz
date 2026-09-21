@@ -25,6 +25,7 @@ import { MediaNode } from '../nodes/MediaNode';
 import { CustomEdge } from '../nodes/CustomEdge';
 import { WorkbenchChrome } from './WorkbenchChrome';
 import { useWorkbench } from './hooks/useWorkbench';
+import { useWorkbenchCollabSession } from './hooks/useWorkbenchCollabSession';
 import { useStore } from '../../store/useStore';
 import { useAutoSaveScene } from '../../hooks/useAutoSaveScene';
 import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
@@ -70,6 +71,7 @@ const WorkbenchContent: React.FC = () => {
     
     useAutoSaveScene(currentProjectId);
     useSceneStream(currentProjectId);
+    const collabSession = useWorkbenchCollabSession();
 
     useResizeObserverWarningSuppression();
 
@@ -131,7 +133,18 @@ const WorkbenchContent: React.FC = () => {
             undoWorkbench,
             redoWorkbench,
         },
-    } = useWorkbench();
+    } = useWorkbench(
+        collabSession.active
+            ? { undoAction: collabSession.undo, redoAction: collabSession.redo }
+            : undefined
+    );
+
+    // In collaboration mode the Yjs UndoManager owns history (SC-005): the
+    // toolbar and Cmd/Ctrl+Z drive it instead of the local store history.
+    const handleUndo = collabSession.active ? collabSession.undo : undoWorkbench;
+    const handleRedo = collabSession.active ? collabSession.redo : redoWorkbench;
+    const handleCanUndo = collabSession.active ? collabSession.canUndo : canUndoWorkbench;
+    const handleCanRedo = collabSession.active ? collabSession.canRedo : canRedoWorkbench;
     useWorkbenchCenterOnReturn({ viewMode, activeNodeId, workbenchNodes, setCenter });
     const { nodes, edges } = useWorkbenchGraph({
         workbenchNodes,
@@ -270,10 +283,10 @@ const WorkbenchContent: React.FC = () => {
                 onSelectTool={setActiveWorkbenchTool}
                 onFreehandColorChange={setFreehandColor}
                 onFreehandStrokeWidthChange={setFreehandStrokeWidth}
-                onUndo={undoWorkbench}
-                onRedo={redoWorkbench}
-                canUndo={canUndoWorkbench}
-                canRedo={canRedoWorkbench}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                canUndo={handleCanUndo}
+                canRedo={handleCanRedo}
                 onMediaUpload={handleMediaUpload}
                 onMediaUploadFromPhone={handleMediaUploadFromPhone}
                 sketchFormats={sketchFormats}

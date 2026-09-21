@@ -60,17 +60,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T017 [P] [US1] Write failing convergence tests in `src/services/collab/convergence.test.ts`: N (2–5) in-memory documents over a fake provider bus perform concurrent node moves, adds, deletes, and connection changes from all clients → every completed edit is present in every final state and all final states are identical (SC-001, SC-002)
-- [ ] T018 [P] [US1] Write failing tests in `src/components/workbench/hooks/useCollabSession.test.ts`: session lifecycle idle→connecting→connected; document changes project into the workbench store nodes/edges via `applyNodeChanges`/`applyEdgeChanges`; teardown on project switch and unmount
-- [ ] T019 [P] [US1] Write failing tests in `src/services/collab/undoOrigin.test.ts`: one completed gesture (per feature 002 atomicity) applies as exactly one origin-tagged transaction; the per-client UndoManager uses `trackedOrigins: [own origin]`; undoing own actions leaves all remote changes intact (SC-005); a new local edit after Undo truncates the redo path
-- [ ] T020 [P] [US1] Write failing tests in `src/hooks/useAutoSaveScene.test.ts`: while a collab session is active for a scene, no JSON PATCH autosave is issued for that scene; after session close the single-user autosave path resumes unchanged (FR-012, single-writer rule)
+- [X] T017 [P] [US1] Write failing convergence tests in `src/services/collab/convergence.test.ts`: N (2–5) in-memory documents over a fake provider bus perform concurrent node moves, adds, deletes, and connection changes from all clients → every completed edit is present in every final state and all final states are identical (SC-001, SC-002)
+- [X] T018 [P] [US1] Write failing tests in `src/components/workbench/hooks/useCollabSession.test.ts`: session lifecycle idle→connecting→connected; document changes project into the workbench store nodes/edges via `applyNodeChanges`/`applyEdgeChanges`; teardown on project switch and unmount
+- [X] T019 [P] [US1] Write failing tests in `src/services/collab/undoOrigin.test.ts`: one completed gesture (per feature 002 atomicity) applies as exactly one origin-tagged transaction; the per-client UndoManager uses `trackedOrigins: [own origin]`; undoing own actions leaves all remote changes intact (SC-005); a new local edit after Undo truncates the redo path
+- [X] T020 [P] [US1] Write failing tests in `src/hooks/useAutoSaveScene.test.ts`: while a collab session is active for a scene, no JSON PATCH autosave is issued for that scene; after session close the single-user autosave path resumes unchanged (FR-012, single-writer rule)
 
 ### Implementation for User Story 1
 
-- [ ] T021 [US1] Implement `useCollabSession` hook (token fetch from the collab-token route, provider lifecycle via the factory, document→store projection, session status into the collaboration slice) in `src/components/workbench/hooks/useCollabSession.ts` (depends on T016, T014, T018)
-- [ ] T022 [US1] Route workbench graph mutations through origin-tagged shared-document transactions while a session is active (preserving feature 002 one-gesture-one-action semantics) and wire the per-user UndoManager in `src/store/slices/workbenchCollaborationSlice.ts` + `src/services/collab/collabProviderFactory.ts` (depends on T021, T019)
-- [ ] T023 [US1] Suspend/resume the autosave JSON-PATCH path around the collab session in `src/hooks/useAutoSaveScene.ts` (depends on T020, T021)
-- [ ] T024 [US1] Integrate `useCollabSession` into the workbench: join on main-scene load, teardown on project switch/unmount, in `src/components/workbench/workbench.tsx` (depends on T021)
+- [X] T021 [US1] Implement `useCollabSession` hook (token fetch from the collab-token route, provider lifecycle via the factory, document→store projection, session status into the collaboration slice) in `src/components/workbench/hooks/useCollabSession.ts` (depends on T016, T014, T018)
+- [X] T022 [US1] Route workbench graph mutations through origin-tagged shared-document transactions while a session is active (preserving feature 002 one-gesture-one-action semantics) and wire the per-user UndoManager in `src/store/slices/workbenchCollaborationSlice.ts` + `src/services/collab/collabProviderFactory.ts` (depends on T021, T019)
+- [X] T023 [US1] Suspend/resume the autosave JSON-PATCH path around the collab session in `src/hooks/useAutoSaveScene.ts` (depends on T020, T021)
+- [X] T024 [US1] Integrate `useCollabSession` into the workbench: join on main-scene load, teardown on project switch/unmount, in `src/components/workbench/workbench.tsx` (depends on T021)
 
 **Checkpoint**: MVP — two sessions co-edit one scene with convergence, local-only undo, and single-writer persistence. Validate independently per the quickstart before proceeding.
 

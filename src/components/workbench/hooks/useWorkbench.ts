@@ -8,7 +8,17 @@ import { useWorkbenchConnectionHandlers } from './useWorkbenchConnectionHandlers
 import { useWorkbenchBlockCreation } from './useWorkbenchBlockCreation';
 import { useWorkbenchNodeHandlers } from './useWorkbenchNodeHandlers';
 
-export const useWorkbench = () => {
+/**
+ * Optional undo/redo routing (collaboration mode): when a shared session is
+ * active the toolbar and keyboard shortcuts must drive the Yjs UndoManager
+ * instead of the local store history.
+ */
+export interface UseWorkbenchOptions {
+    undoAction?: () => void;
+    redoAction?: () => void;
+}
+
+export const useWorkbench = (options?: UseWorkbenchOptions) => {
     const {
         workbenchNodes,
         connections,
@@ -104,8 +114,8 @@ export const useWorkbench = () => {
         screenToFlowPosition,
         getMousePosition,
         setActiveWorkbenchTool,
-        undoWorkbench,
-        redoWorkbench,
+        undoWorkbench: options?.undoAction ?? undoWorkbench,
+        redoWorkbench: options?.redoAction ?? redoWorkbench,
     });
 
     return {

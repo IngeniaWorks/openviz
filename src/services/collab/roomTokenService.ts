@@ -42,11 +42,11 @@ function base64UrlEncode(bytes: Uint8Array): string {
     for (const byte of bytes) {
         binary += String.fromCharCode(byte);
     }
-    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function base64UrlDecode(value: string): Uint8Array | null {
-    const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
     try {
         const binary = atob(padded);

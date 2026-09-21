@@ -10,10 +10,15 @@ export interface SceneNodeJson extends Record<string, SceneJsonValue> {
     id: string;
 }
 
-export interface SceneConnectionJson extends Record<string, SceneJsonValue> {
+/** Connection entry in the shared document. The persisted scene format uses
+ * `from`/`to`; both key pairs are accepted so any variant prunes correctly. */
+export interface SceneConnectionJson {
     id: string;
-    source: string;
-    target: string;
+    from?: string;
+    to?: string;
+    source?: string;
+    target?: string;
+    [key: string]: SceneJsonValue | undefined;
 }
 
 /** Shape of `scenes.data` — the saved workbench graph. */
@@ -30,3 +35,11 @@ export interface CollabPresenceState {
 
 /** Session lifecycle states surfaced to the workbench UI. */
 export type CollabSessionStatus = 'idle' | 'connecting' | 'connected' | 'offline-queued' | 'denied';
+
+/** Response of POST /api/projects/:id/scenes/collab-token (contracts/room-token-api.md). */
+export interface CollabTokenResponse {
+    token: string;
+    sceneId: string;
+    projectId: string;
+    expiresAt: number;
+}

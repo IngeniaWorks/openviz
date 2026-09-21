@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as Y from 'yjs';
-import type HocuspocusProviderType from '@hocuspocus/provider';
+import type { HocuspocusProvider as HocuspocusProviderType } from '@hocuspocus/provider';
 import { getNodesMap } from './sceneDocMapping';
 import { createCollabProvider, collabOriginFor, applyLocalTransaction, getRemoteAwarenessStates } from './collabProviderFactory';
 
@@ -75,7 +75,9 @@ describe('createCollabProvider', () => {
 
     it('publishes the local user to awareness on creation', () => {
         const handle = createCollabProvider(config, { ProviderClass: FakeProvider as unknown as typeof HocuspocusProviderType });
-        expect(handle.provider.awareness.getLocal()).toMatchObject({ user: { id: 'u-1', name: 'Ada' } });
+        // The fake records setAwarenessField calls on its own awareness stand-in.
+        const awareness = (handle.provider as unknown as { awareness: FakeAwareness }).awareness;
+        expect(awareness.getLocal()).toMatchObject({ user: { id: 'u-1', name: 'Ada' } });
         handle.destroy();
     });
 

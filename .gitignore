@@ -36,6 +36,9 @@ dist-ssr
 .env.local
 .env.*.local
 
-
 # vitest coverage reports
 coverage/
+
+# Next.js build output and dependencies
+.next
+node_modules/

@@ -208,10 +208,23 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return commitWorkbenchHistory(state, newState);
     }),
 
-    removeWorkbenchNode: (id) => set((state: AppState) => {
+    removeWorkbenchNode: (id) => {
+        const state = get();
         const idsToRemove = id ? [id] : state.selectedNodeIds;
-        if (idsToRemove.length === 0) return state;
+        if (idsToRemove.length === 0) return;
 
+        // R4: release object URLs of removed media nodes so blob: memory does
+        // not leak across add/remove cycles. Non-blob srcs are left untouched.
+        state.workbenchNodes
+            .filter((n): n is MediaWorkbenchNode => n.type === 'media')
+            .filter((n) => idsToRemove.includes(n.id))
+            .forEach((n) => {
+                if (typeof n.data?.src === 'string' && n.data.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(n.data.src);
+                }
+            });
+
+        set(() => {
         const newNodes = state.workbenchNodes.filter(n => !idsToRemove.includes(n.id));
         const newState: Partial<AppState> = {
             workbenchNodes: newNodes,
@@ -228,7 +241,8 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         }
 
         return commitWorkbenchHistory(state, newState);
-    }),
+        });
+    },
 
     duplicateWorkbenchNode: (id) => set((state: AppState) => {
         const idsToDuplicate = id ? [id] : state.selectedNodeIds;

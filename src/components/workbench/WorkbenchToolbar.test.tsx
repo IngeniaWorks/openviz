@@ -20,8 +20,14 @@ const TOOL_TITLES: Array<[WorkbenchToolType, string]> = [
     ['media', 'Media (M)'],
 ];
 
-function renderToolbar(activeTool: WorkbenchToolType = 'select') {
+function renderToolbar(
+    activeTool: WorkbenchToolType = 'select',
+    sketchFormats: Array<{ label: string; width: number; height: number }> = []
+) {
     const onSelectTool = vi.fn();
+    const onMediaUpload = vi.fn();
+    const onMediaUploadFromPhone = vi.fn();
+    const onFormatSelect = vi.fn();
     const utils = render(
         <WorkbenchToolbar
             activeTool={activeTool}
@@ -32,13 +38,13 @@ function renderToolbar(activeTool: WorkbenchToolType = 'select') {
             onFreehandStrokeWidthChange={vi.fn()}
             onUndo={vi.fn()}
             onRedo={vi.fn()}
-            onMediaUpload={vi.fn()}
-            onMediaUploadFromPhone={vi.fn()}
-            sketchFormats={[]}
-            onFormatSelect={vi.fn()}
+            onMediaUpload={onMediaUpload}
+            onMediaUploadFromPhone={onMediaUploadFromPhone}
+            sketchFormats={sketchFormats}
+            onFormatSelect={onFormatSelect}
         />
     );
-    return { onSelectTool, ...utils };
+    return { onSelectTool, onMediaUpload, onMediaUploadFromPhone, onFormatSelect, ...utils };
 }
 
 describe('WorkbenchToolbar — structure (C-1)', () => {
@@ -78,5 +84,49 @@ describe('WorkbenchToolbar — click activation (C-2.1)', () => {
         const { onSelectTool } = renderToolbar('hand');
         fireEvent.click(screen.getByTitle('Hand (H)'));
         expect(onSelectTool).toHaveBeenCalledWith('hand');
+    });
+});
+
+describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
+    it('opens a submenu containing Upload and Upload from phone', () => {
+        renderToolbar();
+        fireEvent.click(screen.getByTitle('Media (M)'));
+
+        expect(screen.getByText('Upload')).toBeTruthy();
+        expect(screen.getByText('Upload from phone')).toBeTruthy();
+    });
+
+    it('Upload triggers onMediaUpload and closes the submenu', () => {
+        const { onMediaUpload } = renderToolbar();
+        fireEvent.click(screen.getByTitle('Media (M)'));
+
+        fireEvent.click(screen.getByText('Upload'));
+
+        expect(onMediaUpload).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText('Upload from phone')).toBeNull();
+    });
+
+    it('Upload from phone triggers onMediaUploadFromPhone', () => {
+        const { onMediaUploadFromPhone } = renderToolbar();
+        fireEvent.click(screen.getByTitle('Media (M)'));
+
+        fireEvent.click(screen.getByText('Upload from phone'));
+
+        expect(onMediaUploadFromPhone).toHaveBeenCalledTimes(1);
+    });
+
+    it('Create-new section lists only the provided sketch formats (C-1.5)', () => {
+        renderToolbar('media', [
+            { label: 'A4 portrait', width: 794, height: 1123 },
+            { label: 'Square 1:1', width: 1024, height: 1024 },
+        ]);
+        fireEvent.click(screen.getByTitle('Media (M)'));
+
+        expect(screen.getByText('Create new')).toBeTruthy();
+        // The format list expands on demand (pre-existing sketch creation, FR-017)
+        fireEvent.click(screen.getByText('Create new'));
+
+        expect(screen.getByText('A4 portrait')).toBeTruthy();
+        expect(screen.getByText('Square 1:1')).toBeTruthy();
     });
 });

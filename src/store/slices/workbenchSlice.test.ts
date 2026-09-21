@@ -120,3 +120,79 @@ describe('sticky tools (FR-006)', () => {
         expect(useStore.getState().activeWorkbenchTool).toBe('draw');
     });
 });
+
+// T021: object-URL lifecycle (R4) — removing a media node whose src is a
+// blob: URL must revoke it; non-blob srcs are untouched. No leak across
+// add/remove cycles.
+import { vi } from 'vitest';
+
+describe('removeWorkbenchNode object-URL revocation (FR-012 edge)', () => {
+    it('revokes blob: sources when a media node is removed', () => {
+        const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        try {
+            const store = useStore.getState();
+            const id = `media-rev-${Math.random().toString(36).slice(2)}`;
+            store.addWorkbenchNode(mediaNode(id)); // src: blob:http://localhost/abc
+
+            store.removeWorkbenchNode(id);
+
+            expect(useStore.getState().workbenchNodes.some((n) => n.id === id)).toBe(false);
+            expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost/abc');
+        } finally {
+            revokeSpy.mockRestore();
+        }
+    });
+
+    it('does not revoke non-blob sources', () => {
+        const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        try {
+            const store = useStore.getState();
+            const id = `media-https-${Math.random().toString(36).slice(2)}`;
+            store.addWorkbenchNode({
+                ...mediaNode(id),
+                data: { src: 'https://example.com/a.png', alt: 'remote', mimeType: 'image/png' },
+            });
+
+            store.removeWorkbenchNode(id);
+
+            expect(revokeSpy).not.toHaveBeenCalled();
+        } finally {
+            revokeSpy.mockRestore();
+        }
+    });
+
+    it('does not touch the revoker for non-media nodes', () => {
+        const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        try {
+            const store = useStore.getState();
+            const id = `text-rev-${Math.random().toString(36).slice(2)}`;
+            store.addWorkbenchNode(textNode(id));
+
+            store.removeWorkbenchNode(id);
+
+            expect(revokeSpy).not.toHaveBeenCalled();
+        } finally {
+            revokeSpy.mockRestore();
+        }
+    });
+
+    it('revokes each blob src exactly once across add/remove cycles', () => {
+        const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+        try {
+            const store = useStore.getState();
+            const idA = `media-cycle-a-${Math.random().toString(36).slice(2)}`;
+            const idB = `media-cycle-b-${Math.random().toString(36).slice(2)}`;
+
+            store.addWorkbenchNode(mediaNode(idA));
+            store.removeWorkbenchNode(idA);
+            store.addWorkbenchNode({ ...mediaNode(idB), data: { src: 'blob:http://localhost/second', alt: 'b', mimeType: 'image/png' } });
+            store.removeWorkbenchNode(idB);
+
+            expect(revokeSpy).toHaveBeenCalledTimes(2);
+            expect(revokeSpy).toHaveBeenNthCalledWith(1, 'blob:http://localhost/abc');
+            expect(revokeSpy).toHaveBeenNthCalledWith(2, 'blob:http://localhost/second');
+        } finally {
+            revokeSpy.mockRestore();
+        }
+    });
+});

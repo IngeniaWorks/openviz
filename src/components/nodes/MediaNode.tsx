@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ImageOff } from 'lucide-react';
 import { NodeResizer } from '@xyflow/react';
 
 import { MediaWorkbenchNode } from '@/types';
@@ -17,6 +18,7 @@ interface MediaNodeProps {
 
 export const MediaNode: React.FC<MediaNodeProps> = ({ id, data, selected, width, height }) => {
     const [nodeSize, setNodeSize] = useState({ width: width || 260, height: height || 180 });
+    const [loadError, setLoadError] = useState(false);
     const src = data.data?.src;
     const alt = data.data?.alt ?? 'Uploaded media';
 
@@ -28,11 +30,20 @@ export const MediaNode: React.FC<MediaNodeProps> = ({ id, data, selected, width,
 
     return (
         <div style={{ width: nodeSize.width, height: nodeSize.height }} className={`relative overflow-hidden rounded-lg border bg-white shadow-md ${selected ? 'border-blue-400' : 'border-slate-200'}`}>
-            {src ? (
-                <img src={src} alt={alt} className="h-full w-full object-cover" draggable={false} />
+            {src && !loadError ? (
+                <img
+                    src={src}
+                    alt={alt}
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                    onError={() => setLoadError(true)}
+                />
             ) : (
-                <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
-                    Media unavailable
+                // C-5.4 / FR-013: clear fallback for missing or failed loads —
+                // never a broken-image glyph.
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-sm text-slate-500">
+                    <ImageOff size={28} strokeWidth={1.75} />
+                    <span>{src ? alt : 'Media unavailable'}</span>
                 </div>
             )}
 

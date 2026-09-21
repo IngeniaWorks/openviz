@@ -7,11 +7,19 @@ import {
     WorkbenchNode,
     Connection,
     ToolType,
+    WorkbenchToolType,
     AspectRatio,
     Layer,
     NodeLockState,
     PresenceState,
 } from '../types';
+
+export interface WorkbenchHistorySnapshot {
+    workbenchNodes: WorkbenchNode[];
+    connections: Connection[];
+    selectedNodeIds: string[];
+    activeNodeId: string | null;
+}
 
 export interface AppState {
     project: Project;
@@ -37,6 +45,12 @@ export interface AppState {
     currentSceneVersion: number;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
+    isDrawMode: boolean;
+    activeWorkbenchTool: WorkbenchToolType;
+    freehandColor: string;
+    freehandStrokeWidth: number;
+    workbenchHistory: WorkbenchHistorySnapshot[];
+    workbenchHistoryIndex: number;
 
     history: Project[];
     historyIndex: number;
@@ -126,4 +140,12 @@ export interface AppState {
     upsertPresenceState: (presence: PresenceState) => void;
     clearPresenceState: (userId: string) => void;
     clearCollaborationState: () => void;
+    setDrawMode: (isDrawMode: boolean) => void;
+    toggleDrawMode: () => void;
+    setActiveWorkbenchTool: (tool: WorkbenchToolType) => void;
+    setFreehandColor: (color: string) => void;
+    setFreehandStrokeWidth: (strokeWidth: number) => void;
+    undoLastFreehandNode: () => void;
+    undoWorkbench: () => void;
+    redoWorkbench: () => void;
 }

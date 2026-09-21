@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { WorkbenchToolType } from "@/types";
 
 type UseWorkbenchKeyboardShortcutsOptions = {
     copyToClipboard: () => void;
@@ -10,6 +11,9 @@ type UseWorkbenchKeyboardShortcutsOptions = {
     selectedNodeIds: string[];
     getMousePosition: () => { x: number; y: number };
     screenToFlowPosition: (point: { x: number; y: number }) => { x: number; y: number };
+    setActiveWorkbenchTool: (tool: WorkbenchToolType) => void;
+    undoWorkbench: () => void;
+    redoWorkbench: () => void;
 };
 
 export function useWorkbenchKeyboardShortcuts({
@@ -22,14 +26,28 @@ export function useWorkbenchKeyboardShortcuts({
     selectedNodeIds,
     getMousePosition,
     screenToFlowPosition,
+    setActiveWorkbenchTool,
+    undoWorkbench,
+    redoWorkbench,
 }: UseWorkbenchKeyboardShortcutsOptions) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+            if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
 
             const isMod = e.ctrlKey || e.metaKey;
 
-            if (isMod && e.key === "c") {
+            if (isMod && e.key.toLowerCase() === "z") {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    redoWorkbench();
+                } else {
+                    undoWorkbench();
+                }
+            } else if (isMod && e.key.toLowerCase() === "y") {
+                e.preventDefault();
+                redoWorkbench();
+            } else if (isMod && e.key === "c") {
                 copyToClipboard();
             } else if (isMod && e.key === "v") {
                 const mousePosition = getMousePosition();
@@ -46,6 +64,24 @@ export function useWorkbenchKeyboardShortcuts({
                 if (activeNodeId) reorderWorkbenchNode(activeNodeId, "back");
             } else if (e.key === "]") {
                 if (activeNodeId) reorderWorkbenchNode(activeNodeId, "front");
+            } else if (!isMod) {
+                const key = e.key.toLowerCase();
+                const shortcutMap: Record<string, WorkbenchToolType> = {
+                    v: "select",
+                    h: "hand",
+                    d: "draw",
+                    e: "eraser",
+                    a: "arrow",
+                    t: "text",
+                    n: "note",
+                    m: "media",
+                };
+
+                const tool = shortcutMap[key];
+                if (tool) {
+                    e.preventDefault();
+                    setActiveWorkbenchTool(tool);
+                }
             }
         };
 
@@ -61,5 +97,8 @@ export function useWorkbenchKeyboardShortcuts({
         selectedNodeIds,
         getMousePosition,
         screenToFlowPosition,
+        setActiveWorkbenchTool,
+        undoWorkbench,
+        redoWorkbench,
     ]);
 }

@@ -40,33 +40,33 @@ export default function LoginPage() {
     return (
         <div
             ref={containerRef}
-            className="min-h-screen w-screen relative overflow-hidden"
+            className="relative min-h-[100svh] w-full overflow-hidden"
             onMouseMove={handleMouseMove}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            <div className="absolute inset-0 w-screen h-screen">
+            <div className="absolute inset-0">
                 <Image
                     src="/images/login-sample-2.png"
-                    alt="Background"
+                    alt=""
                     fill
-                    className="object-cover w-full h-full"
+                    className="object-cover object-center"
                     priority
                     sizes="100vw"
                 />
             </div>
 
             <div
-                className="absolute inset-0 w-screen h-screen"
+                className="absolute inset-0 hidden lg:block"
                 style={{
                     clipPath: `inset(0 ${100 - splitPosition}% 0 0)`,
                 }}
             >
                 <Image
                     src="/images/login-sample-1.png"
-                    alt="Foreground"
+                    alt=""
                     fill
-                    className="object-cover w-full h-full"
+                    className="object-cover object-center"
                     priority
                     sizes="100vw"
                 />
@@ -76,15 +76,15 @@ export default function LoginPage() {
 
             {isHovering && (
                 <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-white/50 z-10 pointer-events-none"
+                    className="absolute top-0 bottom-0 z-10 hidden w-0.5 bg-white/50 pointer-events-none lg:block"
                     style={{
                         left: `${splitPosition}%`,
                     }}
                 />
             )}
 
-            <div className="relative z-20 min-h-screen flex flex-col items-start justify-center text-white p-4">
-                <div className="w-[30vw] space-y-8 bg-black/60 backdrop-blur-sm p-10 rounded-2xl border border-white/10 shadow-2xl">
+            <main className="relative z-20 flex min-h-[100svh] flex-col items-center justify-center px-4 py-8 text-white sm:px-6 lg:items-start lg:justify-center lg:pl-16 xl:pl-20">
+                <div className="w-full max-w-md space-y-7 rounded-2xl border border-white/10 bg-black/60 p-6 shadow-2xl backdrop-blur-sm sm:p-8 lg:w-[30vw] lg:max-w-[30rem]">
                     <div className="text-center space-y-2">
                         <div className="flex justify-center mb-6">
                             <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
@@ -103,7 +103,7 @@ export default function LoginPage() {
                                     password: process.env.NEXT_PUBLIC_DEMO_PASSWORD,
                                     callbackUrl: "/dashboard"
                                 })}
-                                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg font-medium transition-all"
+                                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-yellow-600 px-3 py-2.5 text-center text-sm font-medium text-white transition-all hover:bg-yellow-500 sm:text-base"
                             >
                                 🚀 Dev Login ({process.env.NEXT_PUBLIC_DEV_ADMIN_EMAIL})
                             </button>
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
                         <button
                             onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
-                            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all border border-white/20"
+                            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-lg border border-white/20 bg-white/10 px-4 py-2.5 font-medium text-white transition-all hover:bg-white/20"
                         >
                             <Github size={20} />
                             Continue with GitHub
@@ -119,20 +119,20 @@ export default function LoginPage() {
 
                         <button
                             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-                            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-black hover:bg-zinc-200 rounded-xl transition-all font-medium group"
+                            className="group flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 font-medium text-black transition-all hover:bg-zinc-200"
                         >
                             <Chrome size={20} className="group-hover:scale-110 transition-transform" />
                             Continue with Google
                         </button>
                     </div>
 
-                    <div className="pt-8 text-center">
-                        <p className="text-xs text-zinc-400">
-                            By signing in, you agree to our Terms of Service <br /> and Privacy Policy.
+                    <div className="pt-5 text-center sm:pt-6">
+                        <p className="mx-auto max-w-[34ch] text-sm leading-5 text-zinc-400">
+                            By signing in, you agree to our Terms of Service and Privacy Policy.
                         </p>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     );
 }

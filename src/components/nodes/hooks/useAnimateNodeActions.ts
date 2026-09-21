@@ -63,8 +63,8 @@ export function useAnimateNodeActions(id: string, data: AnimateNodeType) {
             const conn2 = inboundConnections[1];
             removeConnection(conn1.id);
             removeConnection(conn2.id);
-            addConnection(conn2.from, id);
-            addConnection(conn1.from, id);
+            addConnection(conn2.from, id, conn2.sourceHandle ?? 'image-source', conn2.targetHandle ?? null);
+            addConnection(conn1.from, id, conn1.sourceHandle ?? 'image-source', conn1.targetHandle ?? null);
         }
     };
 

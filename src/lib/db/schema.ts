@@ -70,6 +70,17 @@ export const scenes = pgTable('scenes', {
 /**
  * Jobs Table
  */
+export const phoneUploadSessions = pgTable('phone_upload_sessions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    status: text('status', { enum: ['pending', 'uploading', 'completed', 'expired'] }).default('pending').notNull(),
+    s3Key: text('s3_key'),
+    fileName: text('file_name'),
+    mimeType: text('mime_type'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const jobs = pgTable('jobs', {
     id: uuid('id').defaultRandom().primaryKey(),
     projectId: uuid('project_id').references(() => projects.id).notNull(),

@@ -51,14 +51,14 @@ export const AnimateNode: React.FC<AnimateNodeProps> = ({ id, data, selected }) 
                 id="animate-target-visible"
                 style={{
                     ...imageLikeHandleStyle,
-                    left: '0px',
+                    left: '13px',
                     top: '50%',
                     zIndex: 11000,
                     opacity: selected ? 1 : 0,
                     pointerEvents: selected ? 'auto' : 'none',
                 }}
             >
-                <Plus size={16} color="white" strokeWidth={3} />
+                <Plus size={16} color="white" strokeWidth={3} className="pointer-events-none" />
             </Handle>
             <Handle type="target" position={Position.Left} style={elevatedFullNodeTargetHandleStyle} />
 

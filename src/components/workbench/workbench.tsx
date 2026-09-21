@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ReactFlow,
     Background,
@@ -9,15 +9,20 @@ import {
     useReactFlow,
     useViewport,
     SelectionMode,
+    OnNodeDrag,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus, ChevronDown } from 'lucide-react';
 
-import { ImageNode } from './ImageNode';
-import { VideoNode } from './VideoNode';
+import { ImageNode } from '../nodes/ImageNode';
+import { VideoNode } from '../nodes/VideoNode';
 import { AnimateNode } from '../nodes/AnimateNode';
 import { RenderNode } from '../nodes/RenderNode';
-import { CustomEdge } from './CustomEdge';
+import { FreehandNode } from '../nodes/FreehandNode';
+import { ArrowNode } from '../nodes/ArrowNode';
+import { TextNode } from '../nodes/TextNode';
+import { NoteNode } from '../nodes/NoteNode';
+import { MediaNode } from '../nodes/MediaNode';
+import { CustomEdge } from '../nodes/CustomEdge';
 import { PositionedMenu } from '../ContextMenu';
 import { BasicBlocksMenu } from '../nodes/BasicBlocksMenu';
 import { useWorkbench } from './hooks/useWorkbench';
@@ -29,64 +34,164 @@ import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useSceneStream } from './hooks/useSceneStream';
 import { useShallow } from 'zustand/react/shallow';
-import { WorkbenchConnectionLine } from './WorkbenchConnectionLine';
+import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
+import { DrawingOverlay } from '@/drawing/DrawingOverlay';
+import { getBoundingBox, pointsToPath, Point } from '@/drawing/strokeUtils';
+import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
+import {
+    ArrowWorkbenchNode,
+    FreehandNode as FreehandWorkbenchNode,
+    MediaWorkbenchNode,
+    NoteWorkbenchNode,
+    TextWorkbenchNode,
+    WorkbenchToolType,
+} from '@/types';
+import { WorkbenchToolbar } from './WorkbenchToolbar';
+import { PhoneUploadModal } from './PhoneUploadModal';
 
 const nodeTypes: NodeTypes = {
     imageNode: ImageNode,
     videoNode: VideoNode,
     animateNode: AnimateNode,
     renderNode: RenderNode,
+    freehandNode: FreehandNode,
+    arrowNode: ArrowNode,
+    textNode: TextNode,
+    noteNode: NoteNode,
+    mediaNode: MediaNode,
 };
 
 const edgeTypes: EdgeTypes = {
     customEdge: CustomEdge,
 };
 
+const ERASER_SIZE = 48;
+
 const WorkbenchContent: React.FC = () => {
-    const { setCenter, zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
+    const flowWrapperRef = useRef<HTMLDivElement>(null);
+    const mediaUploadInputRef = useRef<HTMLInputElement>(null);
+    const arrowDragStartRef = useRef<{ x: number; y: number } | null>(null);
+    const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
     const { zoom } = useViewport();
-    const { viewMode, currentProjectId, nodeLocks, presenceByUser } = useStore(
+    const { viewMode, currentProjectId, updateWorkbenchNode } = useStore(
         useShallow((state) => ({
             viewMode: state.viewMode,
             currentProjectId: state.currentProjectId,
-            nodeLocks: state.nodeLocks,
-            presenceByUser: state.presenceByUser,
+            updateWorkbenchNode: state.updateWorkbenchNode,
         }))
     );
-    const lockCount = Object.keys(nodeLocks).length;
-    const collaboratorCount = Object.keys(presenceByUser).length;
     
     useAutoSaveScene(currentProjectId);
     useSceneStream(currentProjectId);
+
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'production') {
+            return;
+        }
+
+        const resizeObserverMessages = new Set([
+            'ResizeObserver loop limit exceeded',
+            'ResizeObserver loop completed with undelivered notifications.',
+        ]);
+
+        const toMessage = (value: unknown): string => {
+            if (typeof value === 'string') {
+                return value;
+            }
+            if (value instanceof Error) {
+                return value.message;
+            }
+            if (value && typeof value === 'object' && 'message' in value) {
+                const maybeMessage = (value as { message?: unknown }).message;
+                if (typeof maybeMessage === 'string') {
+                    return maybeMessage;
+                }
+            }
+            return '';
+        };
+
+        const debugSuppression = process.env.NEXT_PUBLIC_DEBUG_RESIZE_OBSERVER === 'true';
+
+        const suppress = (event: Event, message: string) => {
+            if (!resizeObserverMessages.has(message)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            if (debugSuppression) {
+                console.debug('[WorkbenchResize] Suppressed ResizeObserver warning', { message });
+            }
+        };
+
+        const onWindowError = (event: ErrorEvent) => {
+            const message = toMessage(event.message || event.error);
+            suppress(event, message);
+        };
+
+        const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+            const message = toMessage(event.reason);
+            suppress(event, message);
+        };
+
+        window.addEventListener('error', onWindowError, true);
+        window.addEventListener('unhandledrejection', onUnhandledRejection, true);
+
+        return () => {
+            window.removeEventListener('error', onWindowError, true);
+            window.removeEventListener('unhandledrejection', onUnhandledRejection, true);
+        };
+    }, []);
+
     const {
-        workbenchNodes,
-        connections,
-        activeNodeId,
-        selectedNodeIds,
-        contextMenu,
-        setContextMenu,
-        showFormatDropdown,
-        setShowFormatDropdown,
-        dropdownRef,
-        basicBlocksMenu,
-        sketchFormats,
-        handleFormatSelect,
-        handleNodesChange,
-        handleConnect,
-        onConnectStart,
-        onConnectEnd,
-        handleNodeDoubleClick,
-        handleNodeContextMenu,
-        handlePaneClick,
-        handleSourceClick,
-        handleBlockSelect,
-        handleResize,
-        reorderWorkbenchNode,
-        copyToClipboard,
-        pasteFromClipboard,
-        duplicateWorkbenchNode,
-        removeWorkbenchNode
+        state: {
+            workbenchNodes,
+            connections,
+            activeNodeId,
+            selectedNodeIds,
+            isDrawMode,
+            activeWorkbenchTool,
+            freehandColor,
+            freehandStrokeWidth,
+        },
+        menus: {
+            contextMenu,
+            setContextMenu,
+            dropdownRef,
+            basicBlocksMenu,
+            sketchFormats,
+        },
+        handlers: {
+            handleFormatSelect,
+            handleNodesChange,
+            handleConnect,
+            onConnectStart,
+            onConnectEnd,
+            handleNodeDoubleClick,
+            handleNodeContextMenu,
+            handlePaneClick,
+            handleSourceClick,
+            handleBlockSelect,
+            handleResize,
+            handleDataChange,
+        },
+        actions: {
+            reorderWorkbenchNode,
+            copyToClipboard,
+            pasteFromClipboard,
+            duplicateWorkbenchNode,
+            removeWorkbenchNode,
+            setActiveWorkbenchTool,
+            setActiveNodeId,
+            setSelectedNodeIds,
+            addWorkbenchNode,
+            setFreehandColor,
+            setFreehandStrokeWidth,
+            undoWorkbench,
+            redoWorkbench,
+        },
     } = useWorkbench();
+    const [isPhoneUploadModalOpen, setIsPhoneUploadModalOpen] = useState(false);
 
     useWorkbenchCenterOnReturn({ viewMode, activeNodeId, workbenchNodes, setCenter });
     const { nodes, edges } = useWorkbenchGraph({
@@ -95,6 +200,7 @@ const WorkbenchContent: React.FC = () => {
         selectedNodeIds,
         handleSourceClick,
         handleResize,
+        handleDataChange,
     });
 
     const contextMenuActions = contextMenu ? [
@@ -117,24 +223,277 @@ const WorkbenchContent: React.FC = () => {
         { label: 'Delete', shortcut: 'Del', onClick: () => removeWorkbenchNode(contextMenu.nodeId), type: 'danger' as const },
     ] : [];
 
+    const createNodeAndSelect = useCallback((node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode) => {
+        addWorkbenchNode(node);
+        setActiveNodeId(node.id);
+        setSelectedNodeIds([node.id]);
+    }, [addWorkbenchNode, setActiveNodeId, setSelectedNodeIds]);
+
+    const makeOneShotNode = useCallback((node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode) => {
+        createNodeAndSelect(node);
+        setActiveWorkbenchTool('select');
+    }, [createNodeAndSelect, setActiveWorkbenchTool]);
+
+    const handleEraseAtPoint = useCallback(
+        (point: Point) => {
+            if (activeWorkbenchTool !== 'eraser') {
+                return;
+            }
+
+            const eraserRadius = ERASER_SIZE / 2;
+            const intersectedFreehandNodeIds = workbenchNodes
+                .filter((node) => node.type === 'freehand')
+                .filter((node) => {
+                    const strokePadding = Math.max(2, (node.data.strokeWidth ?? 0) / 2);
+                    const minX = node.x - eraserRadius - strokePadding;
+                    const minY = node.y - eraserRadius - strokePadding;
+                    const maxX = node.x + (node.width ?? 0) + eraserRadius + strokePadding;
+                    const maxY = node.y + (node.height ?? 0) + eraserRadius + strokePadding;
+
+                    return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+                })
+                .map((node) => node.id);
+
+            intersectedFreehandNodeIds.forEach((nodeId) => {
+                removeWorkbenchNode(nodeId);
+            });
+        },
+        [activeWorkbenchTool, removeWorkbenchNode, workbenchNodes]
+    );
+
+    const createTextOrNoteNodeAt = useCallback((tool: WorkbenchToolType, clientX: number, clientY: number) => {
+        const flowPoint = screenToFlowPosition({ x: clientX, y: clientY });
+        if (tool === 'text') {
+            const textNode: TextWorkbenchNode = {
+                id: crypto.randomUUID(),
+                type: 'text',
+                x: flowPoint.x - 120,
+                y: flowPoint.y - 36,
+                width: 240,
+                height: 72,
+                data: {
+                    text: '',
+                    fontSize: 24,
+                    color: '#111827',
+                },
+            };
+            makeOneShotNode(textNode);
+            return;
+        }
+
+        if (tool === 'note') {
+            const noteNode: NoteWorkbenchNode = {
+                id: crypto.randomUUID(),
+                type: 'note',
+                x: flowPoint.x - 110,
+                y: flowPoint.y - 90,
+                width: 220,
+                height: 180,
+                data: {
+                    text: '',
+                    colorVariant: 'yellow',
+                },
+            };
+            makeOneShotNode(noteNode);
+        }
+    }, [makeOneShotNode, screenToFlowPosition]);
+
+    const handlePaneClickWithTool = useCallback((event: React.MouseEvent) => {
+        handlePaneClick();
+        if (activeWorkbenchTool === 'text' || activeWorkbenchTool === 'note') {
+            createTextOrNoteNodeAt(activeWorkbenchTool, event.clientX, event.clientY);
+        }
+    }, [activeWorkbenchTool, createTextOrNoteNodeAt, handlePaneClick]);
+
+    const isPaneTarget = (target: EventTarget | null) =>
+        target instanceof Element && target.closest('.react-flow__pane');
+
+    const handleCanvasMouseDownForArrow = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        if (!isPaneTarget(event.target)) {
+            arrowDragStartRef.current = null;
+            return;
+        }
+
+        if (activeWorkbenchTool !== 'arrow' || event.button !== 0) {
+            arrowDragStartRef.current = null;
+            return;
+        }
+
+        arrowDragStartRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    }, [activeWorkbenchTool, screenToFlowPosition]);
+
+    const handleCanvasMouseUpForArrow = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        if (!isPaneTarget(event.target)) {
+            return;
+        }
+
+        if (activeWorkbenchTool !== 'arrow' || !arrowDragStartRef.current) {
+            return;
+        }
+
+        const start = arrowDragStartRef.current;
+        const end = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        arrowDragStartRef.current = null;
+
+        const deltaX = end.x - start.x;
+        const deltaY = end.y - start.y;
+        const distance = Math.hypot(deltaX, deltaY);
+        const padding = 20;
+        const minWidth = 120;
+        const minHeight = 80;
+        const width = Math.max(minWidth, Math.abs(deltaX) + padding * 2);
+        const height = Math.max(minHeight, Math.abs(deltaY) + padding * 2);
+        const x = Math.min(start.x, end.x) - padding;
+        const y = Math.min(start.y, end.y) - padding;
+
+        const normalizedStart =
+            distance < 8
+                ? { x: 20, y: height - 20 }
+                : { x: start.x - x, y: start.y - y };
+        const normalizedEnd =
+            distance < 8
+                ? { x: width - 20, y: 20 }
+                : { x: end.x - x, y: end.y - y };
+
+        const midX = (normalizedStart.x + normalizedEnd.x) / 2;
+        const midY = (normalizedStart.y + normalizedEnd.y) / 2;
+        const control = {
+            x: midX + (normalizedStart.y - normalizedEnd.y) * 0.18,
+            y: midY + (normalizedEnd.x - normalizedStart.x) * 0.18,
+        };
+
+        const arrowNode: ArrowWorkbenchNode = {
+            id: crypto.randomUUID(),
+            type: 'arrow',
+            x,
+            y,
+            width,
+            height,
+            data: {
+                start: normalizedStart,
+                end: normalizedEnd,
+                control,
+                strokeColor: '#111827',
+                strokeWidth: 2,
+            },
+        };
+
+        makeOneShotNode(arrowNode);
+        requestImmediateSceneSave();
+    }, [activeWorkbenchTool, makeOneShotNode, screenToFlowPosition]);
+
+    const handleMediaUpload = useCallback(() => {
+        mediaUploadInputRef.current?.click();
+    }, []);
+
+    const handleMediaUploadFromPhone = useCallback(() => {
+        setIsPhoneUploadModalOpen(true);
+    }, []);
+
+    const handlePhoneUploadComplete = useCallback((info: { url: string; fileName: string; mimeType: string }) => {
+        const wrapperRect = flowWrapperRef.current?.getBoundingClientRect();
+        const centerPoint = wrapperRect
+            ? screenToFlowPosition({
+                x: wrapperRect.left + wrapperRect.width / 2,
+                y: wrapperRect.top + wrapperRect.height / 2,
+            })
+            : { x: 200, y: 200 };
+
+        const mediaNode: MediaWorkbenchNode = {
+            id: crypto.randomUUID(),
+            type: 'media',
+            x: centerPoint.x - 130,
+            y: centerPoint.y - 90,
+            width: 260,
+            height: 180,
+            data: {
+                src: info.url,
+                alt: info.fileName || 'Uploaded media',
+                mimeType: info.mimeType,
+            },
+        };
+
+        makeOneShotNode(mediaNode);
+        setIsPhoneUploadModalOpen(false);
+    }, [makeOneShotNode, screenToFlowPosition]);
+
+    const handleMediaUploadChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !file.type.startsWith('image/')) {
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        const wrapperRect = flowWrapperRef.current?.getBoundingClientRect();
+        const centerPoint = wrapperRect
+            ? screenToFlowPosition({
+                x: wrapperRect.left + wrapperRect.width / 2,
+                y: wrapperRect.top + wrapperRect.height / 2,
+            })
+            : { x: 200, y: 200 };
+
+        const mediaNode: MediaWorkbenchNode = {
+            id: crypto.randomUUID(),
+            type: 'media',
+            x: centerPoint.x - 130,
+            y: centerPoint.y - 90,
+            width: 260,
+            height: 180,
+            data: {
+                src: objectUrl,
+                alt: file.name || 'Uploaded media',
+                mimeType: file.type,
+            },
+        };
+
+        makeOneShotNode(mediaNode);
+        event.target.value = '';
+    }, [makeOneShotNode, screenToFlowPosition]);
+
+    // When a node drag finishes (mouse released), persist the exact final position
+    // and sync to the backend immediately so a reload never shows stale state.
+    const handleNodeDragStop = useCallback<OnNodeDrag>(
+        (_event, node) => {
+            updateWorkbenchNode(node.id, { x: node.position.x, y: node.position.y });
+            requestImmediateSceneSave();
+        },
+        [updateWorkbenchNode]
+    );
+
+    const isDrawModeActive = activeWorkbenchTool === 'draw';
+    const isEraserModeActive = activeWorkbenchTool === 'eraser';
+    const isHandModeActive = activeWorkbenchTool === 'hand';
+    const isSelectModeActive = activeWorkbenchTool === 'select';
+
     return (
-        <div className="relative w-full h-screen bg-white">
+        <div
+            ref={flowWrapperRef}
+            className="relative w-full h-screen bg-white"
+            onMouseDown={handleCanvasMouseDownForArrow}
+            onMouseUp={handleCanvasMouseUpForArrow}
+        >
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodesChange={handleNodesChange}
+                onNodeDragStop={handleNodeDragStop}
                 onConnect={handleConnect}
                 onConnectStart={onConnectStart}
                 onConnectEnd={onConnectEnd}
                 onNodeDoubleClick={handleNodeDoubleClick}
                 onNodeContextMenu={handleNodeContextMenu}
-                onPaneClick={handlePaneClick}
+                onPaneClick={handlePaneClickWithTool}
                 deleteKeyCode={['Backspace', 'Delete']}
                 selectionMode={SelectionMode.Partial}
-                selectionOnDrag={true}
+                selectionOnDrag={isSelectModeActive}
                 selectionKeyCode="Shift"
+                multiSelectionKeyCode={['Meta', 'Control']}
+                panOnDrag={isHandModeActive}
+                elementsSelectable={isSelectModeActive}
+                nodesDraggable={isSelectModeActive}
+                nodesConnectable={isSelectModeActive}
                 snapToGrid={true}
                 snapGrid={[5, 5]}
                 fitView
@@ -146,9 +505,90 @@ const WorkbenchContent: React.FC = () => {
                 <Background id='smalldots' variant={BackgroundVariant.Dots} gap={12} size={1} color="#c6cfdb" />
                 <Background id="fatdots" color="#a0afc3" variant={BackgroundVariant.Dots} gap={56} size={1.1} />
             </ReactFlow>
+            <DrawingOverlay
+                mode={isEraserModeActive ? 'erase' : isDrawModeActive || isDrawMode ? 'draw' : null}
+                wrapperRef={flowWrapperRef}
+                previewColor={freehandColor}
+                previewSize={freehandStrokeWidth}
+                eraserSize={ERASER_SIZE}
+                onEraseAtPoint={handleEraseAtPoint}
+                onStrokeFinished={(points) => {
+                    const boundingBox = getBoundingBox(points);
+                    if (!boundingBox) {
+                        return;
+                    }
 
+                    const normalizedPoints: Point[] = points.map((point) => ({
+                        x: point.x - boundingBox.minX,
+                        y: point.y - boundingBox.minY,
+                    }));
+                    const path = pointsToPath(normalizedPoints, { size: freehandStrokeWidth });
+
+                    if (!path.trim()) {
+                        return;
+                    }
+
+                    const width = Math.max(1, boundingBox.width);
+                    const height = Math.max(1, boundingBox.height);
+
+                    const freehandNode: FreehandWorkbenchNode = {
+                        id: crypto.randomUUID(),
+                        type: 'freehand',
+                        x: boundingBox.minX,
+                        y: boundingBox.minY,
+                        width,
+                        height,
+                        data: {
+                            path,
+                            width,
+                            height,
+                            color: freehandColor,
+                            strokeWidth: freehandStrokeWidth,
+                        },
+                    };
+
+                    addWorkbenchNode(freehandNode);
+                    if (activeWorkbenchTool === 'draw') {
+                        setActiveNodeId(freehandNode.id);
+                        setSelectedNodeIds([freehandNode.id]);
+                    }
+                    requestImmediateSceneSave();
+                }}
+            />
+            <input
+                ref={mediaUploadInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleMediaUploadChange}
+            />
+
+            <PhoneUploadModal
+                open={isPhoneUploadModalOpen}
+                onClose={() => setIsPhoneUploadModalOpen(false)}
+                onUploadComplete={handlePhoneUploadComplete}
+            />
             <div className="absolute top-4 left-4 z-20">
                 <ProjectHeader mode="workbench" />
+            </div>
+
+            <div className="absolute top-4 left-1/2 z-20 -translate-x-1/2">
+                <div ref={dropdownRef}>
+                    <WorkbenchToolbar
+                        activeTool={activeWorkbenchTool}
+                        freehandColor={freehandColor}
+                        freehandStrokeWidth={freehandStrokeWidth}
+                        onSelectTool={setActiveWorkbenchTool}
+                        onFreehandColorChange={setFreehandColor}
+                        onFreehandStrokeWidthChange={setFreehandStrokeWidth}
+                        onUndo={undoWorkbench}
+                        onRedo={redoWorkbench}
+                        onMediaUpload={handleMediaUpload}
+                        onMediaUploadFromPhone={handleMediaUploadFromPhone}
+                        sketchFormats={sketchFormats}
+                        onFormatSelect={handleFormatSelect}
+                    />
+                </div>
             </div>
 
             <div className="absolute bottom-4 right-4 z-20">
@@ -159,46 +599,6 @@ const WorkbenchContent: React.FC = () => {
                     onResetZoom={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 })}
                     onFitToScreen={() => fitView({ duration: 300 })}
                 />
-            </div>
-
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none">
-                <div className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-full border border-panel-border bg-panel/85 backdrop-blur-md shadow-xl text-xs text-text-secondary">
-                    <span>Workbench Command Surface</span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
-                        Locks {lockCount}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
-                        Presence {collaboratorCount}
-                    </span>
-                </div>
-            </div>
-
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10" ref={dropdownRef}>
-                <div className="relative">
-                    <button
-                        onClick={() => setShowFormatDropdown(!showFormatDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 bg-panel border border-panel-border rounded-full shadow-2xl backdrop-blur-md bg-opacity-90 text-text-secondary hover:text-white transition-all group"
-                    >
-                        <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                        <span className="font-medium">Add Sketch</span>
-                        <ChevronDown size={16} className={`transition-transform ${showFormatDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showFormatDropdown && (
-                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-48 bg-panel border border-panel-border rounded-lg shadow-2xl backdrop-blur-md bg-opacity-95 overflow-hidden nowheel nodrag">
-                            {sketchFormats.map((format, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => handleFormatSelect(format.width, format.height)}
-                                    className="w-full px-4 py-3 text-left text-text-secondary hover:text-white hover:bg-panel-light transition-colors flex items-center justify-between border-b border-panel-border last:border-b-0"
-                                >
-                                    <span className="text-sm font-medium">{format.label}</span>
-                                    <span className="text-xs opacity-50">{format.width}×{format.height}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
             </div>
 
             {contextMenu && (

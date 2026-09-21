@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NodeResizer } from '@xyflow/react';
 import { Play, Pause, Maximize2, X } from 'lucide-react';
@@ -6,19 +6,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VideoNode as VideoNodeType } from '../../types';
 
 interface VideoNodeData extends VideoNodeType {
-    onResize?: (nodeId: string, width: number, height: number) => void;
+    onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
 }
 
 interface VideoNodeProps {
     id: string;
     data: VideoNodeData;
     selected: boolean;
+    width?: number;
+    height?: number;
 }
 
-export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
+export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected, width, height }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [nodeSize, setNodeSize] = useState({ width: width || 256, height: height || 256 });
+
+    useEffect(() => {
+        if (width && height && width > 0 && height > 0) {
+            setNodeSize({ width, height });
+        }
+    }, [width, height]);
 
     const togglePlay = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -34,12 +43,10 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
 
     const handleVideoEnded = () => {
         setIsPlaying(false);
-        // Optional: Loop is handled by the video attribute, but if we want manual control or non-looping:
-        // setIsPlaying(false);
     };
 
     return (
-        <>
+        <div style={{ width: nodeSize.width, height: nodeSize.height }}>
             <div
                 className={`relative bg-black rounded-lg shadow-lg transition-all duration-200 border-2 overflow-hidden ${selected ? 'border-[#6366f1]' : 'border-transparent hover:border-[#6366f1]'}`}
                 style={{ width: '100%', height: '100%' }}
@@ -82,7 +89,6 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
                              </div>
                         </div>
 
-                        {/* Fullscreen Button */}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -101,7 +107,6 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
                 )}
             </div>
             <NodeResizer
-                nodeId={id}
                 isVisible={selected && data.status !== 'rendering'}
                 minWidth={100}
                 minHeight={100}
@@ -117,12 +122,28 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
                     transform: `scale(1)`,
                     transformOrigin: 'center'
                 }}
-                onResize={(_, { width, height }) => {
-                    data.onResize?.(data.id, width, height);
+                onResize={(_, resizeParams) => {
+                    const newWidth = (resizeParams.width && Number.isFinite(resizeParams.width)) ? resizeParams.width : nodeSize.width;
+                    const newHeight = (resizeParams.height && Number.isFinite(resizeParams.height)) ? resizeParams.height : nodeSize.height;
+                    const newX = Number.isFinite(resizeParams.x) ? resizeParams.x : undefined;
+                    const newY = Number.isFinite(resizeParams.y) ? resizeParams.y : undefined;
+                    if (Number.isFinite(newWidth) && Number.isFinite(newHeight) && newWidth > 0 && newHeight > 0) {
+                        setNodeSize({ width: newWidth, height: newHeight });
+                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                    }
+                }}
+                onResizeEnd={(_, resizeParams) => {
+                    const newWidth = (resizeParams.width && Number.isFinite(resizeParams.width)) ? resizeParams.width : nodeSize.width;
+                    const newHeight = (resizeParams.height && Number.isFinite(resizeParams.height)) ? resizeParams.height : nodeSize.height;
+                    const newX = Number.isFinite(resizeParams.x) ? resizeParams.x : undefined;
+                    const newY = Number.isFinite(resizeParams.y) ? resizeParams.y : undefined;
+                    if (Number.isFinite(newWidth) && Number.isFinite(newHeight) && newWidth > 0 && newHeight > 0) {
+                        setNodeSize({ width: newWidth, height: newHeight });
+                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                    }
                 }}
             />
 
-            {/* Fullscreen Modal Overlay */}
             {typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
                     {isFullscreen && (
@@ -164,7 +185,6 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
                                 </div>
                             </motion.div>
                             
-                            {/* Backdrop Click */}
                             <div 
                                 className="absolute inset-0 -z-10 cursor-pointer" 
                                 onClick={() => setIsFullscreen(false)}
@@ -174,6 +194,6 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected }) => {
                 </AnimatePresence>,
                 document.body
             )}
-        </>
+        </div>
     );
 };

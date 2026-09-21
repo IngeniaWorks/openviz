@@ -4,8 +4,13 @@ import type { CollabPresenceState } from '@/types/collab.types';
 import { createSceneDoc } from './sceneDocMapping';
 
 /** Per-user transaction origin: `user:<userId>` (server parses it for `updatedBy`). */
-export function collabOriginFor(userId: string): string {
-    return `user:${userId}`;
+/**
+ * Transaction origin for this client. The optional clientID suffix isolates
+ * concurrent tabs of the SAME user (separate undo stacks, separate attribution)
+ * while the server still resolves the userId from the second segment.
+ */
+export function collabOriginFor(userId: string, clientID?: number | string): string {
+    return clientID === undefined ? `user:${userId}` : `user:${userId}:${clientID}`;
 }
 
 export interface CollabSessionConfig {
@@ -41,7 +46,6 @@ export function createCollabProvider(
 ): CollabProviderHandle {
     const ProviderClass = options.ProviderClass ?? HocuspocusProvider;
     const doc = createSceneDoc();
-    const origin = collabOriginFor(config.userId);
 
     const providerConfiguration: HocuspocusProviderConfiguration = {
         url: config.url,
@@ -50,6 +54,10 @@ export function createCollabProvider(
         document: doc,
     };
     const provider = new ProviderClass(providerConfiguration);
+
+    // Per-client origin (multi-tab isolation): two tabs of the same user must
+    // not share an undo stack or overwrite each other's attribution.
+    const origin = collabOriginFor(config.userId, provider.awareness?.clientID);
 
     // Announce ourselves on the awareness channel (presence + cursor host).
     const presence: CollabPresenceState = {

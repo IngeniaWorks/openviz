@@ -75,11 +75,20 @@ export function ProjectWorkspace({ id, mode }: { id: string; mode: "STUDIO" | "W
     }, [id, setCurrentProjectId, setCurrentSceneVersion, setSceneHydrated, clearCollaborationState]);
 
     useEffect(() => {
-        // Clear workbench nodes and connections first to avoid showing data from previous project
-        setNodes([]);
-        setConnections([]);
+        // While a collaboration session owns this scene, the shared document is
+        // the source of truth — hydrating the (stale) DB snapshot into the store
+        // would clobber live remote edits and flush them back. If the session
+        // never joins (server down), this stays false and the single-user path
+        // below runs unchanged.
+        const collabOwnsScene = useStore.getState().collabSessionActive;
 
-        if (projectData?.scene) {
+        if (!collabOwnsScene) {
+            // Clear workbench nodes and connections first to avoid showing data from previous project
+            setNodes([]);
+            setConnections([]);
+        }
+
+        if (projectData?.scene && !collabOwnsScene) {
             // Hydrate the store with the project's scene data
             const scene = projectData.scene;
             // Tag nodes with projectId so dashboard can filter them properly
@@ -89,9 +98,7 @@ export function ProjectWorkspace({ id, mode }: { id: string; mode: "STUDIO" | "W
             })) || [];
             if (nodesWithProjectId.length > 0) setNodes(nodesWithProjectId);
             if (scene.connections) setConnections(scene.connections as Connection[]);
-            setCurrentSceneVersion(projectData.sceneVersion ?? 0);
-            setIsHydrated(true);
-        } else if (projectData) {
+        } else if (projectData && !collabOwnsScene) {
             // Older projects may predate the database-backed scene record. Restore
             // their locally cached Workbench nodes so the first autosave can migrate
             // them into the current main-scene persistence path instead of dropping
@@ -100,14 +107,14 @@ export function ProjectWorkspace({ id, mode }: { id: string; mode: "STUDIO" | "W
             if (cachedNodes.length > 0) {
                 setNodes(cachedNodes);
             }
-            setCurrentSceneVersion(projectData.sceneVersion ?? 0);
-            setIsHydrated(true);
         }
 
         if (projectData) {
+            setCurrentSceneVersion(projectData.sceneVersion ?? 0);
             // Signals useAutoSaveScene that local state now reflects this fetch, so any
             // interrupted save restored from IndexedDB can be applied on top of it.
             setSceneHydrated(true);
+            setIsHydrated(true);
         }
     }, [projectData, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id]);
 

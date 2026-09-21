@@ -102,6 +102,8 @@ describe('createStore (save)', () => {
 describe('parseOriginUser', () => {
     it('extracts the user id from local client origins only', () => {
         expect(parseOriginUser('user:u-42')).toBe('u-42');
+        // Per-client origin suffix (multi-tab isolation) must not leak into userId.
+        expect(parseOriginUser('user:u-42:client-7')).toBe('u-42');
         expect(parseOriginUser('hocuspocus')).toBeNull();
         expect(parseOriginUser(null)).toBeNull();
         expect(parseOriginUser({})).toBeNull();

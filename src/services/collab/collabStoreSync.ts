@@ -1,26 +1,34 @@
 import * as Y from 'yjs';
-import type { SceneDataJson, SceneJsonValue } from '@/types/collab.types';
-import { extractSceneFromDoc, getConnectionsMap, getNodesMap, jsonToYValue, yValueToJson } from './sceneDocMapping';
+import type { SceneConnectionJson, SceneDataJson, SceneNodeJson, SceneJsonValue } from '@/types/collab.types';
+import { extractSceneFromDoc, getConnectionsMap, getNodesMap, jsonToYValue } from './sceneDocMapping';
 
 /**
  * Bidirectional sync bridge between the workbench store and the shared scene
  * document while a collaboration session is active.
  *
  * Direction doc → store: every document update (local or remote) re-projects
- * the canonical scene into the store under a re-entrancy guard.
+ * the canonical scene into the store under a re-entrancy guard. After each
+ * projection the baseline is re-snapshotted from what the STORE actually holds
+ * (deep clone) — the store may normalize shapes (connection handles, policy
+ * filters), and diffs must always compare like-for-like.
  *
- * Direction store → doc: store changes are diffed against the last synced
- * scene and applied as ONE origin-tagged transaction per change burst. While
- * a workbench gesture is active (drag/resize) changes are buffered and flushed
- * exactly once on gesture commit — preserving feature 002's one-gesture-one-
- * action semantics in the shared document.
+ * Direction store → doc: flushes are PER-ENTITY against that baseline. Only
+ * entities that changed since the last known state are written; local
+ * deletions delete; entities the local view never represented (not in the
+ * baseline) are left untouched, so a lossy or stale projection can never
+ * overwrite or delete remote work. While a workbench gesture is active
+ * (drag/resize) changes are buffered and flushed exactly once on commit —
+ * preserving feature 002's one-gesture-one-action semantics in the shared
+ * document.
  */
 
 export interface CollabStoreSyncDeps {
     doc: Y.Doc;
-    /** This client's transaction origin (`user:<id>`). */
+    /** This client's transaction origin (`user:<id>:<clientID>`). */
     origin: string;
     getStoreState(): { nodes: readonly SceneNodeLike[]; connections: readonly SceneConnectionLike[]; gestureActive: boolean };
+    /** Node ids of the in-flight workbench gesture, or null when none is active. */
+    getActiveGestureNodeIds(): string[] | null;
     applyToStore(scene: SceneDataJson): void;
     subscribeStore(listener: () => void): () => void;
 }
@@ -56,90 +64,142 @@ function canonicalScene<T extends { id: string }>(items: readonly T[]): T[] {
 export function createCollabStoreSync(deps: CollabStoreSyncDeps): CollabStoreSync {
     const { doc, origin } = deps;
     let projecting = false;
-    let lastDocScene: SceneDataJson | null = null;
+    let flushing = false;
+    /** Deep snapshot of the store after the last projection — the diff baseline. */
+    let lastScene: SceneDataJson | null = null;
+    /** Gesture node ids seen while a gesture was active; flushed on commit. */
+    let bufferedGestureIds: Set<string> | null = null;
     let unsubscribeStore: (() => void) | null = null;
 
+    /** Read back what the store actually holds and deep-snapshot it. */
+    const snapshotStore = (): SceneDataJson => {
+        const { nodes, connections } = deps.getStoreState();
+        return structuredClone({
+            nodes: canonicalScene(nodes),
+            connections: canonicalScene(connections),
+        }) as unknown as SceneDataJson;
+    };
+
     const handleDocUpdate = (_bytes: Uint8Array, _updateOrigin: unknown): void => {
-        if (projecting) return;
-        const scene = extractSceneFromDoc(doc);
-        lastDocScene = scene;
+        if (projecting || flushing) return;
         projecting = true;
         try {
-            deps.applyToStore(scene);
+            deps.applyToStore(extractSceneFromDoc(doc));
         } finally {
             projecting = false;
         }
+        // Baseline is the store's own (possibly normalized) view, never the
+        // raw doc shape — otherwise every projection would look like a diff.
+        lastScene = snapshotStore();
     };
 
-    const flushToDoc = (): void => {
-        const { nodes, connections } = deps.getStoreState();
-        const storeScene = {
-            nodes: canonicalScene(nodes) as SceneDataJson['nodes'],
-            connections: canonicalScene(connections) as SceneDataJson['connections'],
-        };
-        if (lastDocScene && stableStringify(storeScene) === stableStringify(lastDocScene)) return;
+    const flushToDoc = (forcedNodeIds?: ReadonlySet<string>): void => {
+        if (!lastScene) return;
+        const current = snapshotStore();
 
-        doc.transact(() => {
-            const nodesMap = getNodesMap(doc);
-            const liveNodeIds = new Set<string>();
-            for (const node of storeScene.nodes) {
-                liveNodeIds.add(node.id);
-                const existing = yValueToJson(nodesMap.get(node.id));
-                if (stableStringify(existing) !== stableStringify(node)) {
-                    nodesMap.set(node.id, jsonToYValue(node as unknown as SceneJsonValue));
+        // Per-entity plan against the baseline. Entities absent from the
+        // baseline were never represented locally — leave them alone.
+        // Forced ids (a gesture that just committed) are compared against the
+        // DOC's current value instead: the baseline may hold the transient
+        // position we preserved mid-gesture, which would hide a real change.
+        const docNodes = forcedNodeIds ? extractSceneFromDoc(doc).nodes : null;
+        const nodeSets: SceneNodeJson[] = [];
+        for (const node of current.nodes) {
+            if (forcedNodeIds?.has(node.id)) {
+                const docNode = docNodes?.find((candidate) => candidate.id === node.id);
+                if (!docNode || stableStringify(docNode) !== stableStringify(node)) {
+                    nodeSets.push(node);
                 }
+                continue;
             }
-            for (const key of Array.from(nodesMap.keys())) {
-                if (!liveNodeIds.has(key)) nodesMap.delete(key);
+            const base = lastScene.nodes.find((candidate) => candidate.id === node.id);
+            if (!base || stableStringify(base) !== stableStringify(node)) {
+                nodeSets.push(node);
             }
+        }
+        const nodeDeletes: string[] = [];
+        for (const base of lastScene.nodes) {
+            if (!current.nodes.some((node) => node.id === base.id)) nodeDeletes.push(base.id);
+        }
 
-            const connectionsMap = getConnectionsMap(doc);
-            const liveConnectionIds = new Set<string>();
-            for (const connection of storeScene.connections) {
-                liveConnectionIds.add(connection.id);
-                const existing = yValueToJson(connectionsMap.get(connection.id));
-                if (stableStringify(existing) !== stableStringify(connection)) {
+        const connectionSets: SceneConnectionJson[] = [];
+        for (const connection of current.connections) {
+            const base = lastScene.connections.find((candidate) => candidate.id === connection.id);
+            if (!base || stableStringify(base) !== stableStringify(connection)) {
+                connectionSets.push(connection);
+            }
+        }
+        const connectionDeletes: string[] = [];
+        for (const base of lastScene.connections) {
+            if (!current.connections.some((connection) => connection.id === base.id)) {
+                connectionDeletes.push(base.id);
+            }
+        }
+
+        if (nodeSets.length === 0 && nodeDeletes.length === 0 && connectionSets.length === 0 && connectionDeletes.length === 0) {
+            return;
+        }
+
+        flushing = true;
+        try {
+            doc.transact(() => {
+                const nodesMap = getNodesMap(doc);
+                for (const node of nodeSets) {
+                    nodesMap.set(node.id, jsonToYValue(node));
+                }
+                for (const id of nodeDeletes) nodesMap.delete(id);
+
+                const connectionsMap = getConnectionsMap(doc);
+                for (const connection of connectionSets) {
                     connectionsMap.set(connection.id, jsonToYValue(connection as unknown as SceneJsonValue));
                 }
-            }
-            for (const key of Array.from(connectionsMap.keys())) {
-                if (!liveConnectionIds.has(key)) connectionsMap.delete(key);
-            }
-        }, origin);
+                for (const id of connectionDeletes) connectionsMap.delete(id);
+            }, origin);
+        } finally {
+            flushing = false;
+        }
 
-        // The transact fired handleDocUpdate synchronously (re-projecting the
-        // merged state, including any concurrent remote changes). Re-read the
-        // authoritative post-merge scene as the new diff baseline.
-        lastDocScene = extractSceneFromDoc(doc);
+        lastScene = snapshotStore();
     };
 
     const handleStoreChange = (): void => {
-        if (projecting) return;
-        const { nodes, connections, gestureActive } = deps.getStoreState();
-        const storeScene = {
-            nodes: canonicalScene(nodes),
-            connections: canonicalScene(connections),
-        };
-        if (lastDocScene && stableStringify(storeScene) === stableStringify(lastDocScene)) return;
+        if (projecting || flushing) return;
 
-        if (gestureActive) {
+        const gestureIds = deps.getActiveGestureNodeIds();
+        if (gestureIds) {
             // Buffer: the whole gesture flushes as ONE origin-tagged transaction
             // on the next store change after the gesture commits.
+            bufferedGestureIds = new Set(gestureIds);
             return;
         }
+
+        if (!lastScene) return;
+
+        if (bufferedGestureIds && bufferedGestureIds.size > 0) {
+            // The gesture just committed: flush its nodes against the doc's
+            // current value, even if the final position equals the last
+            // transient one (which the baseline already holds).
+            void flushToDoc(bufferedGestureIds);
+            bufferedGestureIds = null;
+            return;
+        }
+
+        const current = snapshotStore();
+        if (stableStringify(current) === stableStringify(lastScene)) return;
         void flushToDoc();
     };
 
     return {
         start(): void {
-            // Project the current document state immediately (initial sync).
-            lastDocScene = extractSceneFromDoc(doc);
+            // Project the current document state (initial sync), then baseline
+            // from what the store actually holds.
             projecting = true;
             try {
-                deps.applyToStore(lastDocScene);
+                deps.applyToStore(extractSceneFromDoc(doc));
             } finally {
                 projecting = false;
             }
+            lastScene = snapshotStore();
             doc.on('update', handleDocUpdate);
             unsubscribeStore = deps.subscribeStore(handleStoreChange);
         },
@@ -147,7 +207,8 @@ export function createCollabStoreSync(deps: CollabStoreSyncDeps): CollabStoreSyn
             doc.off('update', handleDocUpdate);
             unsubscribeStore?.();
             unsubscribeStore = null;
-            lastDocScene = null;
+            lastScene = null;
+            bufferedGestureIds = null;
         },
     };
 }

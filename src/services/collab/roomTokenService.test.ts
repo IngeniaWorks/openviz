@@ -14,7 +14,7 @@ describe('issueRoomToken', () => {
             now: NOW,
         });
         const [payloadPart] = token.split('.');
-        const payload = JSON.parse(atob(payloadPart.replaceAll('-', '+').replaceAll('_', '/')));
+        const payload = JSON.parse(atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/')));
         expect(Object.keys(payload).sort()).toEqual(['expiresAt', 'issuedAt', 'projectId', 'sceneId', 'userId']);
         expect(payload.projectId).toBe('p-1');
         expect(payload.sceneId).toBe('s-1');
@@ -27,7 +27,7 @@ describe('issueRoomToken', () => {
         expect(ROOM_TOKEN_TTL_MS).toBeGreaterThanOrEqual(4 * 60_000);
         expect(ROOM_TOKEN_TTL_MS).toBeLessThanOrEqual(6 * 60_000);
         const [payloadPart] = token.split('.');
-        const payload = JSON.parse(atob(payloadPart.replaceAll('-', '+').replaceAll('_', '/')));
+        const payload = JSON.parse(atob(payloadPart.replace(/-/g, '+').replace(/_/g, '/')));
         expect(payload.expiresAt - payload.issuedAt).toBe(ROOM_TOKEN_TTL_MS);
     });
 });
@@ -51,7 +51,7 @@ describe('verifyRoomToken', () => {
 
     it('rejects a tampered token', async () => {
         const token = await issueRoomToken({ projectId: 'p-1', sceneId: 's-1', userId: 'u-1', secret: SECRET, now: NOW });
-        const [payloadPart, signaturePart] = token.split('.');
+        const [, signaturePart] = token.split('.');
         const forged = btoa(JSON.stringify({
             projectId: 'p-1',
             sceneId: 's-1',
@@ -59,7 +59,7 @@ describe('verifyRoomToken', () => {
             issuedAt: NOW,
             expiresAt: NOW + ROOM_TOKEN_TTL_MS,
         }));
-        const forgedUrl = forged.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+        const forgedUrl = forged.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         const result = await verifyRoomToken(`${forgedUrl}.${signaturePart}`, {
             secret: SECRET,
             expectedSceneId: 's-1',

@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import HocuspocusProvider, { type HocuspocusProviderConfiguration } from '@hocuspocus/provider';
+import { HocuspocusProvider, type HocuspocusProviderConfiguration } from '@hocuspocus/provider';
 import type { CollabPresenceState } from '@/types/collab.types';
 import { createSceneDoc } from './sceneDocMapping';
 
@@ -81,9 +81,11 @@ export interface RemoteAwarenessEntry {
 
 /** Awareness states of everyone except the local client. */
 export function getRemoteAwarenessStates(provider: HocuspocusProvider): RemoteAwarenessEntry[] {
-    const localClientId = provider.awareness.clientID;
+    const awareness = provider.awareness;
+    if (!awareness) return [];
+    const localClientId = awareness.clientID;
     const entries: RemoteAwarenessEntry[] = [];
-    for (const [clientId, state] of provider.awareness.getStates()) {
+    for (const [clientId, state] of awareness.getStates()) {
         if (clientId === localClientId) continue;
         entries.push({ clientId, state });
     }

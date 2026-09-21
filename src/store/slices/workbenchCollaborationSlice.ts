@@ -6,10 +6,13 @@ export interface WorkbenchCollaborationSlice {
     currentSceneVersion: number;
     /** True once the project page has hydrated the store from its scene fetch. */
     sceneHydrated: boolean;
+    /** True while a real-time collaboration session owns this scene's writes (single-writer rule). */
+    collabSessionActive: boolean;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
     setCurrentSceneVersion: (version: number) => void;
     setSceneHydrated: (hydrated: boolean) => void;
+    setCollabSessionActive: (active: boolean) => void;
     setNodeLockState: (lock: NodeLockState) => void;
     clearNodeLockState: (nodeId: string) => void;
     upsertPresenceState: (presence: PresenceState) => void;
@@ -20,10 +23,12 @@ export interface WorkbenchCollaborationSlice {
 export const createWorkbenchCollaborationSlice: StateCreator<AppState, [], [], WorkbenchCollaborationSlice> = (set) => ({
     currentSceneVersion: 0,
     sceneHydrated: false,
+    collabSessionActive: false,
     nodeLocks: {},
     presenceByUser: {},
     setCurrentSceneVersion: (version) => set({ currentSceneVersion: version }),
     setSceneHydrated: (hydrated) => set({ sceneHydrated: hydrated }),
+    setCollabSessionActive: (active) => set({ collabSessionActive: active }),
     setNodeLockState: (lock) =>
         set((state: AppState) => ({
             nodeLocks: {
@@ -52,6 +57,7 @@ export const createWorkbenchCollaborationSlice: StateCreator<AppState, [], [], W
         }),
     clearCollaborationState: () =>
         set({
+            collabSessionActive: false,
             nodeLocks: {},
             presenceByUser: {},
         }),

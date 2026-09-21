@@ -144,6 +144,13 @@ const commitWorkbenchHistory = (state: AppState, nextState: Partial<AppState>): 
         (nextState.activeNodeId ?? state.activeNodeId) as string | null
     );
 
+    // While a collaboration session is active the shared document owns
+    // history: remote projections must not pollute the local undo stack
+    // (SC-005) and toolbar undo/redo routes through the Yjs UndoManager.
+    if (state.collabSessionActive) {
+        return nextState;
+    }
+
     const currentSnapshot = state.workbenchHistory[state.workbenchHistoryIndex];
     if (currentSnapshot && areWorkbenchSnapshotsEqual(currentSnapshot, snapshot)) {
         return nextState;
@@ -1079,6 +1086,11 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return commitWorkbenchHistory(state, newState);
     }),
     undoWorkbench: () => set((state: AppState) => {
+        // Collab mode: store-level undo would restore a snapshot that can
+        // clobber remote changes — the toolbar uses the Yjs UndoManager.
+        if (state.collabSessionActive) {
+            return state;
+        }
         if (state.activeWorkbenchGesture || state.workbenchHistoryIndex <= 0) {
             return state;
         }
@@ -1103,6 +1115,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return newState;
     }),
     redoWorkbench: () => set((state: AppState) => {
+        if (state.collabSessionActive) {
+            return state;
+        }
         if (state.activeWorkbenchGesture || state.workbenchHistoryIndex >= state.workbenchHistory.length - 1) {
             return state;
         }

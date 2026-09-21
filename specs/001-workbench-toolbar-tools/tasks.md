@@ -26,7 +26,7 @@ Repo root: `/Users/FuturiaWorks/dev/openviz`. Tests colocate with code (`*.test.
 - [ ] T004 Implement `src/store/workbenchTools.ts`: export `TOOL_SHORTCUT_MAP`, `STICKY_TOOLS`, `isStickyTool(tool)`, `isOneShotTool(tool)`; make T003 pass (research R1)
 - [ ] T005 Write failing tests for one-shot creation action in `src/store/slices/workbenchSlice.test.ts` (new file): `createOneShotNode(node)` must append node, set it selected/active, and set `activeWorkbenchTool:'select'` in a single update (FR-007, C-4.x)
 - [ ] T006 Implement `createOneShotNode` store action in `src/store/slices/workbenchSlice.ts`; replace the WIP view-layer `makeOneShotNode` callback call sites to use it; make T005 pass (research R2)
-- [ ] T007 Refactor `src/components/workbench/hooks/useWorkbenchKeyboardShortcuts.ts` to consume `TOOL_SHORTCUT_MAP` from `workbenchTools.ts` (remove duplicated inline map); add hook test `useWorkbenchKeyboardShortcuts.test.ts`: key press activates tool, input/contenteditable focus suppresses shortcuts (C-2.2, C-2.3)
+- [ ] T007 Refactor `src/components/workbench/hooks/useWorkbenchKeyboardShortcuts.ts` to consume `TOOL_SHORTCUT_MAP` from `workbenchTools.ts` (remove duplicated inline map); add hook test `useWorkbenchKeyboardShortcuts.test.ts`: key press activates tool, input/contenteditable focus suppresses shortcuts (C-2.2, C-2.3), AND regression assertions that pre-existing bindings are unchanged: Mod+z/Mod+y undo-redo, Mod+c/v/d copy/paste/duplicate, Delete/Backspace removes selection, `[`/`]` reorder (FR-017)
 
 ## Phase 3: User Story 1 - Toolbar UI & Tool Activation (Priority: P1) 🎯 MVP
 
@@ -54,6 +54,9 @@ Repo root: `/Users/FuturiaWorks/dev/openviz`. Tests colocate with code (`*.test.
 - [ ] T014 [US2] Implement `src/services/workbench/arrowGeometry.ts` (pure math: path computation, hit-test helpers, resize normalization); make T011 pass (research R3)
 - [ ] T015 [US2] Refactor `src/components/nodes/ArrowNode.tsx` to use `arrowGeometry.ts` for path + endpoint/control drag math; make T013 pass
 - [ ] T016 [US2] Verify/complete one-shot creation handlers in `src/components/workbench/workbench.tsx` (arrow drag-end, text click, note click) route through `createOneShotNode`; make T012 pass
+- [ ] T016a [P] [US2] Write failing tests for text/note editing in `src/components/nodes/TextNode.test.tsx` and `src/components/nodes/NoteNode.test.tsx`: double-click enters edit mode, single-click only selects, Enter inserts newline while editing, Escape or blur exits edit mode retaining content (C-5.3, FR-009/FR-010)
+- [ ] T016b [P] [US2] Write failing test in `src/components/workbench/hooks/useWorkbench.connectionLogic.test.ts` (extend existing): connection creation is excluded when either node type is arrow/text/note/media; existing types remain connectable (C-6.2, FR-015)
+- [ ] T016c [US2] Verify/complete text & note edit-mode handling in `src/components/nodes/TextNode.tsx` / `NoteNode.tsx` and connection-policy exclusion for the four new node types; make T016a/T016b pass
 
 ## Phase 5: User Story 3 - Sticky Modes & Canvas Interaction (Priority: P2)
 

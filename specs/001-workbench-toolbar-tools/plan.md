@@ -67,9 +67,9 @@ src/services/workbench/arrowGeometry.ts     # NEW: pure arrow path/resize math +
 
 | Complexity | Justification | Task |
 |------------|---------------|------|
-| Splitting a 909-line store slice | Constitution V violation; behavior-preserving extraction of tool/media/creation actions into focused modules with tests | T-REF1 |
-| Radix submenu migration | Constitution IV; replaces custom dropdown lacking keyboard nav | T-RADIX |
-| Arrow geometry module | Resize-normalization edge case (spec) needs pure, unit-testable math | T-TEST3 |
+| Splitting a 909-line store slice | Constitution V violation; behavior-preserving extraction of tool/media/creation actions into focused modules with tests | T027 |
+| Radix submenu migration | Constitution IV; replaces custom dropdown lacking keyboard nav | T026 |
+| Arrow geometry module | Resize-normalization edge case (spec) needs pure, unit-testable math | T014 |
 
 ## Phase 0 — Research
 See [research.md](./research.md). All NEEDS CLARIFICATION resolved during clarify; research covers: one-shot/sticky semantics placement, object-URL lifecycle, Radix migration approach, slice-split strategy.
@@ -82,7 +82,7 @@ See [research.md](./research.md). All NEEDS CLARIFICATION resolved during clarif
 ## Implementation Sequence (summary — detail in tasks.md)
 
 1. **Test-first logic completion** (Constitution II): pure tool-semantics module + tests; arrow geometry module + tests; media upload logic extraction + tests; one-shot behavior store action + tests.
-2. **Radix submenu migration** (Constitution IV): Media + Create-new menus via `DropdownMenu`.
-3. **Refactors** (Constitution V): split `workbenchSlice.ts` and `workbench.tsx` without behavior change (tests from step 1 guard the extraction).
-4. **Object-URL lifecycle**: revoke on media node deletion.
-5. **Verification**: full acceptance matrix (quickstart.md), coverage ratchet, converge.
+2. **Radix submenu migration** (Constitution IV): Media + Create-new menus via `DropdownMenu` (T026).
+3. **Refactors** (Constitution V): split `workbenchSlice.ts` (T027) and `workbench.tsx` (T028) without behavior change (tests from step 1 guard the extraction).
+4. **Object-URL lifecycle**: revoke on media node deletion (T024).
+5. **Verification**: full acceptance matrix (quickstart.md), coverage ratchet, converge (T029–T030).

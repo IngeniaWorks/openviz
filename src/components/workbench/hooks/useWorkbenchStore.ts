@@ -9,6 +9,7 @@ export function useWorkbenchStore() {
             connections: state.connections,
             updateWorkbenchNode: state.updateWorkbenchNode,
             addWorkbenchNode: state.addWorkbenchNode,
+            createOneShotNode: state.createOneShotNode,
             removeWorkbenchNode: state.removeWorkbenchNode,
             duplicateWorkbenchNode: state.duplicateWorkbenchNode,
             reorderWorkbenchNode: state.reorderWorkbenchNode,

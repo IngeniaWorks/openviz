@@ -8,6 +8,10 @@ import {
     Connection,
     ToolType,
     WorkbenchToolType,
+    TextWorkbenchNode,
+    NoteWorkbenchNode,
+    ArrowWorkbenchNode,
+    MediaWorkbenchNode,
     AspectRatio,
     Layer,
     NodeLockState,
@@ -110,6 +114,9 @@ export interface AppState {
     // Workbench Actions
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
+    createOneShotNode: (
+        node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode
+    ) => void;
     addConnection: (
         fromId: string,
         toId: string,

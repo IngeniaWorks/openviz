@@ -17,16 +17,16 @@ Repo root: `/Users/FuturiaWorks/dev/openviz`. Tests colocate with code (`*.test.
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Verify feature branch environment: run `bash .specify/scripts/bash/check-prerequisites.sh --json` from repo root and confirm BRANCH=`001-workbench-toolbar-tools`, FEATURE_DIR resolves
-- [ ] T002 [P] Confirm test harness baseline: run `pnpm test` and record pass count (expect 13 files / 48+ tests green) before any changes
+- [X] T00- [X] T001 Verify feature branch environment: run `bash .specify/scripts/bash/check-prerequisites.sh --json` from repo root and confirm BRANCH=`001-workbench-toolbar-tools`, FEATURE_DIR resolves
+- [X] T00- [X] T002 [P] Confirm test harness baseline: run `pnpm test` and record pass count (expect 13 files / 48+ tests green) before any changes
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T003 [P] Write failing tests for pure tool semantics in `src/store/workbenchTools.test.ts`: shortcut map `{v:'select',h:'hand',d:'draw',e:'eraser',a:'arrow',t:'text',n:'note',m:'media'}`; sticky set = {draw, eraser}; `isOneShotTool` true for arrow/text/note/media only (FR-006/FR-007)
-- [ ] T004 Implement `src/store/workbenchTools.ts`: export `TOOL_SHORTCUT_MAP`, `STICKY_TOOLS`, `isStickyTool(tool)`, `isOneShotTool(tool)`; make T003 pass (research R1)
-- [ ] T005 Write failing tests for one-shot creation action in `src/store/slices/workbenchSlice.test.ts` (new file): `createOneShotNode(node)` must append node, set it selected/active, and set `activeWorkbenchTool:'select'` in a single update (FR-007, C-4.x)
-- [ ] T006 Implement `createOneShotNode` store action in `src/store/slices/workbenchSlice.ts`; replace the WIP view-layer `makeOneShotNode` callback call sites to use it; make T005 pass (research R2)
-- [ ] T007 Refactor `src/components/workbench/hooks/useWorkbenchKeyboardShortcuts.ts` to consume `TOOL_SHORTCUT_MAP` from `workbenchTools.ts` (remove duplicated inline map); add hook test `useWorkbenchKeyboardShortcuts.test.ts`: key press activates tool, input/contenteditable focus suppresses shortcuts (C-2.2, C-2.3), AND regression assertions that pre-existing bindings are unchanged: Mod+z/Mod+y undo-redo, Mod+c/v/d copy/paste/duplicate, Delete/Backspace removes selection, `[`/`]` reorder (FR-017)
+- [X] T00- [X] T003 [P] Write failing tests for pure tool semantics in `src/store/workbenchTools.test.ts`: shortcut map `{v:'select',h:'hand',d:'draw',e:'eraser',a:'arrow',t:'text',n:'note',m:'media'}`; sticky set = {draw, eraser}; `isOneShotTool` true for arrow/text/note/media only (FR-006/FR-007)
+- [X] T00- [X] T004 Implement `src/store/workbenchTools.ts`: export `TOOL_SHORTCUT_MAP`, `STICKY_TOOLS`, `isStickyTool(tool)`, `isOneShotTool(tool)`; make T003 pass (research R1)
+- [X] T00- [X] T005 Write failing tests for one-shot creation action in `src/store/slices/workbenchSlice.test.ts` (new file): `createOneShotNode(node)` must append node, set it selected/active, and set `activeWorkbenchTool:'select'` in a single update (FR-007, C-4.x)
+- [X] T00- [X] T006 Implement `createOneShotNode` store action in `src/store/slices/workbenchSlice.ts`; replace the WIP view-layer `makeOneShotNode` callback call sites to use it; make T005 pass (research R2)
+- [X] T00- [X] T007 Refactor `src/components/workbench/hooks/useWorkbenchKeyboardShortcuts.ts` to consume `TOOL_SHORTCUT_MAP` from `workbenchTools.ts` (remove duplicated inline map); add hook test `useWorkbenchKeyboardShortcuts.test.ts`: key press activates tool, input/contenteditable focus suppresses shortcuts (C-2.2, C-2.3), AND regression assertions that pre-existing bindings are unchanged: Mod+z/Mod+y undo-redo, Mod+c/v/d copy/paste/duplicate, Delete/Backspace removes selection, `[`/`]` reorder (FR-017)
 
 ## Phase 3: User Story 1 - Toolbar UI & Tool Activation (Priority: P1) 🎯 MVP
 

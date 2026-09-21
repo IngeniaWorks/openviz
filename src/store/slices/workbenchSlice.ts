@@ -10,7 +10,14 @@ import {
     RenderGroup,
     Connection,
     WorkbenchToolType,
+    ArrowWorkbenchNode,
+    MediaWorkbenchNode,
+    NoteWorkbenchNode,
+    TextWorkbenchNode,
 } from '../../types';
+
+/** Nodes created by one-shot tools (arrow/text/note/media) — FR-007. */
+type OneShotNode = TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode;
 import { INITIAL_PROJECT } from '../initialState';
 import { findNonOverlappingPosition } from '../../services/nodePositioning';
 import { addConnectionWithPolicy, normalizeConnections } from '../../services/workbench/connectionPolicy';
@@ -33,6 +40,7 @@ export interface WorkbenchSlice {
     workbenchHistoryIndex: number;
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
+    createOneShotNode: (node: OneShotNode) => void;
     addConnection: (
         fromId: string,
         toId: string,
@@ -135,6 +143,26 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
     addWorkbenchNode: (node) => set((state: AppState) => {
         const newNodes = [...state.workbenchNodes, node];
         const newState: Partial<AppState> = { workbenchNodes: newNodes };
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: newNodes
+            };
+        }
+        return commitWorkbenchHistory(state, newState);
+    }),
+
+    // FR-007: one-shot tools create exactly one item, then auto-return to Select.
+    // Atomic in a single state update so the canvas never observes an
+    // intermediate "node exists but tool not yet switched" frame.
+    createOneShotNode: (node) => set((state: AppState) => {
+        const newNodes = [...state.workbenchNodes, node];
+        const newState: Partial<AppState> = {
+            workbenchNodes: newNodes,
+            activeNodeId: node.id,
+            selectedNodeIds: [node.id],
+            activeWorkbenchTool: 'select',
+        };
         if (state.currentProjectId) {
             newState.projectNodes = {
                 ...state.projectNodes,

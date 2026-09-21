@@ -32,7 +32,9 @@ class FakeProvider {
     awareness = new FakeAwareness();
     private statusListeners: StatusListener[] = [];
     private syncedListeners: Array<() => void> = [];
+    private maxAttemptsFailedListeners: Array<() => void> = [];
     destroyed = false;
+    connectCalls = 0;
 
     constructor(config: Record<string, unknown>) {
         this.config = config;
@@ -42,6 +44,7 @@ class FakeProvider {
     on(event: string, listener: StatusListener | (() => void)): this {
         if (event === 'status') this.statusListeners.push(listener as StatusListener);
         if (event === 'synced') this.syncedListeners.push(listener as () => void);
+        if (event === 'maxAttemptsFailed') this.maxAttemptsFailedListeners.push(listener as () => void);
         return this;
     }
 
@@ -50,7 +53,13 @@ class FakeProvider {
         for (const listener of this.statusListeners) listener({ status });
     }
 
+    /** Test helper: simulate the retry loop giving up. */
+    emitMaxAttemptsFailed(): void {
+        for (const listener of this.maxAttemptsFailedListeners) listener();
+    }
+
     connect(): void {
+        this.connectCalls += 1;
         // Report connected, then synced, on later microtasks — like the real transport.
         queueMicrotask(() => this.emitStatus('connected'));
         queueMicrotask(() => {
@@ -168,6 +177,48 @@ describe('useCollabSession lifecycle', () => {
         });
     });
 
+    it('keeps a mid-gesture node at its transient position when a remote update arrives', async () => {
+        const doc = createSceneDoc();
+        seedSceneFromJson(doc, {
+            nodes: [{ id: 'n1', x: 0, y: 0 }, { id: 'n2', x: 5, y: 5 }],
+            connections: [],
+        });
+        const options = seedOptions({}, doc);
+
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        // Simulate an in-progress drag on n1: transient position is already in the store.
+        act(() => {
+            useStore.setState({
+                workbenchNodes: useStore.getState().workbenchNodes.map((node) =>
+                    node.id === 'n1' ? { ...node, x: 50, y: 51 } : node
+                ),
+                activeWorkbenchGesture: {
+                    kind: 'move',
+                    projectId: PROJECT_ID,
+                    startedAt: Date.now(),
+                    startSnapshot: { workbenchNodes: [], connections: [], selectedNodeIds: [], activeNodeId: null },
+                    affectedNodeIds: ['n1'],
+                },
+            });
+        });
+
+        // A peer moves n2; the doc still holds n1's pre-drag position.
+        act(() => {
+            doc.transact(() => {
+                const nodes = doc.getMap('nodes');
+                (nodes.get('n2') as { set(key: string, value: unknown): void }).set('x', 9);
+            }, 'user:bob');
+        });
+
+        await waitFor(() => {
+            expect(useStore.getState().workbenchNodes.find((node) => node.id === 'n2')?.x).toBe(9);
+        });
+        // The dragged node must not snap back to its pre-drag position.
+        expect(useStore.getState().workbenchNodes.find((node) => node.id === 'n1')?.x).toBe(50);
+    });
+
     it('pushes local store edits into the shared document with the user origin', async () => {
         const doc = createSceneDoc();
         seedSceneFromJson(doc, { nodes: [{ id: 'n1', x: 0, y: 0 }], connections: [] });
@@ -213,6 +264,40 @@ describe('useCollabSession lifecycle', () => {
         // Unmount tears down the remaining session.
         unmount();
         expect(FakeProvider.instances[1].destroyed).toBe(true);
+    });
+
+    it('reconnects when the tab becomes visible while disconnected (frozen-tab recovery)', async () => {
+        const options = seedOptions();
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+        const provider = FakeProvider.instances[0];
+        const initialConnectCalls = provider.connectCalls;
+
+        // The transport drops (e.g. the tab was frozen long enough to exhaust retries).
+        act(() => {
+            provider.emitStatus('disconnected');
+        });
+        await waitFor(() => expect(result.current.status).toBe('connecting'));
+
+        // Coming back to the tab must re-trigger the connection so the
+        // state-vector sync can deliver everything missed while away.
+        act(() => {
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+
+        expect(provider.connectCalls).toBeGreaterThan(initialConnectCalls);
+    });
+
+    it('marks the session failed when the provider exhausts its retries', async () => {
+        const options = seedOptions();
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        act(() => {
+            FakeProvider.instances[0].emitMaxAttemptsFailed();
+        });
+
+        await waitFor(() => expect(result.current.status).toBe('failed'));
     });
 });
 

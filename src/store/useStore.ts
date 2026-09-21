@@ -43,6 +43,23 @@ export const useStore = create<AppState>()(
         {
             name: 'openviz-storage-idb',
             storage: createJSONStorage(() => storage),
+            // IndexedDB rehydration is async and can land AFTER a collaboration
+            // session has already projected the live shared scene. In that case a
+            // stale persisted snapshot must not clobber workbenchNodes/connections
+            // (the bridge would flush it back and overwrite remote edits).
+            merge: (persistedState, currentState) => {
+                const persisted = persistedState as Partial<AppState>;
+                if ((currentState as AppState).collabSessionActive) {
+                    return {
+                        ...currentState,
+                        ...persisted,
+                        workbenchNodes: currentState.workbenchNodes,
+                        connections: currentState.connections,
+                        projectNodes: currentState.projectNodes,
+                    } as AppState;
+                }
+                return { ...currentState, ...persisted } as AppState;
+            },
             partialize: (state) => ({
                 project: state.project,
                 activeLayerId: state.activeLayerId,

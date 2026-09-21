@@ -14,6 +14,7 @@ import { createCollabUndoManager, type CollabUndoManager } from '@/services/coll
 export interface CollabProviderLike {
     on(event: 'status', listener: (event: { status: string }) => void): unknown;
     on(event: 'synced', listener: () => void): unknown;
+    on(event: 'maxAttemptsFailed', listener: () => void): unknown;
     connect(): void | Promise<unknown>;
     disconnect(): void;
     destroy(): void;
@@ -108,14 +109,43 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         let handle: CollabSessionHandle | null = null;
         let sync: CollabStoreSync | null = null;
         let unsubscribeUndo: (() => void) | null = null;
+        let sessionStatus: CollabSessionStatus = 'connecting';
+
+        const updateStatus = (next: CollabSessionStatus): void => {
+            if (cancelled) return;
+            sessionStatus = next;
+            setStatus(next);
+        };
+
+        // Frozen/suspended tabs can exhaust the provider's retry budget while
+        // away (background throttling). When the user comes back, re-trigger
+        // the connection so the state-vector sync delivers everything missed —
+        // the resulting doc update re-projects the store from the server.
+        const handleVisibilityChange = (): void => {
+            if (cancelled || !handle) return;
+            if (document.visibilityState !== 'visible') return;
+            if (sessionStatus === 'connected') return;
+            void handle.provider.connect();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         const applyToStore = (scene: SceneDataJson): void => {
             const state = useStore.getState();
-            state.setWorkbenchNodes(scene.nodes as unknown as WorkbenchNode[]);
+            // A remote projection must not yank a node that is mid-gesture
+            // back to its pre-drag position — keep the in-flight transient
+            // position for affected nodes; the gesture commit flushes the
+            // final value afterwards (last-write-wins per field).
+            const protectedIds = state.activeWorkbenchGesture?.affectedNodeIds ?? [];
+            const nodes = scene.nodes.map((node) => {
+                if (!protectedIds.includes(node.id)) return node;
+                const live = state.workbenchNodes.find((candidate) => candidate.id === node.id);
+                return live ? { ...node, x: live.x, y: live.y } : node;
+            });
+            state.setWorkbenchNodes(nodes as unknown as WorkbenchNode[]);
             state.setConnections(scene.connections as unknown as Connection[]);
         };
 
-        setStatus('connecting');
+        updateStatus('connecting');
 
         void (async () => {
             try {
@@ -141,6 +171,9 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                             gestureActive: state.activeWorkbenchGesture !== null,
                         };
                     },
+                    getActiveGestureNodeIds: () => {
+                        return useStore.getState().activeWorkbenchGesture?.affectedNodeIds ?? null;
+                    },
                     applyToStore,
                     subscribeStore: (listener) => useStore.subscribe(listener),
                 });
@@ -156,10 +189,15 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                     if (cancelled || !sync) return;
                     useStore.getState().setCollabSessionActive(true);
                     sync.start();
+                    console.info('[collab] synced — live co-editing active for scene', tokenResponse.sceneId);
                 });
                 handle.provider.on('status', (event) => {
-                    if (cancelled) return;
-                    setStatus(event.status === 'connected' ? 'connected' : 'connecting');
+                    const next = event.status === 'connected' ? 'connected' : 'connecting';
+                    if (next !== sessionStatus) console.info('[collab] status:', next);
+                    updateStatus(next);
+                });
+                handle.provider.on('maxAttemptsFailed', () => {
+                    updateStatus('failed');
                 });
 
                 setDoc(handle.doc);
@@ -167,12 +205,13 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                 void handle.provider.connect();
             } catch (error) {
                 console.error('Failed to join collaboration session:', error);
-                if (!cancelled) setStatus('idle');
+                updateStatus('idle');
             }
         })();
 
         return () => {
             cancelled = true;
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             sync?.stop();
             unsubscribeUndo?.();
             undoRef.current?.destroy();

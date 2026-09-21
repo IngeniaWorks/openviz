@@ -30,7 +30,9 @@ export interface PersistenceDependencies {
 /** Extracts the user id from local client origins (`user:<id>`); null otherwise. */
 export function parseOriginUser(origin: unknown): string | null {
     if (typeof origin !== 'string' || !origin.startsWith('user:')) return null;
-    const userId = origin.slice('user:'.length);
+    // Origin format: `user:<userId>[:<clientID>]` — the client suffix isolates
+    // concurrent tabs of one user; attribution only needs the userId segment.
+    const userId = origin.slice('user:'.length).split(':')[0];
     return userId.length > 0 ? userId : null;
 }
 

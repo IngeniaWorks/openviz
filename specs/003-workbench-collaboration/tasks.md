@@ -18,8 +18,8 @@
 
 **Purpose**: Dependencies and tooling for the collaboration stack
 
-- [ ] T001 Add collaboration dependencies to `package.json`: runtime `yjs`, `y-indexeddb`, `@hocuspocus/server`, `@hocuspocus/extension-database`, `@hocuspocus/provider`; dev `fake-indexeddb`; plus script `"dev:collab": "tsx server/collab/index.ts"`
-- [ ] T002 [P] Configure Vitest so tests under `server/collab/` run in node environment against the Drizzle schema (environment override or workspace entry) in `vitest.config.ts`, and confirm `fake-indexeddb` is available to client-side suites
+- [X] T001 Add collaboration dependencies to `package.json`: runtime `yjs`, `y-indexeddb`, `@hocuspocus/server`, `@hocuspocus/extension-database`, `@hocuspocus/provider`; dev `fake-indexeddb`; plus script `"dev:collab": "tsx server/collab/index.ts"`
+- [X] T002 [P] Configure Vitest so tests under `server/collab/` run in node environment against the Drizzle schema (environment override or workspace entry) in `vitest.config.ts`, and confirm `fake-indexeddb` is available to client-side suites
 
 **Checkpoint**: Dependencies installed; both client and server test environments run.
 
@@ -31,20 +31,20 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 [P] Write failing tests in `src/services/collab/roomTokenService.test.ts`: issue produces payload of exactly `{ projectId, sceneId, userId, issuedAt, expiresAt }` with TTL ≈ 5 minutes; verify accepts valid tokens and rejects expired, tampered, and out-of-scope (sceneId mismatch) tokens
-- [ ] T004 Implement signed room-token issue/verify (HMAC/JWT, shared secret from env) in `src/services/collab/roomTokenService.ts` (depends on T003)
-- [ ] T005 [P] Write failing tests in `src/services/collab/sceneDocMapping.test.ts`: JSON→document seed preserves 100% of nodes and connections; document→JSON extraction round-trips; nodes and connections stored in keyed collections (per node ID / connection ID); orphaned connections (referencing absent node IDs) are pruned during projection
-- [ ] T006 Implement scene JSON ↔ shared-document mapping (seed + extract + orphan pruning) in `src/services/collab/sceneDocMapping.ts` (depends on T005)
-- [ ] T007 [P] Add the nullable bytea `ydoc` column to `scenes`: update `src/lib/db/schema.ts`, generate the migration with `pnpm run db:generate` (`drizzle/000N_add_scenes_ydoc.sql`), apply with `pnpm run db:migrate`; verify pre-existing rows are untouched (column NULL)
-- [ ] T008 [P] Write failing tests in `server/collab/auth.test.ts`: valid token with current project membership is admitted; malformed, expired, and out-of-scope tokens are rejected; a token whose user has lost workspace membership is rejected at join time (SC-006)
-- [ ] T009 Implement the Hocuspocus `onAuthenticate` hook (token verification via roomTokenService + database membership re-check for the token's userId) in `server/collab/auth.ts` (depends on T008, T004)
-- [ ] T010 [P] Write failing tests in `server/collab/persistence.test.ts`: debounced save ~2 s after last change writes extracted JSON to `scenes.data`, bumps `version`, sets `updatedBy` to the last editor known in the room, and stores the encoded document in `ydoc`; immediate final save when the last client leaves; load prefers `ydoc` over JSON when both exist; seeds from JSON when `ydoc` is absent (SC-007); a failed save is retried on next trigger and never blocks or rolls back live document state
-- [ ] T011 Implement `onLoadDocument`/`onSaveDocument` persistence hooks (debounce ~2 s, final save on room close, single-writer Drizzle upsert) in `server/collab/persistence.ts` (depends on T010, T006, T007)
-- [ ] T012 Wire the Hocuspocus server bootstrap (env-driven port/token-secret/DB URL, auth + database extensions, lifecycle logging; fail fast at boot if the token secret is missing) in `server/collab/index.ts` (depends on T009, T011)
-- [ ] T013 [P] Write failing tests in `src/app/api/projects/[id]/scenes/collab-token/route.test.ts`: 200 with a scoped token for a workspace member; 401 without session; 403 for a non-member using the existing `canAccessProject` membership pattern; 404 for missing project and for a project without a main scene
-- [ ] T014 Implement `POST /api/projects/:id/scenes/collab-token` (NextAuth `auth()` + membership check + main-scene resolution + roomTokenService issue) in `src/app/api/projects/[id]/scenes/collab-token/route.ts` (depends on T013, T004)
-- [ ] T015 [P] Write failing tests in `src/services/collab/collabProviderFactory.test.ts`: provider connects to the room named by the scene ID; local transactions are tagged with the per-user origin; awareness channel is active on connect; the local client's own awareness state is excluded from derived remote states
-- [ ] T016 Implement the client provider factory (Hocuspocus provider + awareness + per-user local origin) in `src/services/collab/collabProviderFactory.ts` (depends on T015)
+- [X] T003 [P] Write failing tests in `src/services/collab/roomTokenService.test.ts`: issue produces payload of exactly `{ projectId, sceneId, userId, issuedAt, expiresAt }` with TTL ≈ 5 minutes; verify accepts valid tokens and rejects expired, tampered, and out-of-scope (sceneId mismatch) tokens
+- [X] T004 Implement signed room-token issue/verify (HMAC/JWT, shared secret from env) in `src/services/collab/roomTokenService.ts` (depends on T003)
+- [X] T005 [P] Write failing tests in `src/services/collab/sceneDocMapping.test.ts`: JSON→document seed preserves 100% of nodes and connections; document→JSON extraction round-trips; nodes and connections stored in keyed collections (per node ID / connection ID); orphaned connections (referencing absent node IDs) are pruned during projection
+- [X] T006 Implement scene JSON ↔ shared-document mapping (seed + extract + orphan pruning) in `src/services/collab/sceneDocMapping.ts` (depends on T005)
+- [X] T007 [P] Add the nullable bytea `ydoc` column to `scenes`: update `src/lib/db/schema.ts`, generate the migration with `pnpm run db:generate` (`drizzle/000N_add_scenes_ydoc.sql`), apply with `pnpm run db:migrate`; verify pre-existing rows are untouched (column NULL)
+- [X] T008 [P] Write failing tests in `server/collab/auth.test.ts`: valid token with current project membership is admitted; malformed, expired, and out-of-scope tokens are rejected; a token whose user has lost workspace membership is rejected at join time (SC-006)
+- [X] T009 Implement the Hocuspocus `onAuthenticate` hook (token verification via roomTokenService + database membership re-check for the token's userId) in `server/collab/auth.ts` (depends on T008, T004)
+- [X] T010 [P] Write failing tests in `server/collab/persistence.test.ts`: debounced save ~2 s after last change writes extracted JSON to `scenes.data`, bumps `version`, sets `updatedBy` to the last editor known in the room, and stores the encoded document in `ydoc`; immediate final save when the last client leaves; load prefers `ydoc` over JSON when both exist; seeds from JSON when `ydoc` is absent (SC-007); a failed save is retried on next trigger and never blocks or rolls back live document state
+- [X] T011 Implement `onLoadDocument`/`onSaveDocument` persistence hooks (debounce ~2 s, final save on room close, single-writer Drizzle upsert) in `server/collab/persistence.ts` (depends on T010, T006, T007)
+- [X] T012 Wire the Hocuspocus server bootstrap (env-driven port/token-secret/DB URL, auth + database extensions, lifecycle logging; fail fast at boot if the token secret is missing) in `server/collab/index.ts` (depends on T009, T011)
+- [X] T013 [P] Write failing tests in `src/app/api/projects/[id]/scenes/collab-token/route.test.ts`: 200 with a scoped token for a workspace member; 401 without session; 403 for a non-member using the existing `canAccessProject` membership pattern; 404 for missing project and for a project without a main scene
+- [X] T014 Implement `POST /api/projects/:id/scenes/collab-token` (NextAuth `auth()` + membership check + main-scene resolution + roomTokenService issue) in `src/app/api/projects/[id]/scenes/collab-token/route.ts` (depends on T013, T004)
+- [X] T015 [P] Write failing tests in `src/services/collab/collabProviderFactory.test.ts`: provider connects to the room named by the scene ID; local transactions are tagged with the per-user origin; awareness channel is active on connect; the local client's own awareness state is excluded from derived remote states
+- [X] T016 Implement the client provider factory (Hocuspocus provider + awareness + per-user local origin) in `src/services/collab/collabProviderFactory.ts` (depends on T015)
 
 **Checkpoint**: Foundation ready — a token can be issued, a room admits only members, documents persist and lazy-import, and the client factory can connect. User story implementation can now begin.
 

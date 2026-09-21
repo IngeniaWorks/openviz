@@ -185,6 +185,7 @@ const WorkbenchContent: React.FC = () => {
             setActiveNodeId,
             setSelectedNodeIds,
             addWorkbenchNode,
+            createOneShotNode,
             setFreehandColor,
             setFreehandStrokeWidth,
             undoWorkbench,
@@ -223,16 +224,14 @@ const WorkbenchContent: React.FC = () => {
         { label: 'Delete', shortcut: 'Del', onClick: () => removeWorkbenchNode(contextMenu.nodeId), type: 'danger' as const },
     ] : [];
 
-    const createNodeAndSelect = useCallback((node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode) => {
-        addWorkbenchNode(node);
-        setActiveNodeId(node.id);
-        setSelectedNodeIds([node.id]);
-    }, [addWorkbenchNode, setActiveNodeId, setSelectedNodeIds]);
-
-    const makeOneShotNode = useCallback((node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode) => {
-        createNodeAndSelect(node);
-        setActiveWorkbenchTool('select');
-    }, [createNodeAndSelect, setActiveWorkbenchTool]);
+    // FR-007: one-shot creation is an atomic store action (T006) — the view
+    // only builds the node payload; select + tool switch happen in one update.
+    const makeOneShotNode = useCallback(
+        (node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode) => {
+            createOneShotNode(node);
+        },
+        [createOneShotNode]
+    );
 
     const handleEraseAtPoint = useCallback(
         (point: Point) => {

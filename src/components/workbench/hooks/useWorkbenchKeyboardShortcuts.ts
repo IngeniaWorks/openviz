@@ -1,5 +1,7 @@
 import { useEffect } from "react";
-import { WorkbenchToolType } from "@/types";
+
+import { TOOL_SHORTCUT_MAP } from "@/store/workbenchTools";
+import type { WorkbenchToolType } from "@/types";
 
 type UseWorkbenchKeyboardShortcutsOptions = {
     copyToClipboard: () => void;
@@ -65,19 +67,8 @@ export function useWorkbenchKeyboardShortcuts({
             } else if (e.key === "]") {
                 if (activeNodeId) reorderWorkbenchNode(activeNodeId, "front");
             } else if (!isMod) {
-                const key = e.key.toLowerCase();
-                const shortcutMap: Record<string, WorkbenchToolType> = {
-                    v: "select",
-                    h: "hand",
-                    d: "draw",
-                    e: "eraser",
-                    a: "arrow",
-                    t: "text",
-                    n: "note",
-                    m: "media",
-                };
-
-                const tool = shortcutMap[key];
+                // Single source of truth for tool keys — see workbenchTools.ts (T007).
+                const tool = TOOL_SHORTCUT_MAP[e.key.toLowerCase()];
                 if (tool) {
                     e.preventDefault();
                     setActiveWorkbenchTool(tool);

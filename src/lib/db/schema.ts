@@ -1,5 +1,12 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, jsonb, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, integer, jsonb, customType, primaryKey } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+
+/** Postgres `bytea` column type (removed from drizzle pg-core in 0.4x). */
+export const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+    dataType() {
+        return 'bytea';
+    },
+});
 
 /**
  * Users Table
@@ -76,6 +83,8 @@ export const scenes = pgTable('scenes', {
     isMain: boolean('is_main').default(true).notNull(),
     version: integer('version').default(1).notNull(),
     updatedBy: uuid('updated_by').references(() => users.id),
+    /** Encoded Yjs document for collaborative scenes (NULL until first collaborative save). */
+    ydoc: bytea('ydoc'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

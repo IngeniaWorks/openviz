@@ -58,6 +58,9 @@ A user opening a shared scene can see which teammates are currently in it and wh
 1. **Given** one collaborator already in a scene, **When** a second project member opens the same scene, **Then** the first collaborator sees the second listed as present within a couple of seconds.
 2. **Given** two connected collaborators, **When** one moves their pointer across the canvas, **Then** the other sees a cursor indicator for that collaborator tracking the corresponding positions.
 3. **Given** a present collaborator, **When** they leave the scene or their connection drops, **Then** their presence entry and cursor disappear from the other sessions.
+4. **Given** a collaborator has selected an item (or is actively editing it), **When** another collaborator tries to select, move, resize, edit, or delete that item, **Then** the attempt is blocked and the item shows who holds it.
+5. **Given** two collaborators select the same item at nearly the same time, **When** both sessions resolve the conflict, **Then** exactly one deterministically wins (earliest selection timestamp; ties broken by client id) and the other's selection of that item is released automatically.
+6. **Given** a collaborator holding an item lock, **When** they deselect the item, switch projects, or disconnect, **Then** the lock is released and others can edit the item again.
 
 ---
 
@@ -115,6 +118,8 @@ Projects created before this feature continue to behave exactly as before when u
 - After a long disconnection during which the shared scene changed substantially, reconnecting performs a full state reconciliation with no data loss from either side.
 - Concurrent creation and deletion of the same node by two collaborators resolves to one deterministic result that is identical in all sessions, with no dangling connections or orphaned content visible.
 - Two collaborators triggering an AI-assisted generation on the same node at the same time do not corrupt the scene; the graph structure stays consistent and the node ends with one completed output.
+- Two collaborators select the same item within milliseconds of each other: exactly one session keeps the selection (earliest timestamp wins, ties broken by client id) and the other releases it without error or corruption.
+- A collaborator is editing an item when another collaborator's lock on that item would normally block them — locks only restrict edits initiated from a session that does not hold the lock; the holder keeps full control until they release it.
 - Behavior beyond the target scale (more than five concurrent editors, or scenes far larger than ~100 nodes) is not guaranteed in this release, but exceeding it must not corrupt the shared scene state.
 
 ## Requirements *(mandatory)*
@@ -133,8 +138,10 @@ Projects created before this feature continue to behave exactly as before when u
 - **FR-010**: The system MUST initialize a shared scene from the existing saved state of the scene on its first collaborative open, preserving all saved nodes and connections.
 - **FR-011**: The system MUST keep the durable saved scene state consistent with the converged shared state, so that reopening the project later loads the current scene rather than a stale snapshot.
 - **FR-012**: The system MUST NOT change single-user behavior, editing, or persistence for scenes that are never opened collaboratively.
-- **FR-013**: The system MUST NOT include shared viewport synchronization, selection synchronization, or comments in this release.
+- **FR-013**: The system MUST NOT include shared viewport synchronization, visual selection-state sharing, or comments in this release. (Selection-derived soft locks are in scope per FR-015.)
 - **FR-014**: The system MUST keep collaboration within the existing project access and permission model; external stakeholder access is out of scope for this release.
+- **FR-015**: While a collaborator has an item selected or is actively editing it, the system MUST present that item as locked to all other collaborators: they MUST NOT be able to select, move, resize, edit, or delete it, and the item MUST visibly indicate which collaborator holds it.
+- **FR-016**: Item locks MUST be released automatically when the holder deselects the item, stops editing it, switches projects, or disconnects; concurrent claims for the same item MUST resolve to a single deterministic winner across all sessions.
 
 ### Key Entities *(include if data involved)*
 

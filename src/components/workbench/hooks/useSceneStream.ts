@@ -19,6 +19,7 @@ export function useSceneStream(projectId: string | null) {
         clearNodeLockState,
         upsertPresenceState,
         clearPresenceState,
+        collabSessionActive,
     } = useStore(
         useShallow((state) => ({
             currentSceneVersion: state.currentSceneVersion,
@@ -29,6 +30,7 @@ export function useSceneStream(projectId: string | null) {
             clearNodeLockState: state.clearNodeLockState,
             upsertPresenceState: state.upsertPresenceState,
             clearPresenceState: state.clearPresenceState,
+            collabSessionActive: state.collabSessionActive,
         }))
     );
 
@@ -37,6 +39,10 @@ export function useSceneStream(projectId: string | null) {
         if (!projectId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
             return;
         }
+        // While a collaboration session owns this scene, the ydoc + awareness
+        // are the source of truth — SSE snapshots/locks/presence would clobber
+        // live projections and never-expiring locks (US2 migration).
+        if (collabSessionActive) return;
 
         const source = new EventSource(`/api/projects/${projectId}/scenes/stream`);
 
@@ -114,5 +120,6 @@ export function useSceneStream(projectId: string | null) {
         clearNodeLockState,
         upsertPresenceState,
         clearPresenceState,
+        collabSessionActive,
     ]);
 }

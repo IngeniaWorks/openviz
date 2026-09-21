@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 import { Edge, Node } from "@xyflow/react";
-import { Connection, WorkbenchNode } from "@/types";
+import { Connection, NodeLockState, WorkbenchNode } from "@/types";
 
 type WorkbenchGraphOptions = {
     workbenchNodes: WorkbenchNode[];
     connections: Connection[];
     selectedNodeIds: string[];
+    /** Remote soft locks (nodeId → holder). Locked nodes are inert for this session. */
+    nodeLocks: Record<string, NodeLockState>;
     handleSourceClick: (nodeId: string) => void;
     handleResize: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
     handleResizeEnd: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
@@ -69,6 +71,7 @@ export function useWorkbenchGraph({
     workbenchNodes,
     connections,
     selectedNodeIds,
+    nodeLocks,
     handleSourceClick,
     handleResize,
     handleResizeEnd,
@@ -101,9 +104,13 @@ export function useWorkbenchGraph({
                     onDataChange: handleDataChange,
                 } as Record<string, unknown>,
                 selected: selectedNodeIds.includes(node.id),
+                // Remote soft locks (spec FR-015): a node another collaborator
+                // holds cannot be selected or dragged from this session.
+                selectable: !nodeLocks[node.id],
+                draggable: !nodeLocks[node.id],
             };
         });
-    }, [workbenchNodes, selectedNodeIds, handleSourceClick, handleResize, handleResizeEnd, handleTransientDataChange, handleGestureStart, handleGestureEnd, handleDataChange]);
+    }, [workbenchNodes, selectedNodeIds, nodeLocks, handleSourceClick, handleResize, handleResizeEnd, handleTransientDataChange, handleGestureStart, handleGestureEnd, handleDataChange]);
 
     const edges = useMemo<Array<Edge>>(() => {
         const nodeById = new Map(workbenchNodes.map((node) => [node.id, node]));

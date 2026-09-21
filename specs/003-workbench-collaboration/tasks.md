@@ -84,19 +84,30 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T025 [P] [US2] Write failing tests in `src/store/slices/workbenchCollaborationSlice.test.ts`: presence list derived from awareness states excludes the local client; a peer's entry is removed when its awareness state disappears; cursor entries are null when idle
-- [ ] T026 [P] [US2] Write failing behavior tests in `src/components/workbench/PresenceIndicator.test.tsx` (from spec US2 acceptance scenarios): renders other collaborators' display names; excludes self; hidden when no other collaborator is present
-- [ ] T027 [P] [US2] Write failing behavior tests in `src/components/workbench/CursorOverlay.test.tsx`: one labeled indicator per remote non-null cursor mapped to canvas/world coordinates under pan/zoom; none for the local client; indicators removed when a peer leaves (SC-003)
+- [X] T025 [P] [US2] Write failing tests in `src/store/slices/workbenchCollaborationSlice.test.ts`: presence list derived from awareness states excludes the local client; a peer's entry is removed when its awareness state disappears; cursor entries are null when idle
+- [X] T026 [P] [US2] Write failing behavior tests in `src/components/workbench/PresenceIndicator.test.tsx` (from spec US2 acceptance scenarios): renders other collaborators' display names; excludes self; hidden when no other collaborator is present
+- [X] T027 [P] [US2] Write failing behavior tests in `src/components/workbench/CursorOverlay.test.tsx`: one labeled indicator per remote non-null cursor mapped to canvas/world coordinates under pan/zoom; none for the local client; indicators removed when a peer leaves (SC-003)
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Extend the collaboration slice with awareness-derived presence list and remote cursor state in `src/store/slices/workbenchCollaborationSlice.ts` (depends on T025)
-- [ ] T029 [P] [US2] Implement `PresenceIndicator` (Tailwind chip, Framer Motion transitions) in `src/components/workbench/PresenceIndicator.tsx` (depends on T028, T026)
-- [ ] T030 [P] [US2] Implement `CursorOverlay` (remote cursor markers with display-name labels; viewport-transform mapping so cursors track world coordinates under pan/zoom) in `src/components/workbench/CursorOverlay.tsx` (depends on T028, T027)
-- [ ] T031 [US2] Publish awareness state `{ user: { id, name }, cursor: { x, y } | null }` from the existing pointer-tracking hook with rAF throttling (at most one update per animation frame ≈ 16 ms while moving; `cursor: null` when idle) in `src/services/collab/collabProviderFactory.ts` + `src/components/workbench/hooks/useCollabSession.ts` (depends on T028)
-- [ ] T032 [US2] Integrate `PresenceIndicator` + `CursorOverlay` into the workbench shell, replacing the SSE-derived presence/lock chip in `src/components/workbench/workbench.tsx` (depends on T029, T030, T031)
+- [X] T028 [US2] Extend the collaboration slice with awareness-derived presence list and remote cursor state in `src/store/slices/workbenchCollaborationSlice.ts` (depends on T025)
+- [X] T029 [P] [US2] Implement `PresenceIndicator` (Tailwind chip, Framer Motion transitions) in `src/components/workbench/PresenceIndicator.tsx` (depends on T028, T026)
+- [X] T030 [P] [US2] Implement `CursorOverlay` (remote cursor markers with display-name labels; viewport-transform mapping so cursors track world coordinates under pan/zoom) in `src/components/workbench/CursorOverlay.tsx` (depends on T028, T027)
+- [X] T031 [US2] Publish awareness state `{ user: { id, name }, cursor: { x, y } | null, activeNodeIds: string[], selectedAt: number }` from the existing pointer-tracking hook with rAF throttling (at most one update per animation frame ≈ 16 ms while moving; `cursor: null` when idle) in a new `src/components/workbench/hooks/useCollabPresencePublisher.ts` wired from `useWorkbenchCollabSession.ts` (depends on T028)
+- [X] T032 [US2] Integrate `PresenceIndicator` + `CursorOverlay` into the workbench shell, replacing the SSE-derived presence/lock chip in `src/components/workbench/workbench.tsx` (depends on T029, T030, T031)
 
-**Checkpoint**: User Stories 1 AND 2 both work independently — concurrent editing with visible presence and cursors.
+### Soft item locks (requester addition 2025-07 — spec FR-015/FR-016)
+
+- [X] T050 [P] [US2] Write failing tests in `src/store/slices/workbenchCollaborationSlice.test.ts`: `applyRemoteAwareness` derives presence, remote cursors (keyed by client id), and node locks — earliest `selectedAt` wins per node, ties break to lower client id, local client excluded, departed peers fully cleared
+- [X] T051 [US2] Extend the collaboration slice with `remoteCursors` state + `applyRemoteAwareness` action (pure derivation of presence/cursors/locks from an awareness snapshot) in `src/store/slices/workbenchCollaborationSlice.ts` (depends on T050, covers T025/T028)
+- [X] T052 [P] [US2] Write failing tests in `src/components/workbench/hooks/useCollabPresencePublisher.test.ts`: publishes `activeNodeIds`/`selectedAt` when selection or gesture changes (epoch only changes when the id SET changes); cursor published in world coordinates rAF-throttled and set null on pointer leave; a lost lock conflict releases the local selection of the contested node
+- [X] T053 [US2] Implement `useCollabPresencePublisher` (awareness publishing for user/cursor/activeNodeIds/selectedAt + yield-on-lost-conflict effect) in `src/components/workbench/hooks/useCollabPresencePublisher.ts`; expose the provider from `useCollabSession` (depends on T051, T052)
+- [X] T054 [P] [US2] Write failing tests: flow-node mapping sets `selectable=false`/`draggable=false` for remotely locked nodes (`useWorkbenchGraph`); `removeWorkbenchNode` skips remotely locked ids; resize/double-click/data-change entry points in `useWorkbenchNodeHandlers` ignore remotely locked nodes
+- [X] T055 [US2] Enforce locks: pass `nodeLocks` into `useWorkbenchGraph` node mapping; add lock guards to `removeWorkbenchNode` (store) and `useWorkbenchNodeHandlers` (resize, resizeEnd, double-click, transient/data change, select changes) in `src/store/slices/workbenchSlice.ts` + `src/components/workbench/hooks/useWorkbenchNodeHandlers.ts` (depends on T054)
+- [X] T056 [P] [US2] Write failing behavior tests in `src/components/workbench/NodeLockBadges.test.tsx`: one holder-name badge per remotely locked node positioned at the node's screen location under pan/zoom; no badges when no remote locks
+- [X] T057 [US2] Implement `NodeLockBadges` (Tailwind, world→screen mapping) in `src/components/workbench/NodeLockBadges.tsx` and integrate presence/cursor/lock overlays into the workbench shell in `src/components/workbench/workbench.tsx` (depends on T032, T056)
+
+**Checkpoint**: User Stories 1 AND 2 both work independently — concurrent editing with visible presence, cursors, and enforced soft item locks.
 
 ---
 

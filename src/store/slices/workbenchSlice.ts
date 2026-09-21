@@ -357,7 +357,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
 
     removeWorkbenchNode: (id) => {
         const state = get();
-        const idsToRemove = id ? [id] : state.selectedNodeIds;
+        // Remote soft locks (spec FR-015): a node another collaborator has
+        // selected or is editing cannot be deleted from this session.
+        const idsToRemove = (id ? [id] : state.selectedNodeIds).filter((nodeId) => !state.nodeLocks[nodeId]);
         if (idsToRemove.length === 0) return;
 
         // Release object URLs from removed uploaded images so blob memory does

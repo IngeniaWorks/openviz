@@ -36,11 +36,16 @@ import { useWorkbenchFreehandEraser } from './hooks/useWorkbenchFreehandEraser';
 import { useWorkbenchMediaUpload } from './hooks/useWorkbenchMediaUpload';
 import { useResizeObserverWarningSuppression } from './hooks/useResizeObserverWarningSuppression';
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
+import { useCollabPresencePublisher } from './hooks/useCollabPresencePublisher';
 import { useSceneStream } from './hooks/useSceneStream';
+import { CursorOverlay } from './CursorOverlay';
+import { NodeLockBadges } from './NodeLockBadges';
+import { PresenceIndicator } from './PresenceIndicator';
 import { useShallow } from 'zustand/react/shallow';
 import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
 import { DrawingOverlay } from '@/drawing/DrawingOverlay';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
+import { getTrackpadPinchZoom, WORKBENCH_PAN_MOUSE_BUTTON } from './hooks/workbenchViewportGestures';
 
 const nodeTypes: NodeTypes = {
     imageNode: ImageNode,
@@ -60,8 +65,8 @@ const edgeTypes: EdgeTypes = {
 
 const WorkbenchContent: React.FC = () => {
     const flowWrapperRef = useRef<HTMLDivElement>(null);
-    const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
-    const { zoom } = useViewport();
+    const { setCenter, zoomIn, zoomOut, fitView, setViewport, getViewport, screenToFlowPosition } = useReactFlow();
+    const viewport = useViewport();
     const { viewMode, currentProjectId } = useStore(
         useShallow((state) => ({
             viewMode: state.viewMode,
@@ -72,6 +77,23 @@ const WorkbenchContent: React.FC = () => {
     useAutoSaveScene(currentProjectId);
     useSceneStream(currentProjectId);
     const collabSession = useWorkbenchCollabSession();
+
+    // Awareness-derived collaboration state (US2): presence chips, remote
+    // cursors and soft-lock badges. References only change when the slice
+    // re-projects an awareness snapshot.
+    const nodeLocks = useStore((state) => state.nodeLocks);
+    const remoteCursors = useStore((state) => state.remoteCursors);
+    const presenceByUser = useStore((state) => state.presenceByUser);
+
+    // Publish this client's user/cursor/soft-lock set to the room and release
+    // local selections of nodes another client has locked (spec FR-015).
+    useCollabPresencePublisher({
+        provider: collabSession.provider,
+        userId: collabSession.userId,
+        userName: collabSession.userName,
+        containerRef: flowWrapperRef,
+        toWorld: screenToFlowPosition,
+    });
 
     useResizeObserverWarningSuppression();
 
@@ -150,6 +172,7 @@ const WorkbenchContent: React.FC = () => {
         workbenchNodes,
         connections,
         selectedNodeIds,
+        nodeLocks,
         handleSourceClick,
         handleResize,
         handleResizeEnd,
@@ -220,6 +243,19 @@ const WorkbenchContent: React.FC = () => {
         [commitWorkbenchGesture]
     );
 
+    const handleWheelCapture = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+        // Trackpad pinch is commonly exposed as a ctrl-modified wheel event.
+        // Normal two-finger translation is left to React Flow's panOnScroll.
+        if (!event.ctrlKey && !event.metaKey) {
+            return;
+        }
+
+        event.preventDefault();
+        const viewport = getViewport();
+        const nextZoom = getTrackpadPinchZoom(viewport.zoom, event.deltaY);
+        setViewport({ x: viewport.x, y: viewport.y, zoom: nextZoom });
+    }, [getViewport, setViewport]);
+
     const isDrawModeActive = activeWorkbenchTool === 'draw';
     const isEraserModeActive = activeWorkbenchTool === 'eraser';
     // C-3.1/C-3.2: mode-derived React Flow props from the pure contract fn (T018).
@@ -231,6 +267,7 @@ const WorkbenchContent: React.FC = () => {
             className="relative w-full h-screen bg-white"
             onMouseDown={handleCanvasMouseDownForArrow}
             onMouseUp={handleCanvasMouseUpForArrow}
+            onWheelCapture={handleWheelCapture}
         >
             <ReactFlow
                 nodes={nodes}
@@ -250,8 +287,11 @@ const WorkbenchContent: React.FC = () => {
                 selectionMode={SelectionMode.Partial}
                 selectionOnDrag={flowModeProps.selectionOnDrag}
                 selectionKeyCode="Shift"
-                multiSelectionKeyCode={['Meta', 'Control']}
-                panOnDrag={flowModeProps.panOnDrag}
+                multiSelectionKeyCode="Shift"
+                panOnDrag={[WORKBENCH_PAN_MOUSE_BUTTON]}
+                panOnScroll={true}
+                zoomOnScroll={false}
+                zoomOnDoubleClick={false}
                 elementsSelectable={flowModeProps.elementsSelectable}
                 nodesDraggable={flowModeProps.nodesDraggable}
                 nodesConnectable={flowModeProps.nodesConnectable}
@@ -266,6 +306,13 @@ const WorkbenchContent: React.FC = () => {
                 <Background id='smalldots' variant={BackgroundVariant.Dots} gap={12} size={1} color="#c6cfdb" />
                 <Background id="fatdots" color="#a0afc3" variant={BackgroundVariant.Dots} gap={56} size={1.1} />
             </ReactFlow>
+            {/* Awareness overlays (US2): remote cursors + soft-lock badges. */}
+            <CursorOverlay remoteCursors={remoteCursors} viewport={viewport} />
+            <NodeLockBadges nodes={nodes} nodeLocks={nodeLocks} viewport={viewport} />
+            {/* Presence chips replace the legacy SSE presence display (US2/SC-003). */}
+            <div className="absolute top-4 right-4 z-20">
+                <PresenceIndicator presence={presenceByUser} />
+            </div>
             <DrawingOverlay
                 mode={isEraserModeActive ? 'erase' : isDrawModeActive || isDrawMode ? 'draw' : null}
                 wrapperRef={flowWrapperRef}
@@ -296,7 +343,7 @@ const WorkbenchContent: React.FC = () => {
                 isPhoneUploadModalOpen={isPhoneUploadModalOpen}
                 onClosePhoneUploadModal={closePhoneUploadModal}
                 onPhoneUploadComplete={handlePhoneUploadComplete}
-                zoomLevel={zoom}
+                zoomLevel={viewport.zoom}
                 onZoomIn={() => zoomIn({ duration: 300 })}
                 onZoomOut={() => zoomOut({ duration: 300 })}
                 onResetZoom={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 })}

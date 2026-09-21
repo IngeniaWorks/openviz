@@ -19,6 +19,10 @@ class FakeAwareness {
         return this.local;
     }
 
+    setLocalField(key: string, value: unknown): void {
+        this.local[key] = value;
+    }
+
     getStates(): Map<number, Record<string, unknown>> {
         return this.states;
     }
@@ -56,6 +60,10 @@ class FakeProvider {
     /** Test helper: simulate the retry loop giving up. */
     emitMaxAttemptsFailed(): void {
         for (const listener of this.maxAttemptsFailedListeners) listener();
+    }
+
+    setAwarenessField(key: string, value: unknown): void {
+        this.awareness.setLocalField(key, value);
     }
 
     connect(): void {

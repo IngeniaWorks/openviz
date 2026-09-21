@@ -15,6 +15,8 @@ export interface CollabProviderLike {
     on(event: 'status', listener: (event: { status: string }) => void): unknown;
     on(event: 'synced', listener: () => void): unknown;
     on(event: 'maxAttemptsFailed', listener: () => void): unknown;
+    /** Awareness publishing (presence/cursors/soft locks, US2). */
+    setAwarenessField(key: string, value: unknown): void;
     connect(): void | Promise<unknown>;
     disconnect(): void;
     destroy(): void;
@@ -56,6 +58,10 @@ export interface UseCollabSessionResult {
     status: CollabSessionStatus;
     doc: Y.Doc | null;
     origin: string | null;
+    /** Live provider while a session is joining/active — used for awareness publishing. */
+    provider: CollabProviderLike | null;
+    userId: string;
+    userName: string;
     undo(): void;
     redo(): void;
     canUndo: boolean;
@@ -96,6 +102,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     const [status, setStatus] = useState<CollabSessionStatus>('idle');
     const [doc, setDoc] = useState<Y.Doc | null>(null);
     const [origin, setOrigin] = useState<string | null>(null);
+    const [provider, setProvider] = useState<CollabProviderLike | null>(null);
     const [undoState, setUndoState] = useState({ canUndo: false, canRedo: false });
     const undoRef = useRef<CollabUndoManager | null>(null);
 
@@ -202,6 +209,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
 
                 setDoc(handle.doc);
                 setOrigin(handle.origin);
+                setProvider(handle.provider);
                 void handle.provider.connect();
             } catch (error) {
                 console.error('Failed to join collaboration session:', error);
@@ -220,6 +228,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
             useStore.getState().setCollabSessionActive(false);
             setDoc(null);
             setOrigin(null);
+            setProvider(null);
             setUndoState({ canUndo: false, canRedo: false });
             setStatus('idle');
         };
@@ -233,5 +242,5 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         undoRef.current?.redo();
     }, []);
 
-    return { status, doc, origin, undo, redo, canUndo: undoState.canUndo, canRedo: undoState.canRedo };
+    return { status, doc, origin, provider, userId, userName, undo, redo, canUndo: undoState.canUndo, canRedo: undoState.canRedo };
 }

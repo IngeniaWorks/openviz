@@ -1,0 +1,82 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { WorkbenchToolType } from '@/types';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// vitest runs without `globals:true`, so RTL's auto-cleanup is not registered;
+// unmount explicitly between tests to avoid DOM accumulation.
+afterEach(cleanup);
+import { WorkbenchToolbar } from './WorkbenchToolbar';
+
+// T008/T009: toolbar structure (C-1.1–C-1.3) and click activation (C-2.1).
+
+const TOOL_TITLES: Array<[WorkbenchToolType, string]> = [
+    ['select', 'Select (V)'],
+    ['hand', 'Hand (H)'],
+    ['draw', 'Draw (D)'],
+    ['eraser', 'Eraser (E)'],
+    ['arrow', 'Arrow (A)'],
+    ['text', 'Text (T)'],
+    ['note', 'Note (N)'],
+    ['media', 'Media (M)'],
+];
+
+function renderToolbar(activeTool: WorkbenchToolType = 'select') {
+    const onSelectTool = vi.fn();
+    const utils = render(
+        <WorkbenchToolbar
+            activeTool={activeTool}
+            freehandColor="#ffffff"
+            freehandStrokeWidth={4}
+            onSelectTool={onSelectTool}
+            onFreehandColorChange={vi.fn()}
+            onFreehandStrokeWidthChange={vi.fn()}
+            onUndo={vi.fn()}
+            onRedo={vi.fn()}
+            onMediaUpload={vi.fn()}
+            onMediaUploadFromPhone={vi.fn()}
+            sketchFormats={[]}
+            onFormatSelect={vi.fn()}
+        />
+    );
+    return { onSelectTool, ...utils };
+}
+
+describe('WorkbenchToolbar — structure (C-1)', () => {
+    it('shows exactly eight tool buttons in order Select→Media with shortcut tooltips', () => {
+        renderToolbar();
+        const titles = TOOL_TITLES.map(([, title]) => screen.queryByTitle(title));
+        // All present
+        for (const el of titles) {
+            expect(el).not.toBeNull();
+        }
+        // Exactly eight tool buttons (no duplicates in the toolbar)
+        expect(titles.filter(Boolean)).toHaveLength(8);
+        // Order: each subsequent button must follow the previous in document order
+        for (let i = 1; i < titles.length; i++) {
+            expect(titles[i - 1]!.compareDocumentPosition(titles[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        }
+    });
+
+    it('marks only the active tool with aria-pressed="true" (C-1.3)', () => {
+        renderToolbar('arrow');
+        expect(screen.getByTitle('Arrow (A)').getAttribute('aria-pressed')).toBe('true');
+        for (const [tool, title] of TOOL_TITLES) {
+            if (tool === 'arrow') continue;
+            expect(screen.getByTitle(title).getAttribute('aria-pressed')).toBe('false');
+        }
+    });
+});
+
+describe('WorkbenchToolbar — click activation (C-2.1)', () => {
+    it.each(TOOL_TITLES)('clicking %s activates the %s tool', (tool, title) => {
+        const { onSelectTool } = renderToolbar();
+        fireEvent.click(screen.getByTitle(title));
+        expect(onSelectTool).toHaveBeenCalledWith(tool);
+    });
+
+    it('clicking an already-active tool does not error and still reports the tool', () => {
+        const { onSelectTool } = renderToolbar('hand');
+        fireEvent.click(screen.getByTitle('Hand (H)'));
+        expect(onSelectTool).toHaveBeenCalledWith('hand');
+    });
+});

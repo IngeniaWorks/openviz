@@ -9,6 +9,7 @@ import {
 import { WorkbenchNode } from '@/types';
 
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
+import { normalizeArrowGeometry } from '@/services/workbench/arrowGeometry';
 import { buildFlowNodes } from './workbenchNodeSizing';
 import { BasicBlocksMenuState } from './useWorkbenchBlockCreation';
 
@@ -120,25 +121,11 @@ export function useWorkbenchNodeHandlers({
         const yUpdate = Number.isFinite(y) ? y : undefined;
 
         if (node.type === 'arrow') {
+            // C-5.2: re-scale start/end/control by the per-axis ratio so the
+            // shape is preserved without distortion (pure math in arrowGeometry).
             const currentWidth = Number.isFinite(node.width) && (node.width as number) > 0 ? (node.width as number) : width;
             const currentHeight = Number.isFinite(node.height) && (node.height as number) > 0 ? (node.height as number) : height;
-            const scaleX = currentWidth > 0 ? width / currentWidth : 1;
-            const scaleY = currentHeight > 0 ? height / currentHeight : 1;
-            const nextData = {
-                ...node.data,
-                start: {
-                    x: node.data.start.x * scaleX,
-                    y: node.data.start.y * scaleY,
-                },
-                end: {
-                    x: node.data.end.x * scaleX,
-                    y: node.data.end.y * scaleY,
-                },
-                control: {
-                    x: node.data.control.x * scaleX,
-                    y: node.data.control.y * scaleY,
-                },
-            };
+            const nextData = normalizeArrowGeometry(node.data, currentWidth, currentHeight, width, height);
 
             updateWorkbenchNode(nodeId, {
                 width,

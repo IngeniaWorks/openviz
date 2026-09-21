@@ -21,6 +21,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
         setConnections,
         setCurrentProjectId,
         setCurrentSceneVersion,
+        setSceneHydrated,
         clearCollaborationState,
     } = useStore(
         useShallow((state) => ({
@@ -29,6 +30,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setConnections: state.setConnections,
             setCurrentProjectId: state.setCurrentProjectId,
             setCurrentSceneVersion: state.setCurrentSceneVersion,
+            setSceneHydrated: state.setSceneHydrated,
             clearCollaborationState: state.clearCollaborationState,
         }))
     );
@@ -56,9 +58,10 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             // Note: We keep workbenchNodes so the dashboard can show previews
             setCurrentProjectId(null);
             setCurrentSceneVersion(0);
+            setSceneHydrated(false);
             clearCollaborationState();
         };
-    }, [id, setCurrentProjectId, setCurrentSceneVersion, clearCollaborationState]);
+    }, [id, setCurrentProjectId, setCurrentSceneVersion, setSceneHydrated, clearCollaborationState]);
 
     useEffect(() => {
         // Clear workbench nodes and connections first to avoid showing data from previous project
@@ -82,7 +85,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
             setCurrentSceneVersion(projectData.sceneVersion ?? 0);
             setIsHydrated(true);
         }
-    }, [projectData, setNodes, setConnections, setCurrentSceneVersion, id]);
+
+        if (projectData) {
+            // Signals useAutoSaveScene that local state now reflects this fetch, so any
+            // interrupted save restored from IndexedDB can be applied on top of it.
+            setSceneHydrated(true);
+        }
+    }, [projectData, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id]);
 
     if (isLoading || !isHydrated) {
         return (

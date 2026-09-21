@@ -4,9 +4,12 @@ import { NodeLockState, PresenceState } from "@/types";
 
 export interface WorkbenchCollaborationSlice {
     currentSceneVersion: number;
+    /** True once the project page has hydrated the store from its scene fetch. */
+    sceneHydrated: boolean;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
     setCurrentSceneVersion: (version: number) => void;
+    setSceneHydrated: (hydrated: boolean) => void;
     setNodeLockState: (lock: NodeLockState) => void;
     clearNodeLockState: (nodeId: string) => void;
     upsertPresenceState: (presence: PresenceState) => void;
@@ -16,9 +19,11 @@ export interface WorkbenchCollaborationSlice {
 
 export const createWorkbenchCollaborationSlice: StateCreator<AppState, [], [], WorkbenchCollaborationSlice> = (set) => ({
     currentSceneVersion: 0,
+    sceneHydrated: false,
     nodeLocks: {},
     presenceByUser: {},
     setCurrentSceneVersion: (version) => set({ currentSceneVersion: version }),
+    setSceneHydrated: (hydrated) => set({ sceneHydrated: hydrated }),
     setNodeLockState: (lock) =>
         set((state: AppState) => ({
             nodeLocks: {

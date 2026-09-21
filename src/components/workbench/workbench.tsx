@@ -32,6 +32,7 @@ import { CanvasControls } from '../studio/CanvasControls';
 import { ProjectHeader } from '../common/ProjectHeader';
 import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
 import { useWorkbenchOneShotCreation } from './hooks/useWorkbenchOneShotCreation';
+import { getFlowModeProps } from './hooks/workbenchModeProps';
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useSceneStream } from './hooks/useSceneStream';
 import { useShallow } from 'zustand/react/shallow';
@@ -347,8 +348,8 @@ const WorkbenchContent: React.FC = () => {
 
     const isDrawModeActive = activeWorkbenchTool === 'draw';
     const isEraserModeActive = activeWorkbenchTool === 'eraser';
-    const isHandModeActive = activeWorkbenchTool === 'hand';
-    const isSelectModeActive = activeWorkbenchTool === 'select';
+    // C-3.1/C-3.2: mode-derived React Flow props from the pure contract fn (T018).
+    const flowModeProps = getFlowModeProps(activeWorkbenchTool);
 
     return (
         <div
@@ -372,13 +373,13 @@ const WorkbenchContent: React.FC = () => {
                 onPaneClick={handlePaneClickWithTool}
                 deleteKeyCode={['Backspace', 'Delete']}
                 selectionMode={SelectionMode.Partial}
-                selectionOnDrag={isSelectModeActive}
+                selectionOnDrag={flowModeProps.selectionOnDrag}
                 selectionKeyCode="Shift"
                 multiSelectionKeyCode={['Meta', 'Control']}
-                panOnDrag={isHandModeActive}
-                elementsSelectable={isSelectModeActive}
-                nodesDraggable={isSelectModeActive}
-                nodesConnectable={isSelectModeActive}
+                panOnDrag={flowModeProps.panOnDrag}
+                elementsSelectable={flowModeProps.elementsSelectable}
+                nodesDraggable={flowModeProps.nodesDraggable}
+                nodesConnectable={flowModeProps.nodesConnectable}
                 snapToGrid={true}
                 snapGrid={[5, 5]}
                 fitView

@@ -14,8 +14,16 @@ This repository contains **OpenViz**, a React-based design application powered b
 
 ## Testing
 - **Run Tests**: `npm test` (Uses Vitest)
+- **CI Run**: `npm run test:ci` (headless + coverage gate)
 - **Test UI**: `npm run test:ui` (Vitest UI)
 - **Single Test**: `npx vitest path/to/file.test.ts`
+
+## Spec-Driven Development (Spec Kit)
+Governing doc: [.specify/memory/constitution.md](.specify/memory/constitution.md) — supersedes all other practices.
+- **New idea** → `/speckit.assess.intake "..." slug=<slug>` → `research` → `define` → `shape` → `decide`. Only a **go** verdict proceeds to spec. Reports: `.specify/assessments/<slug>/`.
+- **Feature** → create branch `NNN-slug` via `/speckit.git.feature <name>`, then `/speckit.specify` → `clarify` → `plan` → `tasks` → `analyze` → `implement` → `converge` (repeat until Converged). Specs: `specs/NNN-feature/`.
+- **TDD layering**: logic (services/hooks/stores/utils) = strict red-green, test file first; components = behavior tests from spec acceptance criteria before implementation. Coverage floor may never regress.
+- Auto-commit after speckit commands is enabled (conventional style) — config: `.specify/extensions/git/git-config.yml`.
 
 ## Critical Rules
 **Type Safety**: No `any`. No `@ts-ignore`. Run `tsc` to verify.

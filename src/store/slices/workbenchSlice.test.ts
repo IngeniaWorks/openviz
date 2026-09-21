@@ -196,3 +196,43 @@ describe('removeWorkbenchNode object-URL revocation (FR-012 edge)', () => {
         }
     });
 });
+
+describe('removeWorkbenchNode with remote soft locks (spec FR-015)', () => {
+    const graceLock = { nodeId: 'n1', userId: 'u-2', userName: 'Grace' };
+
+    it('skips remotely locked nodes when deleting the whole selection', () => {
+        useStore.setState({
+            workbenchNodes: [textNode('n1'), noteNode('n2')],
+            selectedNodeIds: ['n1', 'n2'],
+            nodeLocks: { n1: graceLock },
+        });
+
+        useStore.getState().removeWorkbenchNode();
+
+        expect(useStore.getState().workbenchNodes.map((node) => node.id)).toEqual(['n1']);
+    });
+
+    it('skips a remotely locked node even when deleted by explicit id', () => {
+        useStore.setState({
+            workbenchNodes: [textNode('n1')],
+            selectedNodeIds: [],
+            nodeLocks: { n1: graceLock },
+        });
+
+        useStore.getState().removeWorkbenchNode('n1');
+
+        expect(useStore.getState().workbenchNodes.map((node) => node.id)).toEqual(['n1']);
+    });
+
+    it('deletes unlocked nodes normally when no remote locks exist', () => {
+        useStore.setState({
+            workbenchNodes: [textNode('n1'), noteNode('n2')],
+            selectedNodeIds: ['n2'],
+            nodeLocks: {},
+        });
+
+        useStore.getState().removeWorkbenchNode();
+
+        expect(useStore.getState().workbenchNodes.map((node) => node.id)).toEqual(['n1']);
+    });
+});

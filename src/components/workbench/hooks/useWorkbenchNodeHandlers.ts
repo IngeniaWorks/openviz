@@ -12,6 +12,7 @@ import { normalizeArrowGeometry } from '@/services/workbench/arrowGeometry';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
 import { buildFlowNodes } from './workbenchNodeSizing';
 import { BasicBlocksMenuState } from './useWorkbenchBlockCreation';
+import { useStore } from '@/store/useStore';
 
 type ContextMenuState = { x: number; y: number; nodeId: string } | null;
 
@@ -29,6 +30,13 @@ type UseWorkbenchNodeHandlersOptions = {
     setActiveNodeId: (id: string | null) => void;
     setBasicBlocksMenu: (value: BasicBlocksMenuState) => void;
 };
+
+/**
+ * Remote soft-lock guard (spec FR-015): `nodeLocks` only ever contains locks
+ * held by OTHER clients, so a hit means this session must not mutate the node.
+ * Read at call time — lock state changes without re-rendering these handlers.
+ */
+const isRemotelyLocked = (nodeId: string): boolean => Boolean(useStore.getState().nodeLocks[nodeId]);
 
 export function useWorkbenchNodeHandlers({
     workbenchNodes,
@@ -72,6 +80,12 @@ export function useWorkbenchNodeHandlers({
             else if (change.type === 'remove') {
                 removeWorkbenchNode(change.id);
             } else if (change.type === 'select') {
+                // Defense in depth for FR-015: per-node `selectable=false`
+                // already blocks selection in React Flow; never re-add a
+                // remotely locked node through a programmatic change either.
+                if (change.selected && isRemotelyLocked(change.id)) {
+                    return;
+                }
                 if (change.selected) {
                     if (!selectedNodeIds.includes(change.id)) {
                         setSelectedNodeIds([...selectedNodeIds, change.id]);
@@ -84,6 +98,7 @@ export function useWorkbenchNodeHandlers({
     }, [updateWorkbenchNodeTransient, removeWorkbenchNode, setSelectedNodeIds, selectedNodeIds, workbenchNodes]);
 
     const handleNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
+        if (isRemotelyLocked(node.id)) return;
         const workbenchNode = workbenchNodes.find((n) => n.id === node.id);
         // Uploaded images use the `media` node shape so their object URL can be
         // released when the node is deleted. They are still editable images,
@@ -100,8 +115,9 @@ export function useWorkbenchNodeHandlers({
 
     const handlePaneClick = useCallback(() => {
         setActiveNodeId(null);
+        setSelectedNodeIds([]);
         setBasicBlocksMenu(null);
-    }, [setActiveNodeId, setBasicBlocksMenu]);
+    }, [setActiveNodeId, setBasicBlocksMenu, setSelectedNodeIds]);
 
     const handleSourceClick = useCallback((nodeId: string) => {
         const sourceNode = workbenchNodes.find((n) => n.id === nodeId);
@@ -119,6 +135,7 @@ export function useWorkbenchNodeHandlers({
     }, [workbenchNodes, setBasicBlocksMenu]);
 
     const handleResize = useCallback((nodeId: string, width: number, height: number, x?: number, y?: number) => {
+        if (isRemotelyLocked(nodeId)) return;
         if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
             return;
         }
@@ -178,6 +195,7 @@ export function useWorkbenchNodeHandlers({
     }, [commitWorkbenchGesture, handleResize]);
 
     const handleTransientDataChange = useCallback((nodeId: string, data: Record<string, unknown>) => {
+        if (isRemotelyLocked(nodeId)) return;
         const node = workbenchNodes.find((candidate) => candidate.id === nodeId);
         if (!node || !('data' in node)) {
             return;
@@ -207,6 +225,7 @@ export function useWorkbenchNodeHandlers({
     }, [cancelWorkbenchGesture, commitWorkbenchGesture]);
 
     const handleDataChange = useCallback((nodeId: string, data: Record<string, unknown>) => {
+        if (isRemotelyLocked(nodeId)) return;
         const node = workbenchNodes.find((n) => n.id === nodeId);
         if (!node || !('data' in node)) {
             return;

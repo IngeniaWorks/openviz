@@ -76,7 +76,7 @@ export function seedSceneFromJson(doc: Y.Doc, data: SceneDataJson): void {
             connections.delete(key);
         }
         for (const node of data.nodes) {
-            nodes.set(node.id, jsonToYValue(node));
+            nodes.set(node.id, jsonToYValue(node as unknown as SceneJsonValue));
         }
         for (const connection of data.connections) {
             connections.set(connection.id, jsonToYValue(connection as unknown as SceneJsonValue));

@@ -19,6 +19,7 @@ import {
     NodeLockState,
     PresenceState,
 } from '../types';
+import type { CollabPresencePeer, CollabRemoteAwarenessEntry, CollabRemoteCursorState } from '@/types/collab.types';
 
 export interface WorkbenchHistorySnapshot {
     workbenchNodes: WorkbenchNode[];
@@ -53,7 +54,11 @@ export interface AppState {
     /** True while a real-time collaboration session owns this scene's writes. */
     collabSessionActive: boolean;
     nodeLocks: Record<string, NodeLockState>;
-    presenceByUser: Record<string, PresenceState>;
+    presenceByUser: Record<string, CollabPresencePeer>;
+    /** Remote cursor markers keyed by awareness client id. */
+    remoteCursors: Record<string, CollabRemoteCursorState>;
+    /** Projects a full awareness snapshot into presence/cursors/remote locks. */
+    applyRemoteAwareness: (entries: CollabRemoteAwarenessEntry[], localClientId: number) => void;
     isDrawMode: boolean;
     activeWorkbenchTool: WorkbenchToolType;
     freehandColor: string;

@@ -244,7 +244,12 @@ export interface NodeLockState {
     nodeId: string;
     userId: string;
     userName?: string;
-    expiresAt: number;
+    /**
+     * Optional TTL for time-based locks. Awareness-derived soft locks are
+     * ephemeral (they live exactly as long as the peer's awareness state) and
+     * leave this unset.
+     */
+    expiresAt?: number;
 }
 
 export interface PresenceState {

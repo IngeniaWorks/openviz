@@ -145,7 +145,7 @@ export function createCollabStoreSync(deps: CollabStoreSyncDeps): CollabStoreSyn
             doc.transact(() => {
                 const nodesMap = getNodesMap(doc);
                 for (const node of nodeSets) {
-                    nodesMap.set(node.id, jsonToYValue(node));
+                    nodesMap.set(node.id, jsonToYValue(node as unknown as SceneJsonValue));
                 }
                 for (const id of nodeDeletes) nodesMap.delete(id);
 

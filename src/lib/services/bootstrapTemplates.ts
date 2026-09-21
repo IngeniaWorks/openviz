@@ -89,6 +89,8 @@ export function createExampleSceneData(): SceneData {
         id: "example-connection-1",
         from: EXAMPLE_IMAGE_NODE_ID,
         to: EXAMPLE_RENDER_NODE_ID,
+        sourceHandle: "image-source",
+        targetHandle: "render-target-visible",
     };
 
     return {

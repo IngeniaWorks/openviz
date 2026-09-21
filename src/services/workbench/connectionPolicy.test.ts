@@ -179,4 +179,11 @@ describe('connectionPolicy', () => {
         expect(next[0].sourceHandle).toBe('image-source');
         expect(next[0].targetHandle).toBe('animate-target-visible');
     });
+
+    it('assigns image-source handle when an image connection omits sourceHandle', () => {
+        const next = addConnectionWithPolicy([], nodes, 'img-1', 'anim-1');
+        expect(next).toHaveLength(1);
+        expect(next[0].sourceHandle).toBe('image-source');
+        expect(next[0].targetHandle).toBeNull();
+    });
 });

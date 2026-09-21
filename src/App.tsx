@@ -8,7 +8,7 @@ export const App: React.FC = () => {
     const { viewMode } = useStore();
 
     useEffect(() => {
-        console.log('🚀 OpenOpenViz App Mounted');
+        console.log('🚀 OpenViz App Mounted');
         renderService.checkConnection();
     }, []);
 

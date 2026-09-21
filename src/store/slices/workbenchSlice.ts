@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { AppState } from '../storeTypes';
+import { AppState, WorkbenchHistorySnapshot } from '../storeTypes';
 import {
     ViewMode,
     WorkbenchNode,
@@ -9,7 +9,15 @@ import {
     AspectRatio,
     RenderGroup,
     Connection,
+    WorkbenchToolType,
+    ArrowWorkbenchNode,
+    MediaWorkbenchNode,
+    NoteWorkbenchNode,
+    TextWorkbenchNode,
 } from '../../types';
+
+/** Nodes created by one-shot tools (arrow/text/note/media) — FR-007. */
+type OneShotNode = TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode;
 import { INITIAL_PROJECT } from '../initialState';
 import { findNonOverlappingPosition } from '../../services/nodePositioning';
 import { addConnectionWithPolicy, normalizeConnections } from '../../services/workbench/connectionPolicy';
@@ -24,8 +32,15 @@ export interface WorkbenchSlice {
     selectedNodeIds: string[];
     clipboard: WorkbenchNode[] | null;
     isExitingStudio: boolean;
+    isDrawMode: boolean;
+    activeWorkbenchTool: WorkbenchToolType;
+    freehandColor: string;
+    freehandStrokeWidth: number;
+    workbenchHistory: WorkbenchHistorySnapshot[];
+    workbenchHistoryIndex: number;
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
+    createOneShotNode: (node: OneShotNode) => void;
     addConnection: (
         fromId: string,
         toId: string,
@@ -52,7 +67,59 @@ export interface WorkbenchSlice {
     setProjectNodes: (projectId: string, nodes: WorkbenchNode[]) => void;
     setConnections: (connections: Connection[]) => void;
     setCurrentProjectId: (id: string | null) => void;
+    setDrawMode: (isDrawMode: boolean) => void;
+    toggleDrawMode: () => void;
+    setActiveWorkbenchTool: (tool: WorkbenchToolType) => void;
+    setFreehandColor: (color: string) => void;
+    setFreehandStrokeWidth: (strokeWidth: number) => void;
+    undoLastFreehandNode: () => void;
+    undoWorkbench: () => void;
+    redoWorkbench: () => void;
 }
+
+const MAX_WORKBENCH_HISTORY = 100;
+
+const createWorkbenchSnapshot = (
+    workbenchNodes: WorkbenchNode[],
+    connections: Connection[],
+    selectedNodeIds: string[],
+    activeNodeId: string | null
+): WorkbenchHistorySnapshot => ({
+    workbenchNodes: structuredClone(workbenchNodes),
+    connections: structuredClone(connections),
+    selectedNodeIds: [...selectedNodeIds],
+    activeNodeId,
+});
+
+const areSnapshotsEqual = (a: WorkbenchHistorySnapshot, b: WorkbenchHistorySnapshot): boolean =>
+    JSON.stringify(a) === JSON.stringify(b);
+
+const commitWorkbenchHistory = (state: AppState, nextState: Partial<AppState>): Partial<AppState> => {
+    const snapshot = createWorkbenchSnapshot(
+        (nextState.workbenchNodes ?? state.workbenchNodes) as WorkbenchNode[],
+        (nextState.connections ?? state.connections) as Connection[],
+        (nextState.selectedNodeIds ?? state.selectedNodeIds) as string[],
+        (nextState.activeNodeId ?? state.activeNodeId) as string | null
+    );
+
+    const currentSnapshot = state.workbenchHistory[state.workbenchHistoryIndex];
+    if (currentSnapshot && areSnapshotsEqual(currentSnapshot, snapshot)) {
+        return nextState;
+    }
+
+    const historyWindow = state.workbenchHistory.slice(0, state.workbenchHistoryIndex + 1);
+    const nextHistory = [...historyWindow, snapshot];
+    const trimmedHistory =
+        nextHistory.length > MAX_WORKBENCH_HISTORY
+            ? nextHistory.slice(nextHistory.length - MAX_WORKBENCH_HISTORY)
+            : nextHistory;
+
+    return {
+        ...nextState,
+        workbenchHistory: trimmedHistory,
+        workbenchHistoryIndex: trimmedHistory.length - 1,
+    };
+};
 
 export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice> = (set, get) => ({
     viewMode: 'STUDIO',
@@ -64,6 +131,12 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
     selectedNodeIds: [],
     clipboard: null,
     isExitingStudio: false,
+    isDrawMode: false,
+    activeWorkbenchTool: 'select',
+    freehandColor: '#111827',
+    freehandStrokeWidth: 4,
+    workbenchHistory: [createWorkbenchSnapshot([], [], [], 'default')],
+    workbenchHistoryIndex: 0,
 
     setViewMode: (viewMode) => set({ viewMode }),
 
@@ -76,23 +149,45 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 [state.currentProjectId]: newNodes
             };
         }
-        return newState;
+        return commitWorkbenchHistory(state, newState);
     }),
 
-    addConnection: (fromId, toId, sourceHandle, targetHandle) => set((state: AppState) => ({
-        connections: addConnectionWithPolicy(
+    // FR-007: one-shot tools create exactly one item, then auto-return to Select.
+    // Atomic in a single state update so the canvas never observes an
+    // intermediate "node exists but tool not yet switched" frame.
+    createOneShotNode: (node) => set((state: AppState) => {
+        const newNodes = [...state.workbenchNodes, node];
+        const newState: Partial<AppState> = {
+            workbenchNodes: newNodes,
+            activeNodeId: node.id,
+            selectedNodeIds: [node.id],
+            activeWorkbenchTool: 'select',
+        };
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: newNodes
+            };
+        }
+        return commitWorkbenchHistory(state, newState);
+    }),
+
+    addConnection: (fromId, toId, sourceHandle, targetHandle) => set((state: AppState) =>
+        commitWorkbenchHistory(state, {
+            connections: addConnectionWithPolicy(
             state.connections,
             state.workbenchNodes,
             fromId,
             toId,
             sourceHandle,
             targetHandle
-        ),
-    })),
+            ),
+        })),
 
-    removeConnection: (id) => set((state: AppState) => ({
-        connections: state.connections.filter((c) => c.id !== id)
-    })),
+    removeConnection: (id) => set((state: AppState) =>
+        commitWorkbenchHistory(state, {
+            connections: state.connections.filter((c) => c.id !== id)
+        })),
 
     updateWorkbenchNode: (id, updates) => set((state: AppState) => {
         const nodes = state.workbenchNodes.map(n => {
@@ -110,13 +205,26 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 [state.currentProjectId]: nodes
             };
         }
-        return newState;
+        return commitWorkbenchHistory(state, newState);
     }),
 
-    removeWorkbenchNode: (id) => set((state: AppState) => {
+    removeWorkbenchNode: (id) => {
+        const state = get();
         const idsToRemove = id ? [id] : state.selectedNodeIds;
-        if (idsToRemove.length === 0) return state;
+        if (idsToRemove.length === 0) return;
 
+        // R4: release object URLs of removed media nodes so blob: memory does
+        // not leak across add/remove cycles. Non-blob srcs are left untouched.
+        state.workbenchNodes
+            .filter((n): n is MediaWorkbenchNode => n.type === 'media')
+            .filter((n) => idsToRemove.includes(n.id))
+            .forEach((n) => {
+                if (typeof n.data?.src === 'string' && n.data.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(n.data.src);
+                }
+            });
+
+        set(() => {
         const newNodes = state.workbenchNodes.filter(n => !idsToRemove.includes(n.id));
         const newState: Partial<AppState> = {
             workbenchNodes: newNodes,
@@ -132,8 +240,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             };
         }
 
-        return newState;
-    }),
+        return commitWorkbenchHistory(state, newState);
+        });
+    },
 
     duplicateWorkbenchNode: (id) => set((state: AppState) => {
         const idsToDuplicate = id ? [id] : state.selectedNodeIds;
@@ -183,7 +292,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             } as Record<string, WorkbenchNode[]>;
         }
 
-        return newState;
+        return commitWorkbenchHistory(state, newState);
     }),
 
     reorderWorkbenchNode: (id, direction) => set((state: AppState) => {
@@ -205,7 +314,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 [state.currentProjectId]: nodes
             };
         }
-        return newState;
+        return commitWorkbenchHistory(state, newState);
     }),
 
     copyToClipboard: (id) => set((state: AppState) => {
@@ -253,12 +362,12 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 targetHandle: c.targetHandle,
             }));
 
-        return {
+        return commitWorkbenchHistory(state, {
             workbenchNodes: [...state.workbenchNodes, ...newNodes],
             connections: [...state.connections, ...newConnections],
             selectedNodeIds: newNodes.map(n => n.id),
             activeNodeId: newNodes.length === 1 ? newNodes[0].id : state.activeNodeId
-        };
+        });
     }),
 
 
@@ -603,9 +712,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             newNodes.push(newNode);
         });
 
-        return {
+        return commitWorkbenchHistory(state, {
             workbenchNodes: [...state.workbenchNodes, ...newNodes]
-        };
+        });
     }),
 
     addImageToWorkbench: (image) => set((state: AppState) => {
@@ -697,9 +806,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             projectId: currentState.currentProjectId || undefined
         };
 
-        return {
+        return commitWorkbenchHistory(state, {
             workbenchNodes: [...state.workbenchNodes, newNode]
-        };
+        });
     }),
     setWorkbenchNodes: (nodes) => set((state: AppState) => {
         const newState: Partial<AppState> = { workbenchNodes: nodes };
@@ -709,7 +818,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 [state.currentProjectId]: nodes
             };
         }
-        return newState;
+        return commitWorkbenchHistory(state, newState);
     }),
     setProjectNodes: (projectId, nodes) => set((state: AppState) => ({
         projectNodes: {
@@ -717,9 +826,10 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             [projectId]: nodes
         }
     })),
-    setConnections: (connections) => set((state: AppState) => ({
-        connections: normalizeConnections(connections, state.workbenchNodes),
-    })),
+    setConnections: (connections) => set((state: AppState) =>
+        commitWorkbenchHistory(state, {
+            connections: normalizeConnections(connections, state.workbenchNodes),
+        })),
     setCurrentProjectId: (id) => set((state: AppState) => {
         const newState: Partial<AppState> = { currentProjectId: id };
         if (id && state.projectNodes[id]) {
@@ -727,6 +837,115 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         } else if (id) {
             newState.workbenchNodes = [];
         }
+        const nextNodes = (newState.workbenchNodes ?? state.workbenchNodes) as WorkbenchNode[];
+        newState.connections = state.connections.filter((connection) =>
+            nextNodes.some((node) => node.id === connection.from) && nextNodes.some((node) => node.id === connection.to)
+        );
+        newState.selectedNodeIds = [];
+        newState.activeNodeId = null;
+        newState.workbenchHistory = [createWorkbenchSnapshot(nextNodes, newState.connections, [], null)];
+        newState.workbenchHistoryIndex = 0;
+        return newState;
+    }),
+    setDrawMode: (isDrawMode) => set({
+        isDrawMode,
+        activeWorkbenchTool: isDrawMode ? 'draw' : 'select',
+    }),
+    toggleDrawMode: () => set((state: AppState) => {
+        const nextIsDrawMode = !state.isDrawMode;
+        return {
+            isDrawMode: nextIsDrawMode,
+            activeWorkbenchTool: nextIsDrawMode ? 'draw' : 'select',
+        };
+    }),
+    setActiveWorkbenchTool: (activeWorkbenchTool) => set({
+        activeWorkbenchTool,
+        isDrawMode: activeWorkbenchTool === 'draw',
+    }),
+    setFreehandColor: (freehandColor) => set({ freehandColor }),
+    setFreehandStrokeWidth: (freehandStrokeWidth) => set({ freehandStrokeWidth }),
+    undoLastFreehandNode: () => set((state: AppState) => {
+        let freehandIndex = -1;
+
+        for (let index = state.workbenchNodes.length - 1; index >= 0; index -= 1) {
+            if ((state.workbenchNodes[index] as { type: string }).type === 'freehand') {
+                freehandIndex = index;
+                break;
+            }
+        }
+
+        if (freehandIndex === -1) {
+            return state;
+        }
+
+        const removedNodeId = state.workbenchNodes[freehandIndex].id;
+        const nextNodes = state.workbenchNodes.filter((_, index) => index !== freehandIndex);
+        const nextConnections = state.connections.filter(
+            (connection) => connection.from !== removedNodeId && connection.to !== removedNodeId
+        );
+
+        const newState: Partial<AppState> = {
+            workbenchNodes: nextNodes,
+            connections: nextConnections,
+            selectedNodeIds: state.selectedNodeIds.filter((selectedId) => selectedId !== removedNodeId),
+            activeNodeId: state.activeNodeId === removedNodeId ? null : state.activeNodeId,
+        };
+
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: nextNodes,
+            };
+        }
+
+        return commitWorkbenchHistory(state, newState);
+    }),
+    undoWorkbench: () => set((state: AppState) => {
+        if (state.workbenchHistoryIndex <= 0) {
+            return state;
+        }
+
+        const nextIndex = state.workbenchHistoryIndex - 1;
+        const snapshot = state.workbenchHistory[nextIndex];
+        const newState: Partial<AppState> = {
+            workbenchNodes: structuredClone(snapshot.workbenchNodes),
+            connections: structuredClone(snapshot.connections),
+            selectedNodeIds: [...snapshot.selectedNodeIds],
+            activeNodeId: snapshot.activeNodeId,
+            workbenchHistoryIndex: nextIndex,
+        };
+
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: structuredClone(snapshot.workbenchNodes),
+            };
+        }
+
+        return newState;
+    }),
+    redoWorkbench: () => set((state: AppState) => {
+        if (state.workbenchHistoryIndex >= state.workbenchHistory.length - 1) {
+            return state;
+        }
+
+        const nextIndex = state.workbenchHistoryIndex + 1;
+        const snapshot = state.workbenchHistory[nextIndex];
+        const newState: Partial<AppState> = {
+            workbenchNodes: structuredClone(snapshot.workbenchNodes),
+            connections: structuredClone(snapshot.connections),
+            selectedNodeIds: [...snapshot.selectedNodeIds],
+            activeNodeId: snapshot.activeNodeId,
+            workbenchHistoryIndex: nextIndex,
+        };
+
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: structuredClone(snapshot.workbenchNodes),
+            };
+        }
+
         return newState;
     }),
 });

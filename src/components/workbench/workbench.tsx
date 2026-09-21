@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import {
     ReactFlow,
     Background,
@@ -9,33 +9,48 @@ import {
     useReactFlow,
     useViewport,
     SelectionMode,
+    OnNodeDrag,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus, ChevronDown } from 'lucide-react';
 
-import { ImageNode } from './ImageNode';
-import { VideoNode } from './VideoNode';
+import { ImageNode } from '../nodes/ImageNode';
+import { VideoNode } from '../nodes/VideoNode';
 import { AnimateNode } from '../nodes/AnimateNode';
 import { RenderNode } from '../nodes/RenderNode';
-import { CustomEdge } from './CustomEdge';
-import { PositionedMenu } from '../ContextMenu';
-import { BasicBlocksMenu } from '../nodes/BasicBlocksMenu';
+import { FreehandNode } from '../nodes/FreehandNode';
+import { ArrowNode } from '../nodes/ArrowNode';
+import { TextNode } from '../nodes/TextNode';
+import { NoteNode } from '../nodes/NoteNode';
+import { MediaNode } from '../nodes/MediaNode';
+import { CustomEdge } from '../nodes/CustomEdge';
+import { WorkbenchChrome } from './WorkbenchChrome';
 import { useWorkbench } from './hooks/useWorkbench';
 import { useStore } from '../../store/useStore';
 import { useAutoSaveScene } from '../../hooks/useAutoSaveScene';
-import { CanvasControls } from '../studio/CanvasControls';
-import { ProjectHeader } from '../common/ProjectHeader';
 import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
+import { useWorkbenchOneShotCreation } from './hooks/useWorkbenchOneShotCreation';
+import { getFlowModeProps } from './hooks/workbenchModeProps';
+import { useWorkbenchContextMenuActions } from './hooks/useWorkbenchContextMenuActions';
+import { useWorkbenchFreehandEraser } from './hooks/useWorkbenchFreehandEraser';
+import { useWorkbenchMediaUpload } from './hooks/useWorkbenchMediaUpload';
+import { useResizeObserverWarningSuppression } from './hooks/useResizeObserverWarningSuppression';
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useSceneStream } from './hooks/useSceneStream';
 import { useShallow } from 'zustand/react/shallow';
-import { WorkbenchConnectionLine } from './WorkbenchConnectionLine';
+import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
+import { DrawingOverlay } from '@/drawing/DrawingOverlay';
+import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
 
 const nodeTypes: NodeTypes = {
     imageNode: ImageNode,
     videoNode: VideoNode,
     animateNode: AnimateNode,
     renderNode: RenderNode,
+    freehandNode: FreehandNode,
+    arrowNode: ArrowNode,
+    textNode: TextNode,
+    noteNode: NoteNode,
+    mediaNode: MediaNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -43,51 +58,71 @@ const edgeTypes: EdgeTypes = {
 };
 
 const WorkbenchContent: React.FC = () => {
-    const { setCenter, zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
+    const flowWrapperRef = useRef<HTMLDivElement>(null);
+    const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
     const { zoom } = useViewport();
-    const { viewMode, currentProjectId, nodeLocks, presenceByUser } = useStore(
+    const { viewMode, currentProjectId, updateWorkbenchNode } = useStore(
         useShallow((state) => ({
             viewMode: state.viewMode,
             currentProjectId: state.currentProjectId,
-            nodeLocks: state.nodeLocks,
-            presenceByUser: state.presenceByUser,
+            updateWorkbenchNode: state.updateWorkbenchNode,
         }))
     );
-    const lockCount = Object.keys(nodeLocks).length;
-    const collaboratorCount = Object.keys(presenceByUser).length;
     
     useAutoSaveScene(currentProjectId);
     useSceneStream(currentProjectId);
-    const {
-        workbenchNodes,
-        connections,
-        activeNodeId,
-        selectedNodeIds,
-        contextMenu,
-        setContextMenu,
-        showFormatDropdown,
-        setShowFormatDropdown,
-        dropdownRef,
-        basicBlocksMenu,
-        sketchFormats,
-        handleFormatSelect,
-        handleNodesChange,
-        handleConnect,
-        onConnectStart,
-        onConnectEnd,
-        handleNodeDoubleClick,
-        handleNodeContextMenu,
-        handlePaneClick,
-        handleSourceClick,
-        handleBlockSelect,
-        handleResize,
-        reorderWorkbenchNode,
-        copyToClipboard,
-        pasteFromClipboard,
-        duplicateWorkbenchNode,
-        removeWorkbenchNode
-    } = useWorkbench();
 
+    useResizeObserverWarningSuppression();
+
+    const {
+        state: {
+            workbenchNodes,
+            connections,
+            activeNodeId,
+            selectedNodeIds,
+            isDrawMode,
+            activeWorkbenchTool,
+            freehandColor,
+            freehandStrokeWidth,
+        },
+        menus: {
+            contextMenu,
+            setContextMenu,
+            dropdownRef,
+            basicBlocksMenu,
+            sketchFormats,
+        },
+        handlers: {
+            handleFormatSelect,
+            handleNodesChange,
+            handleConnect,
+            onConnectStart,
+            onConnectEnd,
+            handleNodeDoubleClick,
+            handleNodeContextMenu,
+            handlePaneClick,
+            handleSourceClick,
+            handleBlockSelect,
+            handleResize,
+            handleDataChange,
+        },
+        actions: {
+            reorderWorkbenchNode,
+            copyToClipboard,
+            pasteFromClipboard,
+            duplicateWorkbenchNode,
+            removeWorkbenchNode,
+            setActiveWorkbenchTool,
+            setActiveNodeId,
+            setSelectedNodeIds,
+            addWorkbenchNode,
+            createOneShotNode,
+            setFreehandColor,
+            setFreehandStrokeWidth,
+            undoWorkbench,
+            redoWorkbench,
+        },
+    } = useWorkbench();
     useWorkbenchCenterOnReturn({ viewMode, activeNodeId, workbenchNodes, setCenter });
     const { nodes, edges } = useWorkbenchGraph({
         workbenchNodes,
@@ -95,46 +130,97 @@ const WorkbenchContent: React.FC = () => {
         selectedNodeIds,
         handleSourceClick,
         handleResize,
+        handleDataChange,
     });
 
-    const contextMenuActions = contextMenu ? [
-        { label: 'Wrap in section', onClick: () => console.log('Wrap in section'), divider: true },
-        { label: 'Bring to front', shortcut: ']', onClick: () => reorderWorkbenchNode(contextMenu.nodeId, 'front') },
-        { label: 'Send to back', shortcut: '[', onClick: () => reorderWorkbenchNode(contextMenu.nodeId, 'back'), divider: true },
-        {
-            label: 'Copy link to selection', shortcut: 'Ctrl+L', onClick: () => {
-                navigator.clipboard.writeText(window.location.href);
-            }, divider: true
+    const contextMenuActions = useWorkbenchContextMenuActions({
+        contextMenu,
+        reorderWorkbenchNode,
+        copyToClipboard,
+        pasteFromClipboard,
+        duplicateWorkbenchNode,
+        removeWorkbenchNode,
+    });
+
+    // FR-007: one-shot creation is an atomic store action (T006) — the view
+    // only builds the node payload; select + tool switch happen in one update.
+    const { handlePaneClickWithTool, handleCanvasMouseDownForArrow, handleCanvasMouseUpForArrow } =
+        useWorkbenchOneShotCreation({
+            activeWorkbenchTool,
+            screenToFlowPosition,
+            createOneShotNode,
+            handlePaneClick,
+        });
+
+    const { handleEraseAtPoint, onStrokeFinished, ERASER_SIZE } = useWorkbenchFreehandEraser({
+        activeWorkbenchTool,
+        workbenchNodes,
+        freehandColor,
+        freehandStrokeWidth,
+        removeWorkbenchNode,
+        addWorkbenchNode,
+        setActiveNodeId,
+        setSelectedNodeIds,
+    });
+
+    const {
+        mediaUploadInputRef,
+        isPhoneUploadModalOpen,
+        closePhoneUploadModal,
+        handleMediaUpload,
+        handleMediaUploadFromPhone,
+        handlePhoneUploadComplete,
+        handleMediaUploadChange,
+    } = useWorkbenchMediaUpload({
+        flowWrapperRef,
+        screenToFlowPosition,
+        makeOneShotNode: createOneShotNode,
+    });
+
+    // When a node drag finishes (mouse released), persist the exact final position
+    // and sync to the backend immediately so a reload never shows stale state.
+    const handleNodeDragStop = useCallback<OnNodeDrag>(
+        (_event, node) => {
+            updateWorkbenchNode(node.id, { x: node.position.x, y: node.position.y });
+            requestImmediateSceneSave();
         },
-        { label: 'Copy', shortcut: 'Ctrl+C', onClick: () => copyToClipboard(contextMenu.nodeId) },
-        {
-            label: 'Paste', shortcut: 'Ctrl+V', onClick: () => {
-                const pos = { x: 100, y: 100 };
-                pasteFromClipboard(pos);
-            }
-        },
-        { label: 'Duplicate', shortcut: 'Ctrl+D', onClick: () => duplicateWorkbenchNode(contextMenu.nodeId), divider: true },
-        { label: 'Delete', shortcut: 'Del', onClick: () => removeWorkbenchNode(contextMenu.nodeId), type: 'danger' as const },
-    ] : [];
+        [updateWorkbenchNode]
+    );
+
+    const isDrawModeActive = activeWorkbenchTool === 'draw';
+    const isEraserModeActive = activeWorkbenchTool === 'eraser';
+    // C-3.1/C-3.2: mode-derived React Flow props from the pure contract fn (T018).
+    const flowModeProps = getFlowModeProps(activeWorkbenchTool);
 
     return (
-        <div className="relative w-full h-screen bg-white">
+        <div
+            ref={flowWrapperRef}
+            className="relative w-full h-screen bg-white"
+            onMouseDown={handleCanvasMouseDownForArrow}
+            onMouseUp={handleCanvasMouseUpForArrow}
+        >
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodesChange={handleNodesChange}
+                onNodeDragStop={handleNodeDragStop}
                 onConnect={handleConnect}
                 onConnectStart={onConnectStart}
                 onConnectEnd={onConnectEnd}
                 onNodeDoubleClick={handleNodeDoubleClick}
                 onNodeContextMenu={handleNodeContextMenu}
-                onPaneClick={handlePaneClick}
+                onPaneClick={handlePaneClickWithTool}
                 deleteKeyCode={['Backspace', 'Delete']}
                 selectionMode={SelectionMode.Partial}
-                selectionOnDrag={true}
+                selectionOnDrag={flowModeProps.selectionOnDrag}
                 selectionKeyCode="Shift"
+                multiSelectionKeyCode={['Meta', 'Control']}
+                panOnDrag={flowModeProps.panOnDrag}
+                elementsSelectable={flowModeProps.elementsSelectable}
+                nodesDraggable={flowModeProps.nodesDraggable}
+                nodesConnectable={flowModeProps.nodesConnectable}
                 snapToGrid={true}
                 snapGrid={[5, 5]}
                 fitView
@@ -146,83 +232,45 @@ const WorkbenchContent: React.FC = () => {
                 <Background id='smalldots' variant={BackgroundVariant.Dots} gap={12} size={1} color="#c6cfdb" />
                 <Background id="fatdots" color="#a0afc3" variant={BackgroundVariant.Dots} gap={56} size={1.1} />
             </ReactFlow>
-
-            <div className="absolute top-4 left-4 z-20">
-                <ProjectHeader mode="workbench" />
-            </div>
-
-            <div className="absolute bottom-4 right-4 z-20">
-                <CanvasControls
-                    zoomLevel={zoom}
-                    onZoomIn={() => zoomIn({ duration: 300 })}
-                    onZoomOut={() => zoomOut({ duration: 300 })}
-                    onResetZoom={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 })}
-                    onFitToScreen={() => fitView({ duration: 300 })}
-                />
-            </div>
-
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none">
-                <div className="pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-full border border-panel-border bg-panel/85 backdrop-blur-md shadow-xl text-xs text-text-secondary">
-                    <span>Workbench Command Surface</span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
-                        Locks {lockCount}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-black/20 border border-panel-border/60 text-[11px]">
-                        Presence {collaboratorCount}
-                    </span>
-                </div>
-            </div>
-
-            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10" ref={dropdownRef}>
-                <div className="relative">
-                    <button
-                        onClick={() => setShowFormatDropdown(!showFormatDropdown)}
-                        className="flex items-center gap-2 px-4 py-2 bg-panel border border-panel-border rounded-full shadow-2xl backdrop-blur-md bg-opacity-90 text-text-secondary hover:text-white transition-all group"
-                    >
-                        <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-                        <span className="font-medium">Add Sketch</span>
-                        <ChevronDown size={16} className={`transition-transform ${showFormatDropdown ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showFormatDropdown && (
-                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 w-48 bg-panel border border-panel-border rounded-lg shadow-2xl backdrop-blur-md bg-opacity-95 overflow-hidden nowheel nodrag">
-                            {sketchFormats.map((format, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => handleFormatSelect(format.width, format.height)}
-                                    className="w-full px-4 py-3 text-left text-text-secondary hover:text-white hover:bg-panel-light transition-colors flex items-center justify-between border-b border-panel-border last:border-b-0"
-                                >
-                                    <span className="text-sm font-medium">{format.label}</span>
-                                    <span className="text-xs opacity-50">{format.width}×{format.height}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {contextMenu && (
-                <PositionedMenu
-                    x={contextMenu.x}
-                    y={contextMenu.y}
-                    open={!!contextMenu}
-                    onClose={() => setContextMenu(null)}
-                    actions={contextMenuActions}
-                />
-            )}
-
-            {basicBlocksMenu?.visible && (
-                <div
-                    className="fixed z-50"
-                    style={{
-                        left: basicBlocksMenu.x,
-                        top: basicBlocksMenu.y,
-                        transform: 'translateY(-50%)',
-                    }}
-                >
-                    <BasicBlocksMenu onSelect={handleBlockSelect} onClose={() => { }} />
-                </div>
-            )}
+            <DrawingOverlay
+                mode={isEraserModeActive ? 'erase' : isDrawModeActive || isDrawMode ? 'draw' : null}
+                wrapperRef={flowWrapperRef}
+                previewColor={freehandColor}
+                previewSize={freehandStrokeWidth}
+                eraserSize={ERASER_SIZE}
+                onEraseAtPoint={handleEraseAtPoint}
+                onStrokeFinished={onStrokeFinished}
+            />
+            <WorkbenchChrome
+                dropdownRef={dropdownRef}
+                activeTool={activeWorkbenchTool}
+                freehandColor={freehandColor}
+                freehandStrokeWidth={freehandStrokeWidth}
+                onSelectTool={setActiveWorkbenchTool}
+                onFreehandColorChange={setFreehandColor}
+                onFreehandStrokeWidthChange={setFreehandStrokeWidth}
+                onUndo={undoWorkbench}
+                onRedo={redoWorkbench}
+                onMediaUpload={handleMediaUpload}
+                onMediaUploadFromPhone={handleMediaUploadFromPhone}
+                sketchFormats={sketchFormats}
+                onFormatSelect={handleFormatSelect}
+                mediaUploadInputRef={mediaUploadInputRef}
+                onMediaUploadChange={handleMediaUploadChange}
+                isPhoneUploadModalOpen={isPhoneUploadModalOpen}
+                onClosePhoneUploadModal={closePhoneUploadModal}
+                onPhoneUploadComplete={handlePhoneUploadComplete}
+                zoomLevel={zoom}
+                onZoomIn={() => zoomIn({ duration: 300 })}
+                onZoomOut={() => zoomOut({ duration: 300 })}
+                onResetZoom={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 300 })}
+                onFitToScreen={() => fitView({ duration: 300 })}
+                contextMenu={contextMenu}
+                onCloseContextMenu={() => setContextMenu(null)}
+                contextMenuActions={contextMenuActions}
+                basicBlocksMenu={basicBlocksMenu}
+                onBlockSelect={handleBlockSelect}
+            />
         </div>
     );
 };

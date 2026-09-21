@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ReactFlowProvider } from '@xyflow/react';

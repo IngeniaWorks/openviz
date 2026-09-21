@@ -36,3 +36,6 @@ dist-ssr
 .env.local
 .env.*.local
 
+
+# vitest coverage reports
+coverage/

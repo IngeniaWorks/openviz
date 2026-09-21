@@ -186,12 +186,6 @@ function ProjectCard({ project }: { project: Project }) {
     const thumbnailRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Make project draggable
-    const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.setData('projectId', project.id);
-        e.dataTransfer.effectAllowed = 'move';
-    };
-
     // Intersection Observer for lazy loading
     useEffect(() => {
         const observer = new IntersectionObserver(

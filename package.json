@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.32.1",
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=8192' next dev",
     "build": "NODE_OPTIONS='--max-old-space-size=16384' next build --webpack",
@@ -15,10 +16,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate:pg",
-    "db:migrate": "npx tsx migrate.ts",
-    "setup": "npx tsx scripts/setup.ts",
-    "setup:container": "npx tsx scripts/setup.ts --mode=container --no-start",
-    "init": "npm run setup",
+    "db:migrate": "pnpm exec tsx migrate.ts",
+    "setup": "pnpm exec tsx scripts/setup.ts",
+    "setup:container": "pnpm exec tsx scripts/setup.ts --mode=container --no-start",
+    "init": "pnpm run setup",
     "dev:docker": "sh -c 'if [ -f .env.docker ]; then docker compose --env-file .env.docker up --build; else docker compose up --build; fi'",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f app postgres redis"

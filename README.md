@@ -102,7 +102,7 @@ Your central hub for organizing creative work.
    ```bash
    cp .env.docker.example .env.docker
    ```
-   If `.env.docker` is present, `npm run dev:docker` will automatically use it.
+   If `.env.docker` is present, `pnpm run dev:docker` will automatically use it.
    If ports are already in use on your machine, change these values in `.env.docker`:
    - `POSTGRES_HOST_PORT=5433`
    - `REDIS_HOST_PORT=6380`
@@ -114,7 +114,7 @@ Your central hub for organizing creative work.
    ```
    Or run:
    ```bash
-   npm run dev:docker
+   pnpm run dev:docker
    ```
 
    This starts:
@@ -134,9 +134,9 @@ Your central hub for organizing creative work.
 
 Useful Docker commands:
 ```bash
-npm run dev:docker    # same as docker compose up --build
-npm run docker:logs   # tail app/postgres/redis logs
-npm run docker:down   # stop containers
+pnpm run dev:docker    # same as docker compose up --build
+pnpm run docker:logs   # tail app/postgres/redis logs
+pnpm run docker:down   # stop containers
 ```
 
 If you hit `bind: address already in use`, free that host port or remap it in `.env.docker`.
@@ -151,7 +151,7 @@ If you hit `bind: address already in use`, free that host port or remap it in `.
 
 2. **Install dependencies**
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **Configure environment**
@@ -194,12 +194,12 @@ If you hit `bind: address already in use`, free that host port or remap it in `.
 
 4. **Initialize database and seed defaults**
    ```bash
-   npm run setup
+   pnpm run setup
    ```
    
    If you need setup only (without auto-starting dev server in scripted contexts):
    ```bash
-   npm run setup:container
+   pnpm run setup:container
    ```
 
 5. **Launch ComfyUI (optional for mock mode)**
@@ -214,7 +214,7 @@ If you hit `bind: address already in use`, free that host port or remap it in `.
 
 6. **Start development server**
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 7. **Open in browser**
@@ -328,29 +328,29 @@ openviz/
 
 ```bash
 # Development
-npm run dev           # Start Next.js dev server
-npm run setup         # First-run setup + start dev server
-npm run setup:container # Non-interactive setup (no dev start), used by Docker entrypoint
-npm run init          # Alias for setup
-npm run dev:docker    # Docker-first dev startup
-npm run docker:logs   # Tail Docker logs
-npm run docker:down   # Stop Docker services
-npm run db:studio     # Open Drizzle Studio (DB GUI)
+pnpm run dev           # Start Next.js dev server
+pnpm run setup         # First-run setup + start dev server
+pnpm run setup:container # Non-interactive setup (no dev start), used by Docker entrypoint
+pnpm run init          # Alias for setup
+pnpm run dev:docker    # Docker-first dev startup
+pnpm run docker:logs   # Tail Docker logs
+pnpm run docker:down   # Stop Docker services
+pnpm run db:studio     # Open Drizzle Studio (DB GUI)
 
 # Build
-npm run build         # Production build
-npm start            # Start production server
+pnpm run build         # Production build
+pnpm start            # Start production server
 
 # Database
-npm run db:push       # Push schema changes to DB
-npm run db:generate   # Generate migration files
+pnpm run db:push       # Push schema changes to DB
+pnpm run db:generate   # Generate migration files
 
 # Testing
-npm run test          # Run Vitest tests
-npm run test:ui       # Open Vitest UI
+pnpm run test          # Run Vitest tests
+pnpm run test:ui       # Open Vitest UI
 
 # Code Quality
-npm run lint          # Run ESLint
+pnpm run lint          # Run ESLint
 ```
 
 ---

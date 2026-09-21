@@ -38,7 +38,7 @@ services:
     volumes:
       - .:/workspace
       - openviz_node_modules:/workspace/node_modules
-      - openviz_npm_cache:/root/.npm
+      - openviz_pnpm_store:/root/.local/share/pnpm
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://openviz:openviz@postgres:5432/openviz}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
@@ -68,4 +68,4 @@ volumes:
   openviz_postgres_data:
   openviz_redis_data:
   openviz_node_modules:
-  openviz_npm_cache:
+  openviz_pnpm_store:

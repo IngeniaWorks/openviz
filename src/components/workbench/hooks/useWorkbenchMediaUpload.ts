@@ -1,13 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ChangeEvent, RefObject } from 'react';
 
-import type { MediaWorkbenchNode } from '@/types';
-import { buildMediaNode, isImageFile, resolveCenterFlowPoint } from '@/services/workbench/mediaUploadLogic';
+import type { ImageNode } from '@/types';
+import { buildImageNode, isImageFile, resolveCenterFlowPoint } from '@/services/workbench/mediaUploadLogic';
 
 interface UseWorkbenchMediaUploadOptions {
     flowWrapperRef: RefObject<HTMLDivElement | null>;
     screenToFlowPosition: (point: { x: number; y: number }) => { x: number; y: number };
-    makeOneShotNode: (node: MediaWorkbenchNode) => void;
+    makeOneShotNode: (node: ImageNode) => void;
 }
 
 /**
@@ -38,7 +38,7 @@ export function useWorkbenchMediaUpload({ flowWrapperRef, screenToFlowPosition, 
                 screenToFlowPosition
             );
 
-            makeOneShotNode(buildMediaNode({ src: info.url, fileName: info.fileName, mimeType: info.mimeType, centerPoint }));
+            makeOneShotNode(buildImageNode({ src: info.url, fileName: info.fileName, mimeType: info.mimeType, centerPoint }));
             setIsPhoneUploadModalOpen(false);
         },
         [flowWrapperRef, makeOneShotNode, screenToFlowPosition]
@@ -58,7 +58,7 @@ export function useWorkbenchMediaUpload({ flowWrapperRef, screenToFlowPosition, 
                 screenToFlowPosition
             );
 
-            makeOneShotNode(buildMediaNode({ src: objectUrl, fileName: file.name, mimeType: file.type, centerPoint }));
+            makeOneShotNode(buildImageNode({ src: objectUrl, fileName: file.name, mimeType: file.type, centerPoint }));
             event.target.value = '';
         },
         [flowWrapperRef, makeOneShotNode, screenToFlowPosition]

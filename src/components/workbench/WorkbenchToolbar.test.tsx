@@ -22,7 +22,9 @@ const TOOL_TITLES: Array<[WorkbenchToolType, string]> = [
 
 function renderToolbar(
     activeTool: WorkbenchToolType = 'select',
-    sketchFormats: Array<{ label: string; width: number; height: number }> = []
+    sketchFormats: Array<{ label: string; width: number; height: number }> = [],
+    canUndo = true,
+    canRedo = true
 ) {
     const onSelectTool = vi.fn();
     const onMediaUpload = vi.fn();
@@ -38,6 +40,8 @@ function renderToolbar(
             onFreehandStrokeWidthChange={vi.fn()}
             onUndo={vi.fn()}
             onRedo={vi.fn()}
+            canUndo={canUndo}
+            canRedo={canRedo}
             onMediaUpload={onMediaUpload}
             onMediaUploadFromPhone={onMediaUploadFromPhone}
             sketchFormats={sketchFormats}
@@ -70,6 +74,15 @@ describe('WorkbenchToolbar — structure (C-1)', () => {
             if (tool === 'arrow') continue;
             expect(screen.getByTitle(title).getAttribute('aria-pressed')).toBe('false');
         }
+    });
+});
+
+describe('WorkbenchToolbar — history availability', () => {
+    it('disables Undo and Redo when their actions are unavailable', () => {
+        renderToolbar('select', [], false, false);
+
+        expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Redo' })).toBeDisabled();
     });
 });
 
@@ -116,6 +129,17 @@ describe('WorkbenchToolbar — Media submenu (C-1.4, C-1.5)', () => {
         fireEvent.click(screen.getByText('Upload from phone'));
 
         expect(onMediaUploadFromPhone).toHaveBeenCalledTimes(1);
+    });
+
+    it('selecting a Create new format calls onFormatSelect', () => {
+        const { onFormatSelect } = renderToolbar('media', [
+            { label: 'Square 1:1', width: 1024, height: 1024 },
+        ]);
+        fireEvent.pointerDown(screen.getByTitle('Media (M)'), { button: 0 });
+        fireEvent.click(screen.getByText('Create new'));
+        fireEvent.click(screen.getByText('Square 1:1'));
+
+        expect(onFormatSelect).toHaveBeenCalledWith(1024, 1024);
     });
 
     it('Create-new section lists only the provided sketch formats (C-1.5)', () => {

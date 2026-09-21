@@ -7,6 +7,7 @@ import { imageLikeHandleStyle } from './nodeUi';
 interface ImageNodeData extends ImageNodeType {
     onSourceClick?: (nodeId: string) => void;
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
 }
 
 interface ImageNodeProps {
@@ -118,7 +119,7 @@ export const ImageNode: React.FC<ImageNodeProps> = ({ id, data, selected, isConn
                     const newY = Number.isFinite(resizeParams.y) ? resizeParams.y : undefined;
                     if (Number.isFinite(newWidth) && Number.isFinite(newHeight) && newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

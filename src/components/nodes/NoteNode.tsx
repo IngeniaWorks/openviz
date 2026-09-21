@@ -5,6 +5,7 @@ import { NoteWorkbenchNode } from '@/types';
 
 interface NoteNodeData extends NoteWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
     onDataChange?: (nodeId: string, data: Record<string, unknown>) => void;
 }
 
@@ -85,7 +86,7 @@ export const NoteNode: React.FC<NoteNodeProps> = ({ id, data, selected, width, h
 
                     if (newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

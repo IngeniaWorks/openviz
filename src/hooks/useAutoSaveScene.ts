@@ -26,6 +26,7 @@ export function useAutoSaveScene(projectId: string | null) {
         currentSceneVersion,
         setCurrentSceneVersion,
         sceneHydrated,
+        activeWorkbenchGesture,
         setWorkbenchNodes,
         setConnections,
     } = useStore(
@@ -35,6 +36,7 @@ export function useAutoSaveScene(projectId: string | null) {
             currentSceneVersion: state.currentSceneVersion,
             setCurrentSceneVersion: state.setCurrentSceneVersion,
             sceneHydrated: state.sceneHydrated,
+            activeWorkbenchGesture: state.activeWorkbenchGesture,
             setWorkbenchNodes: state.setWorkbenchNodes,
             setConnections: state.setConnections,
         }))
@@ -202,7 +204,7 @@ export function useAutoSaveScene(projectId: string | null) {
     useEffect(() => {
         const handlePageHide = () => {
             const currentProjectId = projectIdRef.current;
-            if (!currentProjectId || !PROJECT_ID_PATTERN.test(currentProjectId)) {
+            if (activeWorkbenchGesture || !currentProjectId || !PROJECT_ID_PATTERN.test(currentProjectId)) {
                 return;
             }
 
@@ -237,9 +239,16 @@ export function useAutoSaveScene(projectId: string | null) {
 
         window.addEventListener("pagehide", handlePageHide);
         return () => window.removeEventListener("pagehide", handlePageHide);
-    }, [getSceneSnapshot]);
+    }, [activeWorkbenchGesture, getSceneSnapshot]);
 
     useEffect(() => {
+        if (activeWorkbenchGesture) {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            return;
+        }
         if (!projectId) return;
         if (!PROJECT_ID_PATTERN.test(projectId)) {
             return;
@@ -332,9 +341,16 @@ export function useAutoSaveScene(projectId: string | null) {
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
                 saveTimeoutRef.current = null;
-                // Flush immediately on unmount (e.g. client-side navigation away)
-                void saveSceneRef.current?.(projectId);
             }
         };
-    }, [workbenchNodes, connections, projectId, saveScene]);
+    }, [activeWorkbenchGesture, workbenchNodes, connections, projectId, saveScene]);
+
+    // Flush once when leaving the project or unmounting, not on every node update.
+    // This prevents cleanup caused by transient gesture renders from persisting
+    // intermediate state.
+    useEffect(() => () => {
+        if (projectId && PROJECT_ID_PATTERN.test(projectId)) {
+            void saveSceneRef.current?.(projectId);
+        }
+    }, [projectId]);
 }

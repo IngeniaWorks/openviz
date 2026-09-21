@@ -5,6 +5,7 @@ import { TextWorkbenchNode } from '@/types';
 
 interface TextNodeData extends TextWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
     onDataChange?: (nodeId: string, data: Record<string, unknown>) => void;
 }
 
@@ -92,7 +93,7 @@ export const TextNode: React.FC<TextNodeProps> = ({ id, data, selected, width, h
 
                     if (newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

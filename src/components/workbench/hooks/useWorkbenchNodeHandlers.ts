@@ -8,8 +8,8 @@ import {
 
 import { WorkbenchNode } from '@/types';
 
-import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
 import { normalizeArrowGeometry } from '@/services/workbench/arrowGeometry';
+import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
 import { buildFlowNodes } from './workbenchNodeSizing';
 import { BasicBlocksMenuState } from './useWorkbenchBlockCreation';
 
@@ -20,6 +20,10 @@ type UseWorkbenchNodeHandlersOptions = {
     selectedNodeIds: string[];
     setSelectedNodeIds: (ids: string[]) => void;
     updateWorkbenchNode: (id: string, updates: Partial<WorkbenchNode>) => void;
+    updateWorkbenchNodeTransient: (id: string, updates: Partial<WorkbenchNode>) => void;
+    beginWorkbenchGesture: (kind: 'move' | 'resize' | 'arrow-handle', affectedNodeIds?: string[]) => void;
+    commitWorkbenchGesture: () => void;
+    cancelWorkbenchGesture: () => void;
     removeWorkbenchNode: (id?: string) => void;
     openNodeInStudio: (id: string) => void;
     setActiveNodeId: (id: string | null) => void;
@@ -31,6 +35,10 @@ export function useWorkbenchNodeHandlers({
     selectedNodeIds,
     setSelectedNodeIds,
     updateWorkbenchNode,
+    updateWorkbenchNodeTransient,
+    beginWorkbenchGesture,
+    commitWorkbenchGesture,
+    cancelWorkbenchGesture,
     removeWorkbenchNode,
     openNodeInStudio,
     setActiveNodeId,
@@ -54,7 +62,7 @@ export function useWorkbenchNodeHandlers({
                 if (resizingNodeIdsRef.current.has(change.id)) {
                     return;
                 }
-                updateWorkbenchNode(change.id, {
+                updateWorkbenchNodeTransient(change.id, {
                     x: change.position.x,
                     y: change.position.y,
                 });
@@ -73,11 +81,14 @@ export function useWorkbenchNodeHandlers({
                 }
             }
         });
-    }, [updateWorkbenchNode, removeWorkbenchNode, setSelectedNodeIds, selectedNodeIds, workbenchNodes]);
+    }, [updateWorkbenchNodeTransient, removeWorkbenchNode, setSelectedNodeIds, selectedNodeIds, workbenchNodes]);
 
     const handleNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {
         const workbenchNode = workbenchNodes.find((n) => n.id === node.id);
-        if (workbenchNode?.type === 'image') {
+        // Uploaded images use the `media` node shape so their object URL can be
+        // released when the node is deleted. They are still editable images,
+        // so treat them like project image nodes when opening the editor.
+        if (workbenchNode?.type === 'image' || workbenchNode?.type === 'media') {
             openNodeInStudio(node.id);
         }
     }, [workbenchNodes, openNodeInStudio]);
@@ -117,64 +128,83 @@ export function useWorkbenchNodeHandlers({
             return;
         }
 
+        beginWorkbenchGesture('resize', [nodeId]);
         const xUpdate = Number.isFinite(x) ? x : undefined;
         const yUpdate = Number.isFinite(y) ? y : undefined;
+        let updates: Partial<WorkbenchNode>;
 
         if (node.type === 'arrow') {
-            // C-5.2: re-scale start/end/control by the per-axis ratio so the
-            // shape is preserved without distortion (pure math in arrowGeometry).
             const currentWidth = Number.isFinite(node.width) && (node.width as number) > 0 ? (node.width as number) : width;
             const currentHeight = Number.isFinite(node.height) && (node.height as number) > 0 ? (node.height as number) : height;
-            const nextData = normalizeArrowGeometry(node.data, currentWidth, currentHeight, width, height);
-
-            updateWorkbenchNode(nodeId, {
+            updates = {
                 width,
                 height,
-                data: nextData,
+                data: normalizeArrowGeometry(node.data, currentWidth, currentHeight, width, height),
                 ...(xUpdate !== undefined ? { x: xUpdate } : {}),
                 ...(yUpdate !== undefined ? { y: yUpdate } : {}),
-            });
-            // Resize gesture finished (mouse released) - sync immediately.
-            requestImmediateSceneSave();
+            };
+        } else if ((node.type === 'image' || node.type === 'video') && node.project?.canvas) {
+            const canvasWidth = node.project.canvas.width;
+            if (!Number.isFinite(canvasWidth) || canvasWidth <= 0) {
+                updates = { width, height };
+            } else {
+                const scale = width / canvasWidth;
+                if (!Number.isFinite(scale) || scale <= 0) {
+                    return;
+                }
+                updates = { scale, width, height };
+            }
+            updates = {
+                ...updates,
+                ...(xUpdate !== undefined ? { x: xUpdate } : {}),
+                ...(yUpdate !== undefined ? { y: yUpdate } : {}),
+            };
+        } else {
+            updates = {
+                width,
+                height,
+                ...(xUpdate !== undefined ? { x: xUpdate } : {}),
+                ...(yUpdate !== undefined ? { y: yUpdate } : {}),
+            };
+        }
+
+        updateWorkbenchNodeTransient(nodeId, updates);
+    }, [beginWorkbenchGesture, updateWorkbenchNodeTransient, workbenchNodes]);
+
+    const handleResizeEnd = useCallback((nodeId: string, width: number, height: number, x?: number, y?: number) => {
+        handleResize(nodeId, width, height, x, y);
+        commitWorkbenchGesture();
+        requestImmediateSceneSave();
+    }, [commitWorkbenchGesture, handleResize]);
+
+    const handleTransientDataChange = useCallback((nodeId: string, data: Record<string, unknown>) => {
+        const node = workbenchNodes.find((candidate) => candidate.id === nodeId);
+        if (!node || !('data' in node)) {
             return;
         }
 
-        if ((node.type === 'image' || node.type === 'video') && node.project?.canvas) {
-            const canvasWidth = node.project?.canvas?.width;
-            if (!Number.isFinite(canvasWidth) || canvasWidth <= 0) {
-                updateWorkbenchNode(nodeId, {
-                    width,
-                    height,
-                    ...(xUpdate !== undefined ? { x: xUpdate } : {}),
-                    ...(yUpdate !== undefined ? { y: yUpdate } : {}),
-                });
-                return;
-            }
+        updateWorkbenchNodeTransient(nodeId, {
+            data: {
+                ...(node.data as Record<string, unknown>),
+                ...data,
+            },
+        } as Partial<WorkbenchNode>);
+    }, [updateWorkbenchNodeTransient, workbenchNodes]);
 
-            const scale = width / canvasWidth;
-            if (!Number.isFinite(scale) || scale <= 0) {
-                return;
-            }
+    const handleGestureStart = useCallback((nodeId: string, kind: 'move' | 'resize' | 'arrow-handle') => {
+        beginWorkbenchGesture(kind, [nodeId]);
+    }, [beginWorkbenchGesture]);
 
-            updateWorkbenchNode(nodeId, {
-                scale,
-                width,
-                height,
-                ...(xUpdate !== undefined ? { x: xUpdate } : {}),
-                ...(yUpdate !== undefined ? { y: yUpdate } : {}),
-            });
-        } else {
-            updateWorkbenchNode(nodeId, {
-                width,
-                height,
-                ...(xUpdate !== undefined ? { x: xUpdate } : {}),
-                ...(yUpdate !== undefined ? { y: yUpdate } : {}),
-            });
+    const handleGestureEnd = useCallback((cancelled = false) => {
+        if (cancelled) {
+            // Cancellation restores the transaction start snapshot and deliberately
+            // does not request a persistence flush.
+            cancelWorkbenchGesture();
+            return;
         }
-
-        // Resize gesture finished (mouse released) - sync immediately.
+        commitWorkbenchGesture();
         requestImmediateSceneSave();
-    }, [updateWorkbenchNode, workbenchNodes]);
+    }, [cancelWorkbenchGesture, commitWorkbenchGesture]);
 
     const handleDataChange = useCallback((nodeId: string, data: Record<string, unknown>) => {
         const node = workbenchNodes.find((n) => n.id === nodeId);
@@ -201,6 +231,10 @@ export function useWorkbenchNodeHandlers({
         handlePaneClick,
         handleSourceClick,
         handleResize,
+        handleResizeEnd,
+        handleTransientDataChange,
+        handleGestureStart,
+        handleGestureEnd,
         handleDataChange,
     };
 }

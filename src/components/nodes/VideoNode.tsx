@@ -7,6 +7,7 @@ import { VideoNode as VideoNodeType } from '../../types';
 
 interface VideoNodeData extends VideoNodeType {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
 }
 
 interface VideoNodeProps {
@@ -140,7 +141,7 @@ export const VideoNode: React.FC<VideoNodeProps> = ({ id, data, selected, width,
                     const newY = Number.isFinite(resizeParams.y) ? resizeParams.y : undefined;
                     if (Number.isFinite(newWidth) && Number.isFinite(newHeight) && newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

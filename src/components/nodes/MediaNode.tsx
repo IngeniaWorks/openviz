@@ -6,6 +6,7 @@ import { MediaWorkbenchNode } from '@/types';
 
 interface MediaNodeData extends MediaWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
 }
 
 interface MediaNodeProps {
@@ -29,7 +30,8 @@ export const MediaNode: React.FC<MediaNodeProps> = ({ id, data, selected, width,
     }, [width, height]);
 
     return (
-        <div style={{ width: nodeSize.width, height: nodeSize.height }} className={`relative overflow-hidden rounded-lg border bg-white shadow-md ${selected ? 'border-blue-400' : 'border-slate-200'}`}>
+        <div style={{ width: nodeSize.width, height: nodeSize.height }} className={`relative rounded-lg border bg-white shadow-md ${selected ? 'border-blue-400' : 'border-slate-200'}`}>
+            <div className="h-full w-full overflow-hidden rounded-lg">
             {src && !loadError ? (
                 <img
                     src={src}
@@ -46,6 +48,7 @@ export const MediaNode: React.FC<MediaNodeProps> = ({ id, data, selected, width,
                     <span>{src ? alt : 'Media unavailable'}</span>
                 </div>
             )}
+            </div>
 
             <NodeResizer
                 isVisible={selected}
@@ -79,7 +82,7 @@ export const MediaNode: React.FC<MediaNodeProps> = ({ id, data, selected, width,
 
                     if (newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

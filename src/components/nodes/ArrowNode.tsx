@@ -10,7 +10,11 @@ import {
 
 interface ArrowNodeData extends ArrowWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
     onDataChange?: (nodeId: string, data: Record<string, unknown>) => void;
+    onTransientDataChange?: (nodeId: string, data: Record<string, unknown>) => void;
+    onGestureStart?: (nodeId: string, kind: 'move' | 'resize' | 'arrow-handle') => void;
+    onGestureEnd?: (cancelled?: boolean) => void;
 }
 
 interface ArrowNodeProps {
@@ -43,6 +47,7 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
         event.stopPropagation();
         const pointerId = event.pointerId;
         event.currentTarget.setPointerCapture(pointerId);
+        data.onGestureStart?.(id, 'arrow-handle');
 
         const onPointerMove = (moveEvent: PointerEvent) => {
             const container = containerRef.current;
@@ -60,7 +65,8 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
                 nodeHeight
             );
 
-            data.onDataChange?.(id, {
+            const updateData = data.onTransientDataChange ?? data.onDataChange;
+            updateData?.(id, {
                 [point]: nextPoint,
             });
         };
@@ -68,10 +74,19 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
         const onPointerUp = () => {
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerCancel);
+            data.onGestureEnd?.(false);
+        };
+        const onPointerCancel = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerCancel);
+            data.onGestureEnd?.(true);
         };
 
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerCancel);
     };
 
     return (
@@ -134,7 +149,7 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
                     const newY = Number.isFinite(resizeParams.y) ? resizeParams.y : undefined;
 
                     if (newWidth > 0 && newHeight > 0) {
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

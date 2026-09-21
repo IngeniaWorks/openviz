@@ -35,6 +35,8 @@ type WorkbenchToolbarProps = {
     onFreehandStrokeWidthChange: (strokeWidth: number) => void;
     onUndo: () => void;
     onRedo: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
     onMediaUpload: () => void;
     onMediaUploadFromPhone: () => void;
     sketchFormats: SketchFormat[];
@@ -73,12 +75,15 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
     onFreehandStrokeWidthChange,
     onUndo,
     onRedo,
+    canUndo = true,
+    canRedo = true,
     onMediaUpload,
     onMediaUploadFromPhone,
     sketchFormats,
     onFormatSelect,
 }) => {
     const [showColorMenu, setShowColorMenu] = useState(false);
+    const [isCreateNewOpen, setIsCreateNewOpen] = useState(false);
 
     // The Media/Create-new menus are Radix DropdownMenu (T026): they manage
     // their own open state, Escape-to-close, outside-click dismissal, and
@@ -109,7 +114,12 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                         // C-1.4/C-1.5: Media submenu via Radix DropdownMenu —
                         // keyboard navigation, Escape-to-close, focus return (T026).
                         return (
-                            <DropdownMenu.Root key={tool.id}>
+                            <DropdownMenu.Root
+                                key={tool.id}
+                                onOpenChange={(open) => {
+                                    if (!open) setIsCreateNewOpen(false);
+                                }}
+                            >
                                 <DropdownMenu.Trigger asChild>
                                     <button
                                         type="button"
@@ -138,8 +148,13 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                                         <Smartphone size={14} />
                                         Upload from phone
                                     </DropdownMenu.Item>
-                                    <DropdownMenu.Sub>
-                                        <DropdownMenu.SubTrigger className={`${menuItemClass} justify-between`}>
+                                    <DropdownMenu.Sub open={isCreateNewOpen} onOpenChange={setIsCreateNewOpen}>
+                                        <DropdownMenu.SubTrigger
+                                            className={`${menuItemClass} justify-between`}
+                                            // Radix normally opens submenus on pointer movement. Also
+                                            // open on click so the touch/click-only path is reliable.
+                                            onClick={() => setIsCreateNewOpen(true)}
+                                        >
                                             <span className="inline-flex items-center gap-2">
                                                 <Plus size={14} />
                                                 Create new
@@ -193,7 +208,9 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                 <button
                     type="button"
                     onClick={onUndo}
-                    className="rounded-full p-1.5 text-text-secondary transition-all hover:bg-neutral-800 hover:text-white"
+                    disabled={!canUndo}
+                    aria-label="Undo"
+                    className="rounded-full p-1.5 text-text-secondary transition-all hover:bg-neutral-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
                     title="Undo (Ctrl+Z)"
                 >
                     <Undo2 size={16} />
@@ -201,7 +218,9 @@ export const WorkbenchToolbar: React.FC<WorkbenchToolbarProps> = ({
                 <button
                     type="button"
                     onClick={onRedo}
-                    className="rounded-full p-1.5 text-text-secondary transition-all hover:bg-neutral-800 hover:text-white"
+                    disabled={!canRedo}
+                    aria-label="Redo"
+                    className="rounded-full p-1.5 text-text-secondary transition-all hover:bg-neutral-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
                     title="Redo (Ctrl+Y)"
                 >
                     <Redo2 size={16} />

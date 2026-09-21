@@ -20,38 +20,34 @@ describe('isImageFile (FR-012 image-only validation)', () => {
     });
 });
 
-describe('buildMediaNode (data-model Media entity)', () => {
-    it('produces a media node centered on the viewport point with file metadata', async () => {
-        const { buildMediaNode } = await import('./mediaUploadLogic');
-        const node = buildMediaNode({
+describe('buildImageNode (uploaded image node)', () => {
+    it('produces an editable image node centered on the viewport point', async () => {
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
             src: 'blob:http://localhost/abc',
             fileName: 'pic.png',
             mimeType: 'image/png',
             centerPoint: { x: 500, y: 300 },
         });
 
-        expect(node.type).toBe('media');
-        // Default box 260x180 centered on the pointer
+        expect(node.type).toBe('image');
+        expect(node.project.layers[0].image).toBe('blob:http://localhost/abc');
+        expect(node.name).toBe('pic.png');
         expect(node.width).toBe(260);
-        expect(node.height).toBe(180);
+        expect(node.height).toBe(195);
         expect(node.x).toBe(500 - 130);
-        expect(node.y).toBe(300 - 90);
-        expect(node.data).toEqual({
-            src: 'blob:http://localhost/abc',
-            alt: 'pic.png',
-            mimeType: 'image/png',
-        });
+        expect(node.y).toBe(300 - 97.5);
     });
 
     it('falls back to a generic alt when the file has no name', async () => {
-        const { buildMediaNode } = await import('./mediaUploadLogic');
-        const node = buildMediaNode({
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
             src: 'blob:http://localhost/xyz',
             fileName: '',
             mimeType: 'image/jpeg',
             centerPoint: { x: 10, y: 20 },
         });
-        expect(node.data.alt).toBe('Uploaded media');
+        expect(node.name).toBe('Uploaded image');
     });
 });
 

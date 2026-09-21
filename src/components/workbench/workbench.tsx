@@ -40,6 +40,7 @@ import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
 import { DrawingOverlay } from '@/drawing/DrawingOverlay';
 import { getBoundingBox, pointsToPath, Point } from '@/drawing/strokeUtils';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
+import { buildMediaNode, isImageFile, resolveCenterFlowPoint } from '@/services/workbench/mediaUploadLogic';
 import {
     ArrowWorkbenchNode,
     FreehandNode as FreehandWorkbenchNode,
@@ -305,34 +306,18 @@ const WorkbenchContent: React.FC = () => {
 
     const handleMediaUploadChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !file.type.startsWith('image/')) {
+        // FR-012: image-only validation lives in the pure module (T023).
+        if (!file || !isImageFile(file)) {
             return;
         }
 
         const objectUrl = URL.createObjectURL(file);
-        const wrapperRect = flowWrapperRef.current?.getBoundingClientRect();
-        const centerPoint = wrapperRect
-            ? screenToFlowPosition({
-                x: wrapperRect.left + wrapperRect.width / 2,
-                y: wrapperRect.top + wrapperRect.height / 2,
-            })
-            : { x: 200, y: 200 };
+        const centerPoint = resolveCenterFlowPoint(
+            flowWrapperRef.current?.getBoundingClientRect(),
+            screenToFlowPosition
+        );
 
-        const mediaNode: MediaWorkbenchNode = {
-            id: crypto.randomUUID(),
-            type: 'media',
-            x: centerPoint.x - 130,
-            y: centerPoint.y - 90,
-            width: 260,
-            height: 180,
-            data: {
-                src: objectUrl,
-                alt: file.name || 'Uploaded media',
-                mimeType: file.type,
-            },
-        };
-
-        makeOneShotNode(mediaNode);
+        makeOneShotNode(buildMediaNode({ src: objectUrl, fileName: file.name, mimeType: file.type, centerPoint }));
         event.target.value = '';
     }, [makeOneShotNode, screenToFlowPosition]);
 

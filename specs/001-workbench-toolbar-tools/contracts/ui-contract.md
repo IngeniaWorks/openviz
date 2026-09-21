@@ -8,7 +8,7 @@ Behavioral contract for the workbench toolbar and its tools. Each clause is test
 - C-1.1 Toolbar shows exactly eight buttons in order: Select, Hand, Draw, Eraser, Arrow, Text, Note, Media (FR-001).
 - C-1.2 Each button exposes a tooltip/`title` containing the tool label and its shortcut key, e.g. "Arrow (A)".
 - C-1.3 The active tool's button is visually distinct (pressed state, `aria-pressed="true"`); all others are unpressed.
-- C-1.4 Media button opens a submenu with exactly: **Upload** and **Upload from phone** (FR-012).
+- C-1.4 Media button opens a submenu containing **Upload** and **Upload from phone** (FR-012). An additional "Create new" section may be present for pre-existing sketch-format creation (FR-017) but MUST NOT introduce out-of-scope node types (see C-1.5).
 - C-1.5 "Create new" style submenus (if present) contain only the in-scope tools; no ComfyUI node types.
 
 ## C-2: Tool activation

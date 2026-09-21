@@ -17,10 +17,50 @@ import {
 } from '../../types';
 
 /** Nodes created by one-shot tools (arrow/text/note/media) — FR-007. */
-type OneShotNode = TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode;
+type OneShotNode = ImageNode | TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode;
 import { INITIAL_PROJECT } from '../initialState';
 import { findNonOverlappingPosition } from '../../services/nodePositioning';
 import { addConnectionWithPolicy, normalizeConnections } from '../../services/workbench/connectionPolicy';
+import {
+    areWorkbenchSnapshotsEqual,
+    createWorkbenchGestureTransaction,
+    type WorkbenchGestureKind,
+    type WorkbenchGestureTransaction,
+} from '../workbenchGestureHistory';
+
+function projectFromMediaNode(node: MediaWorkbenchNode): Project {
+    const now = Date.now();
+    const canvas = INITIAL_PROJECT.canvas;
+    const layerId = `${node.id}-image`;
+
+    return {
+        ...INITIAL_PROJECT,
+        id: node.id,
+        name: node.data.alt || 'Uploaded image',
+        createdAt: now,
+        lastModifiedAt: now,
+        layers: [
+            {
+                id: layerId,
+                name: node.data.alt || 'Uploaded image',
+                type: 'image',
+                visible: true,
+                locked: false,
+                opacity: 100,
+                blendMode: 'normal',
+                strokes: [],
+                image: node.data.src,
+                x: 0,
+                y: 0,
+                width: canvas.width,
+                height: canvas.height,
+                order: 1,
+                created: now,
+                modified: now,
+            },
+        ],
+    };
+}
 
 export interface WorkbenchSlice {
     viewMode: ViewMode;
@@ -38,6 +78,7 @@ export interface WorkbenchSlice {
     freehandStrokeWidth: number;
     workbenchHistory: WorkbenchHistorySnapshot[];
     workbenchHistoryIndex: number;
+    activeWorkbenchGesture: WorkbenchGestureTransaction | null;
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
     createOneShotNode: (node: OneShotNode) => void;
@@ -49,6 +90,10 @@ export interface WorkbenchSlice {
     ) => void;
     removeConnection: (id: string) => void;
     updateWorkbenchNode: (id: string, updates: Partial<WorkbenchNode>) => void;
+    updateWorkbenchNodeTransient: (id: string, updates: Partial<WorkbenchNode>) => void;
+    beginWorkbenchGesture: (kind: WorkbenchGestureKind, affectedNodeIds?: string[]) => void;
+    commitWorkbenchGesture: () => void;
+    cancelWorkbenchGesture: () => void;
     removeWorkbenchNode: (id?: string) => void;
     duplicateWorkbenchNode: (id?: string) => void;
     reorderWorkbenchNode: (id: string, direction: 'front' | 'back') => void;
@@ -91,9 +136,6 @@ const createWorkbenchSnapshot = (
     activeNodeId,
 });
 
-const areSnapshotsEqual = (a: WorkbenchHistorySnapshot, b: WorkbenchHistorySnapshot): boolean =>
-    JSON.stringify(a) === JSON.stringify(b);
-
 const commitWorkbenchHistory = (state: AppState, nextState: Partial<AppState>): Partial<AppState> => {
     const snapshot = createWorkbenchSnapshot(
         (nextState.workbenchNodes ?? state.workbenchNodes) as WorkbenchNode[],
@@ -103,7 +145,7 @@ const commitWorkbenchHistory = (state: AppState, nextState: Partial<AppState>): 
     );
 
     const currentSnapshot = state.workbenchHistory[state.workbenchHistoryIndex];
-    if (currentSnapshot && areSnapshotsEqual(currentSnapshot, snapshot)) {
+    if (currentSnapshot && areWorkbenchSnapshotsEqual(currentSnapshot, snapshot)) {
         return nextState;
     }
 
@@ -137,8 +179,27 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
     freehandStrokeWidth: 4,
     workbenchHistory: [createWorkbenchSnapshot([], [], [], 'default')],
     workbenchHistoryIndex: 0,
+    activeWorkbenchGesture: null,
 
-    setViewMode: (viewMode) => set({ viewMode }),
+    setViewMode: (viewMode) => set((state: AppState) => {
+        if (state.viewMode === viewMode) {
+            return { viewMode };
+        }
+
+        return {
+            viewMode,
+            history: [structuredClone(state.project)],
+            historyIndex: 0,
+            workbenchHistory: [createWorkbenchSnapshot(
+                state.workbenchNodes,
+                state.connections,
+                state.selectedNodeIds,
+                state.activeNodeId
+            )],
+            workbenchHistoryIndex: 0,
+            activeWorkbenchGesture: null,
+        };
+    }),
 
     addWorkbenchNode: (node) => set((state: AppState) => {
         const newNodes = [...state.workbenchNodes, node];
@@ -208,19 +269,102 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return commitWorkbenchHistory(state, newState);
     }),
 
+    updateWorkbenchNodeTransient: (id, updates) => set((state: AppState) => {
+        const nodes = state.workbenchNodes.map((node) =>
+            node.id === id ? ({ ...node, ...updates } as WorkbenchNode) : node
+        );
+        const newState: Partial<AppState> = { workbenchNodes: nodes };
+        if (state.currentProjectId) {
+            newState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: nodes,
+            };
+        }
+        return newState;
+    }),
+
+    beginWorkbenchGesture: (kind: WorkbenchGestureKind, affectedNodeIds = []) => set((state: AppState) => {
+        if (state.activeWorkbenchGesture) {
+            return state;
+        }
+
+        const snapshot = createWorkbenchSnapshot(
+            state.workbenchNodes,
+            state.connections,
+            state.selectedNodeIds,
+            state.activeNodeId
+        );
+        return {
+            activeWorkbenchGesture: createWorkbenchGestureTransaction(
+                kind,
+                state.currentProjectId,
+                snapshot,
+                affectedNodeIds
+            ),
+        };
+    }),
+
+    commitWorkbenchGesture: () => set((state: AppState) => {
+        const transaction = state.activeWorkbenchGesture;
+        if (!transaction) {
+            return state;
+        }
+
+        const finalSnapshot = createWorkbenchSnapshot(
+            state.workbenchNodes,
+            state.connections,
+            state.selectedNodeIds,
+            state.activeNodeId
+        );
+        const nextState: Partial<AppState> = { activeWorkbenchGesture: null };
+        if (areWorkbenchSnapshotsEqual(transaction.startSnapshot, finalSnapshot)) {
+            return nextState;
+        }
+
+        return commitWorkbenchHistory(state, nextState);
+    }),
+
+    cancelWorkbenchGesture: () => set((state: AppState) => {
+        const transaction = state.activeWorkbenchGesture;
+        if (!transaction) {
+            return state;
+        }
+
+        const snapshot = transaction.startSnapshot;
+        const nextNodes = structuredClone(snapshot.workbenchNodes);
+        const nextState: Partial<AppState> = {
+            workbenchNodes: nextNodes,
+            connections: structuredClone(snapshot.connections),
+            selectedNodeIds: [...snapshot.selectedNodeIds],
+            activeNodeId: snapshot.activeNodeId,
+            activeWorkbenchGesture: null,
+        };
+        if (state.currentProjectId) {
+            nextState.projectNodes = {
+                ...state.projectNodes,
+                [state.currentProjectId]: nextNodes,
+            };
+        }
+        return nextState;
+    }),
+
     removeWorkbenchNode: (id) => {
         const state = get();
         const idsToRemove = id ? [id] : state.selectedNodeIds;
         if (idsToRemove.length === 0) return;
 
-        // R4: release object URLs of removed media nodes so blob: memory does
-        // not leak across add/remove cycles. Non-blob srcs are left untouched.
+        // Release object URLs from removed uploaded images so blob memory does
+        // not leak across add/remove cycles. Non-blob sources are untouched.
         state.workbenchNodes
-            .filter((n): n is MediaWorkbenchNode => n.type === 'media')
             .filter((n) => idsToRemove.includes(n.id))
             .forEach((n) => {
-                if (typeof n.data?.src === 'string' && n.data.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(n.data.src);
+                const source = n.type === 'media'
+                    ? n.data?.src
+                    : n.type === 'image'
+                        ? n.project.layers.find((layer) => layer.image)?.image
+                        : undefined;
+                if (typeof source === 'string' && source.startsWith('blob:')) {
+                    URL.revokeObjectURL(source);
                 }
             });
 
@@ -470,10 +614,35 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
                 history: [node.project],
                 historyIndex: 0,
                 renderResults: nodeRenderResults,
-                viewMode: 'STUDIO'
+                viewMode: 'STUDIO',
+                workbenchHistory: [createWorkbenchSnapshot(state.workbenchNodes, state.connections, state.selectedNodeIds, id)],
+                workbenchHistoryIndex: 0,
+                activeWorkbenchGesture: null,
+            });
+        } else if (node.type === 'media') {
+            // Media uploads are canvas images without a saved Project yet.
+            // Materialize a minimal editor project when the node is opened so
+            // double-clicking an upload enters the same editor as a sketch.
+            const mediaProject = projectFromMediaNode(node);
+            set({
+                project: mediaProject,
+                activeNodeId: id,
+                history: [mediaProject],
+                historyIndex: 0,
+                renderResults: [],
+                viewMode: 'STUDIO',
+                workbenchHistory: [createWorkbenchSnapshot(state.workbenchNodes, state.connections, state.selectedNodeIds, id)],
+                workbenchHistoryIndex: 0,
+                activeWorkbenchGesture: null,
             });
         } else {
-            set({ activeNodeId: id, viewMode: 'STUDIO' });
+            set({
+                activeNodeId: id,
+                viewMode: 'STUDIO',
+                workbenchHistory: [createWorkbenchSnapshot(state.workbenchNodes, state.connections, state.selectedNodeIds, id)],
+                workbenchHistoryIndex: 0,
+                activeWorkbenchGesture: null,
+            });
         }
     },
 
@@ -495,6 +664,12 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
             newState.history = [node.project];
             newState.historyIndex = 0;
             newState.renderResults = nodeRenderResults;
+        } else if (node.type === 'media') {
+            const mediaProject = projectFromMediaNode(node);
+            newState.project = mediaProject;
+            newState.history = [mediaProject];
+            newState.historyIndex = 0;
+            newState.renderResults = [];
         }
 
         return newState;
@@ -843,6 +1018,9 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         );
         newState.selectedNodeIds = [];
         newState.activeNodeId = null;
+        newState.activeWorkbenchGesture = null;
+        newState.history = [structuredClone(state.project)];
+        newState.historyIndex = 0;
         newState.workbenchHistory = [createWorkbenchSnapshot(nextNodes, newState.connections, [], null)];
         newState.workbenchHistoryIndex = 0;
         return newState;
@@ -901,7 +1079,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return commitWorkbenchHistory(state, newState);
     }),
     undoWorkbench: () => set((state: AppState) => {
-        if (state.workbenchHistoryIndex <= 0) {
+        if (state.activeWorkbenchGesture || state.workbenchHistoryIndex <= 0) {
             return state;
         }
 
@@ -925,7 +1103,7 @@ export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice
         return newState;
     }),
     redoWorkbench: () => set((state: AppState) => {
-        if (state.workbenchHistoryIndex >= state.workbenchHistory.length - 1) {
+        if (state.activeWorkbenchGesture || state.workbenchHistoryIndex >= state.workbenchHistory.length - 1) {
             return state;
         }
 

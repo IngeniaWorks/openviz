@@ -1,9 +1,10 @@
 import React, { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Circle,
     Eraser,
     Import,
-    IterationCcw,
+    LayoutDashboard,
     Minus,
     MousePointer2,
     Paintbrush,
@@ -109,14 +110,15 @@ function ModeSwitchSection({
         <button
             onClick={onToggleViewMode}
             className={cn(
-                "p-1.5 rounded-full transition-all duration-200",
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200",
                 viewMode === "WORKBENCH"
                     ? "bg-primary text-white"
                     : "text-text-secondary hover:bg-neutral-800 hover:text-white"
             )}
             title={viewMode === "STUDIO" ? "Switch to Workbench" : "Back to Studio"}
         >
-            <IterationCcw size={16} />
+            <LayoutDashboard size={16} />
+            <span>Workbench</span>
         </button>
     );
 }
@@ -130,9 +132,9 @@ export const Toolbar: React.FC = () => {
         redo,
         addLayer,
         updateLayer,
-        setViewMode,
         saveCurrentToWorkbench,
         viewMode,
+        currentProjectId,
     } = useStore(
         useShallow((state) => ({
             toolSettings: state.toolSettings,
@@ -142,11 +144,12 @@ export const Toolbar: React.FC = () => {
             redo: state.redo,
             addLayer: state.addLayer,
             updateLayer: state.updateLayer,
-            setViewMode: state.setViewMode,
             saveCurrentToWorkbench: state.saveCurrentToWorkbench,
             viewMode: state.viewMode,
+            currentProjectId: state.currentProjectId,
         }))
     );
+    const router = useRouter();
     const [showColorPicker, setShowColorPicker] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -201,16 +204,17 @@ export const Toolbar: React.FC = () => {
     };
 
     const handleToggleWorkbench = () => {
+        if (!currentProjectId) return;
         if (viewMode === "STUDIO") {
             const flattenedCanvas = (window as CanvasFlattenWindow).getFlattenedCanvas?.();
             if (flattenedCanvas) {
                 saveCurrentToWorkbench(flattenedCanvas);
             }
-            setViewMode("WORKBENCH");
+            router.push(`/projects/${currentProjectId}/workbench`);
             return;
         }
 
-        setViewMode("STUDIO");
+        router.push(`/projects/${currentProjectId}/studio`);
     };
 
     return (

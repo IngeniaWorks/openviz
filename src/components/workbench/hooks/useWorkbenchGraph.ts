@@ -8,6 +8,10 @@ type WorkbenchGraphOptions = {
     selectedNodeIds: string[];
     handleSourceClick: (nodeId: string) => void;
     handleResize: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    handleResizeEnd: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    handleTransientDataChange: (nodeId: string, data: Record<string, unknown>) => void;
+    handleGestureStart: (nodeId: string, kind: 'move' | 'resize' | 'arrow-handle') => void;
+    handleGestureEnd: (cancelled?: boolean) => void;
     handleDataChange: (nodeId: string, data: Record<string, unknown>) => void;
 };
 
@@ -67,6 +71,10 @@ export function useWorkbenchGraph({
     selectedNodeIds,
     handleSourceClick,
     handleResize,
+    handleResizeEnd,
+    handleTransientDataChange,
+    handleGestureStart,
+    handleGestureEnd,
     handleDataChange,
 }: WorkbenchGraphOptions) {
     const nodes = useMemo<Array<Node<Record<string, unknown>, WorkbenchFlowNodeType>>>(() => {
@@ -86,12 +94,16 @@ export function useWorkbenchGraph({
                     height,
                     onSourceClick: handleSourceClick,
                     onResize: handleResize,
+                    onResizeEnd: handleResizeEnd,
+                    onTransientDataChange: handleTransientDataChange,
+                    onGestureStart: handleGestureStart,
+                    onGestureEnd: handleGestureEnd,
                     onDataChange: handleDataChange,
                 } as Record<string, unknown>,
                 selected: selectedNodeIds.includes(node.id),
             };
         });
-    }, [workbenchNodes, selectedNodeIds, handleSourceClick, handleResize, handleDataChange]);
+    }, [workbenchNodes, selectedNodeIds, handleSourceClick, handleResize, handleResizeEnd, handleTransientDataChange, handleGestureStart, handleGestureEnd, handleDataChange]);
 
     const edges = useMemo<Array<Edge>>(() => {
         const nodeById = new Map(workbenchNodes.map((node) => [node.id, node]));

@@ -7,7 +7,13 @@ export function useWorkbenchStore() {
         useShallow((state) => ({
             workbenchNodes: state.workbenchNodes,
             connections: state.connections,
+            canUndoWorkbench: state.workbenchHistoryIndex > 0 && !state.activeWorkbenchGesture,
+            canRedoWorkbench: state.workbenchHistoryIndex < state.workbenchHistory.length - 1 && !state.activeWorkbenchGesture,
             updateWorkbenchNode: state.updateWorkbenchNode,
+            updateWorkbenchNodeTransient: state.updateWorkbenchNodeTransient,
+            beginWorkbenchGesture: state.beginWorkbenchGesture,
+            commitWorkbenchGesture: state.commitWorkbenchGesture,
+            cancelWorkbenchGesture: state.cancelWorkbenchGesture,
             addWorkbenchNode: state.addWorkbenchNode,
             createOneShotNode: state.createOneShotNode,
             removeWorkbenchNode: state.removeWorkbenchNode,

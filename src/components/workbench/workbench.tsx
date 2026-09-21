@@ -61,11 +61,10 @@ const WorkbenchContent: React.FC = () => {
     const flowWrapperRef = useRef<HTMLDivElement>(null);
     const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
     const { zoom } = useViewport();
-    const { viewMode, currentProjectId, updateWorkbenchNode } = useStore(
+    const { viewMode, currentProjectId } = useStore(
         useShallow((state) => ({
             viewMode: state.viewMode,
             currentProjectId: state.currentProjectId,
-            updateWorkbenchNode: state.updateWorkbenchNode,
         }))
     );
     
@@ -78,6 +77,8 @@ const WorkbenchContent: React.FC = () => {
         state: {
             workbenchNodes,
             connections,
+            canUndoWorkbench,
+            canRedoWorkbench,
             activeNodeId,
             selectedNodeIds,
             isDrawMode,
@@ -104,7 +105,15 @@ const WorkbenchContent: React.FC = () => {
             handleSourceClick,
             handleBlockSelect,
             handleResize,
+            handleResizeEnd,
+            handleTransientDataChange,
+            handleGestureStart,
+            handleGestureEnd,
             handleDataChange,
+        },
+        gesture: {
+            beginWorkbenchGesture,
+            commitWorkbenchGesture,
         },
         actions: {
             reorderWorkbenchNode,
@@ -130,6 +139,10 @@ const WorkbenchContent: React.FC = () => {
         selectedNodeIds,
         handleSourceClick,
         handleResize,
+        handleResizeEnd,
+        handleTransientDataChange,
+        handleGestureStart,
+        handleGestureEnd,
         handleDataChange,
     });
 
@@ -177,14 +190,21 @@ const WorkbenchContent: React.FC = () => {
         makeOneShotNode: createOneShotNode,
     });
 
-    // When a node drag finishes (mouse released), persist the exact final position
-    // and sync to the backend immediately so a reload never shows stale state.
+    const handleNodeDragStart = useCallback<OnNodeDrag>(
+        (_event, _node, nodes) => {
+            beginWorkbenchGesture('move', nodes.map((draggedNode) => draggedNode.id));
+        },
+        [beginWorkbenchGesture]
+    );
+
+    // When a node drag finishes (mouse released), commit the complete final
+    // state and sync it immediately so a reload never shows stale state.
     const handleNodeDragStop = useCallback<OnNodeDrag>(
-        (_event, node) => {
-            updateWorkbenchNode(node.id, { x: node.position.x, y: node.position.y });
+        () => {
+            commitWorkbenchGesture();
             requestImmediateSceneSave();
         },
-        [updateWorkbenchNode]
+        [commitWorkbenchGesture]
     );
 
     const isDrawModeActive = activeWorkbenchTool === 'draw';
@@ -205,6 +225,7 @@ const WorkbenchContent: React.FC = () => {
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodesChange={handleNodesChange}
+                onNodeDragStart={handleNodeDragStart}
                 onNodeDragStop={handleNodeDragStop}
                 onConnect={handleConnect}
                 onConnectStart={onConnectStart}
@@ -251,6 +272,8 @@ const WorkbenchContent: React.FC = () => {
                 onFreehandStrokeWidthChange={setFreehandStrokeWidth}
                 onUndo={undoWorkbench}
                 onRedo={redoWorkbench}
+                canUndo={canUndoWorkbench}
+                canRedo={canRedoWorkbench}
                 onMediaUpload={handleMediaUpload}
                 onMediaUploadFromPhone={handleMediaUploadFromPhone}
                 sketchFormats={sketchFormats}

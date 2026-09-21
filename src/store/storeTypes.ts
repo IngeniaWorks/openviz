@@ -1,3 +1,4 @@
+import type { WorkbenchGestureKind, WorkbenchGestureTransaction } from './workbenchGestureHistory';
 import {
     Project,
     ToolSettings,
@@ -5,6 +6,7 @@ import {
     RenderGroup,
     ViewMode,
     WorkbenchNode,
+    ImageNode,
     Connection,
     ToolType,
     WorkbenchToolType,
@@ -56,6 +58,7 @@ export interface AppState {
     freehandStrokeWidth: number;
     workbenchHistory: WorkbenchHistorySnapshot[];
     workbenchHistoryIndex: number;
+    activeWorkbenchGesture: WorkbenchGestureTransaction | null;
 
     history: Project[];
     historyIndex: number;
@@ -116,7 +119,7 @@ export interface AppState {
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
     createOneShotNode: (
-        node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode
+        node: ImageNode | TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode
     ) => void;
     addConnection: (
         fromId: string,
@@ -126,6 +129,10 @@ export interface AppState {
     ) => void;
     removeConnection: (id: string) => void;
     updateWorkbenchNode: (id: string, updates: Partial<WorkbenchNode>) => void;
+    updateWorkbenchNodeTransient: (id: string, updates: Partial<WorkbenchNode>) => void;
+    beginWorkbenchGesture: (kind: WorkbenchGestureKind, affectedNodeIds?: string[]) => void;
+    commitWorkbenchGesture: () => void;
+    cancelWorkbenchGesture: () => void;
     removeWorkbenchNode: (id?: string) => void;
     duplicateWorkbenchNode: (id?: string) => void;
     reorderWorkbenchNode: (id: string, direction: 'front' | 'back') => void;

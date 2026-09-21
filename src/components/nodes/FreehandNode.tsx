@@ -5,6 +5,7 @@ import { FreehandNode as FreehandNodeType } from '@/types';
 
 interface FreehandNodeData extends FreehandNodeType {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
+    onResizeEnd?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
 }
 
 interface FreehandNodeProps {
@@ -79,7 +80,7 @@ export const FreehandNode: React.FC<FreehandNodeProps> = ({ id, data, selected, 
 
                     if (newWidth > 0 && newHeight > 0) {
                         setNodeSize({ width: newWidth, height: newHeight });
-                        data.onResize?.(id, newWidth, newHeight, newX, newY);
+                        data.onResizeEnd?.(id, newWidth, newHeight, newX, newY);
                     }
                 }}
             />

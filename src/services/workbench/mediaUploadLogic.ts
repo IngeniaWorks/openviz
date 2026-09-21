@@ -1,4 +1,4 @@
-import type { MediaWorkbenchNode } from '@/types';
+import type { ImageNode, Project } from '@/types';
 import { generateUUID } from '@/utils/uuid';
 
 /**
@@ -16,7 +16,7 @@ export function isImageFile(file: MediaFileLike): boolean {
     return typeof file.type === 'string' && file.type.startsWith('image/');
 }
 
-export interface BuildMediaNodeInput {
+export interface BuildImageNodeInput {
     src: string;
     fileName: string;
     mimeType: string;
@@ -24,23 +24,61 @@ export interface BuildMediaNodeInput {
 }
 
 const MEDIA_NODE_WIDTH = 260;
-const MEDIA_NODE_HEIGHT = 180;
 const DEFAULT_CENTER_POINT = { x: 200, y: 200 };
 
 /** Builds a media node centered on the given flow point (data-model Media entity). */
-export function buildMediaNode({ src, fileName, mimeType, centerPoint }: BuildMediaNodeInput): MediaWorkbenchNode {
-    return {
-        id: generateUUID(),
-        type: 'media',
-        x: centerPoint.x - MEDIA_NODE_WIDTH / 2,
-        y: centerPoint.y - MEDIA_NODE_HEIGHT / 2,
-        width: MEDIA_NODE_WIDTH,
-        height: MEDIA_NODE_HEIGHT,
-        data: {
-            src,
-            alt: fileName || 'Uploaded media',
-            mimeType,
+export function buildImageNode({ src, fileName, centerPoint }: BuildImageNodeInput): ImageNode {
+    const id = generateUUID();
+    const name = fileName || 'Uploaded image';
+    const canvas = { width: 1024, height: 768 };
+    const project: Project = {
+        id,
+        name,
+        createdAt: Date.now(),
+        lastModifiedAt: Date.now(),
+        canvas: {
+            width: canvas.width,
+            height: canvas.height,
+            aspectRatio: 'landscape',
+            zoomLevel: 1,
+            panX: 0,
+            panY: 0,
+            backgroundColor: '#ffffff',
         },
+        layers: [{
+            id: `${id}-image`,
+            name,
+            type: 'image',
+            visible: true,
+            locked: false,
+            opacity: 100,
+            blendMode: 'normal',
+            strokes: [],
+            image: src,
+            x: 0,
+            y: 0,
+            width: canvas.width,
+            height: canvas.height,
+            order: 1,
+            created: Date.now(),
+            modified: Date.now(),
+        }],
+        thumbnail: src,
+    };
+    const scale = MEDIA_NODE_WIDTH / canvas.width;
+    const nodeWidth = canvas.width * scale;
+    const nodeHeight = canvas.height * scale;
+
+    return {
+        id,
+        type: 'image',
+        name,
+        x: centerPoint.x - nodeWidth / 2,
+        y: centerPoint.y - nodeHeight / 2,
+        width: nodeWidth,
+        height: nodeHeight,
+        scale,
+        project,
     };
 }
 

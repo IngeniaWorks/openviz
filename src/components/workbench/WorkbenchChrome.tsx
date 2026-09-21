@@ -24,6 +24,8 @@ interface WorkbenchChromeProps {
     onFreehandStrokeWidthChange: (width: number) => void;
     onUndo: () => void;
     onRedo: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
     onMediaUpload: () => void;
     onMediaUploadFromPhone: () => void;
     sketchFormats: { label: string; width: number; height: number }[];
@@ -61,6 +63,8 @@ export const WorkbenchChrome: React.FC<WorkbenchChromeProps> = ({
     onFreehandStrokeWidthChange,
     onUndo,
     onRedo,
+    canUndo,
+    canRedo,
     onMediaUpload,
     onMediaUploadFromPhone,
     sketchFormats,
@@ -111,6 +115,8 @@ export const WorkbenchChrome: React.FC<WorkbenchChromeProps> = ({
                     onFreehandStrokeWidthChange={onFreehandStrokeWidthChange}
                     onUndo={onUndo}
                     onRedo={onRedo}
+                    canUndo={canUndo}
+                    canRedo={canRedo}
                     onMediaUpload={onMediaUpload}
                     onMediaUploadFromPhone={onMediaUploadFromPhone}
                     sketchFormats={sketchFormats}

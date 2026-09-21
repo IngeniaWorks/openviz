@@ -2,14 +2,15 @@
 set -euo pipefail
 
 cd /workspace
+corepack enable
 
 if [ ! -d node_modules ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
-  echo "[container] Installing npm dependencies..."
-  npm install
+  echo "[container] Installing pnpm dependencies..."
+  pnpm install --frozen-lockfile
 fi
 
 echo "[container] Running setup in container mode..."
-npm run setup:container
+pnpm run setup:container
 
 echo "[container] Starting development server..."
-npm run dev
+pnpm run dev

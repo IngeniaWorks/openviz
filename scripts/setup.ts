@@ -82,7 +82,7 @@ function parseMajorMinor(version: string): { major: number; minor: number } | nu
 }
 
 function shouldRefreshDependencies(): boolean {
-    const drizzleVersionResult = spawnSync("npx", ["drizzle-kit", "--version"], {
+    const drizzleVersionResult = spawnSync("pnpm", ["exec", "drizzle-kit", "--version"], {
         cwd: ROOT,
         encoding: "utf-8",
         stdio: ["ignore", "pipe", "ignore"],
@@ -103,13 +103,13 @@ function shouldRefreshDependencies(): boolean {
 function ensureDependenciesInstalled(): void {
     if (!existsSync(NODE_MODULES_PATH)) {
         console.log("Installing dependencies...");
-        runOrThrow("npm", ["install"]);
+        runOrThrow("pnpm", ["install"]);
         return;
     }
 
     if (shouldRefreshDependencies()) {
         console.log("Updating dependencies to match project versions...");
-        runOrThrow("npm", ["install"]);
+        runOrThrow("pnpm", ["install"]);
     }
 }
 
@@ -309,7 +309,7 @@ async function runSetup(): Promise<void> {
     }
 
     console.log("Applying database schema...");
-    runOrThrow("npm", ["run", "db:push"]);
+    runOrThrow("pnpm", ["run", "db:push"]);
 
     const devAdminId = process.env.DEV_ADMIN_ID;
     const devAdminEmail = process.env.DEV_ADMIN_EMAIL;
@@ -332,7 +332,7 @@ async function runSetup(): Promise<void> {
     }
 
     console.log("Setup complete. Starting development server...");
-    const devProcess = spawn("npm", ["run", "dev"], {
+    const devProcess = spawn("pnpm", ["run", "dev"], {
         cwd: ROOT,
         stdio: "inherit",
     });

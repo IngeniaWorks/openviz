@@ -8,15 +8,15 @@ This repository contains **OpenViz**, a React-based design application powered b
 - **Logic**: All `useEffect` and `fetch` calls belong in `use[Feature].ts` hooks.
 
 ## Build & Dev
-- **Development**: `npm run dev` (Starts Vite server)
-- **Build**: `npm run build` (Runs `tsc` and `vite build`)
-- **Lint**: `npm run lint` (ESLint check for TS/TSX)
+- **Development**: `pnpm run dev` (Starts Vite server)
+- **Build**: `pnpm run build` (Runs `tsc` and `vite build`)
+- **Lint**: `pnpm run lint` (ESLint check for TS/TSX)
 
 ## Testing
-- **Run Tests**: `npm test` (Uses Vitest)
-- **CI Run**: `npm run test:ci` (headless + coverage gate)
-- **Test UI**: `npm run test:ui` (Vitest UI)
-- **Single Test**: `npx vitest path/to/file.test.ts`
+- **Run Tests**: `pnpm test` (Uses Vitest)
+- **CI Run**: `pnpm run test:ci` (headless + coverage gate)
+- **Test UI**: `pnpm run test:ui` (Vitest UI)
+- **Single Test**: `pnpm exec vitest path/to/file.test.ts`
 
 ## Spec-Driven Development (Spec Kit)
 Governing doc: [.specify/memory/constitution.md](.specify/memory/constitution.md) — supersedes all other practices.

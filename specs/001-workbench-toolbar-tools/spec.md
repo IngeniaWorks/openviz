@@ -135,3 +135,6 @@ The Media submenu also offers "Upload from phone" (not yet built — must say so
 - "Create new" reuses the existing sketch-format size list without changes to its options or behavior.
 - Target environment is a desktop browser for a single signed-in user; mobile/touch-first interaction is out of scope for v1.
 - Media images have no permanent asset library in v1 — they live only as long as the session/canvas; releasing them when a node is deleted is required.
+- Clarified 2026-09-21: new items from one-shot tools are placed near the center of the current viewport (clamped to stay visible); uploaded images use the same placement rule.
+- Clarified 2026-09-21: Note color variant is a small fixed palette (3–4 colors) with a default; choosing among variants is out of scope for v1 (default applies on creation).
+- Verified against codebase during clarification: tool shortcut keys V/H/D/E/A/T/N/M do not collide with existing single-key bindings (existing shortcuts are modifier-combos or `[`/`]`/Delete), and input/contenteditable focus suppression already exists in the WIP shortcut handler.

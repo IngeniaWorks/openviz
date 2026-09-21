@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Enables @testing-library/react auto-cleanup (afterEach) — required for
+    // component tests that render multiple times per file.
+    globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.{ts,tsx}'],

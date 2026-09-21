@@ -31,6 +31,7 @@ import { useAutoSaveScene } from '../../hooks/useAutoSaveScene';
 import { CanvasControls } from '../studio/CanvasControls';
 import { ProjectHeader } from '../common/ProjectHeader';
 import { useWorkbenchCenterOnReturn } from './hooks/useWorkbenchCenterOnReturn';
+import { useWorkbenchOneShotCreation } from './hooks/useWorkbenchOneShotCreation';
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useSceneStream } from './hooks/useSceneStream';
 import { useShallow } from 'zustand/react/shallow';
@@ -44,7 +45,6 @@ import {
     MediaWorkbenchNode,
     NoteWorkbenchNode,
     TextWorkbenchNode,
-    WorkbenchToolType,
 } from '@/types';
 import { WorkbenchToolbar } from './WorkbenchToolbar';
 import { PhoneUploadModal } from './PhoneUploadModal';
@@ -70,7 +70,6 @@ const ERASER_SIZE = 48;
 const WorkbenchContent: React.FC = () => {
     const flowWrapperRef = useRef<HTMLDivElement>(null);
     const mediaUploadInputRef = useRef<HTMLInputElement>(null);
-    const arrowDragStartRef = useRef<{ x: number; y: number } | null>(null);
     const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
     const { zoom } = useViewport();
     const { viewMode, currentProjectId, updateWorkbenchNode } = useStore(
@@ -260,126 +259,13 @@ const WorkbenchContent: React.FC = () => {
         [activeWorkbenchTool, removeWorkbenchNode, workbenchNodes]
     );
 
-    const createTextOrNoteNodeAt = useCallback((tool: WorkbenchToolType, clientX: number, clientY: number) => {
-        const flowPoint = screenToFlowPosition({ x: clientX, y: clientY });
-        if (tool === 'text') {
-            const textNode: TextWorkbenchNode = {
-                id: crypto.randomUUID(),
-                type: 'text',
-                x: flowPoint.x - 120,
-                y: flowPoint.y - 36,
-                width: 240,
-                height: 72,
-                data: {
-                    text: '',
-                    fontSize: 24,
-                    color: '#111827',
-                },
-            };
-            makeOneShotNode(textNode);
-            return;
-        }
-
-        if (tool === 'note') {
-            const noteNode: NoteWorkbenchNode = {
-                id: crypto.randomUUID(),
-                type: 'note',
-                x: flowPoint.x - 110,
-                y: flowPoint.y - 90,
-                width: 220,
-                height: 180,
-                data: {
-                    text: '',
-                    colorVariant: 'yellow',
-                },
-            };
-            makeOneShotNode(noteNode);
-        }
-    }, [makeOneShotNode, screenToFlowPosition]);
-
-    const handlePaneClickWithTool = useCallback((event: React.MouseEvent) => {
-        handlePaneClick();
-        if (activeWorkbenchTool === 'text' || activeWorkbenchTool === 'note') {
-            createTextOrNoteNodeAt(activeWorkbenchTool, event.clientX, event.clientY);
-        }
-    }, [activeWorkbenchTool, createTextOrNoteNodeAt, handlePaneClick]);
-
-    const isPaneTarget = (target: EventTarget | null) =>
-        target instanceof Element && target.closest('.react-flow__pane');
-
-    const handleCanvasMouseDownForArrow = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-        if (!isPaneTarget(event.target)) {
-            arrowDragStartRef.current = null;
-            return;
-        }
-
-        if (activeWorkbenchTool !== 'arrow' || event.button !== 0) {
-            arrowDragStartRef.current = null;
-            return;
-        }
-
-        arrowDragStartRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    }, [activeWorkbenchTool, screenToFlowPosition]);
-
-    const handleCanvasMouseUpForArrow = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-        if (!isPaneTarget(event.target)) {
-            return;
-        }
-
-        if (activeWorkbenchTool !== 'arrow' || !arrowDragStartRef.current) {
-            return;
-        }
-
-        const start = arrowDragStartRef.current;
-        const end = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        arrowDragStartRef.current = null;
-
-        const deltaX = end.x - start.x;
-        const deltaY = end.y - start.y;
-        const distance = Math.hypot(deltaX, deltaY);
-        const padding = 20;
-        const minWidth = 120;
-        const minHeight = 80;
-        const width = Math.max(minWidth, Math.abs(deltaX) + padding * 2);
-        const height = Math.max(minHeight, Math.abs(deltaY) + padding * 2);
-        const x = Math.min(start.x, end.x) - padding;
-        const y = Math.min(start.y, end.y) - padding;
-
-        const normalizedStart =
-            distance < 8
-                ? { x: 20, y: height - 20 }
-                : { x: start.x - x, y: start.y - y };
-        const normalizedEnd =
-            distance < 8
-                ? { x: width - 20, y: 20 }
-                : { x: end.x - x, y: end.y - y };
-
-        const midX = (normalizedStart.x + normalizedEnd.x) / 2;
-        const midY = (normalizedStart.y + normalizedEnd.y) / 2;
-        const control = {
-            x: midX + (normalizedStart.y - normalizedEnd.y) * 0.18,
-            y: midY + (normalizedEnd.x - normalizedStart.x) * 0.18,
-        };
-
-        const arrowNode: ArrowWorkbenchNode = {
-            id: crypto.randomUUID(),
-            type: 'arrow',
-            x,
-            y,
-            width,
-            height,
-            data: {
-                start: normalizedStart,
-                end: normalizedEnd,
-                control,
-                strokeColor: '#111827',
-                strokeWidth: 2,
-            },
-        };
-
-        makeOneShotNode(arrowNode);
-        requestImmediateSceneSave();
-    }, [activeWorkbenchTool, makeOneShotNode, screenToFlowPosition]);
+    const { handlePaneClickWithTool, handleCanvasMouseDownForArrow, handleCanvasMouseUpForArrow } =
+        useWorkbenchOneShotCreation({
+            activeWorkbenchTool,
+            screenToFlowPosition,
+            createOneShotNode,
+            handlePaneClick,
+        });
 
     const handleMediaUpload = useCallback(() => {
         mediaUploadInputRef.current?.click();

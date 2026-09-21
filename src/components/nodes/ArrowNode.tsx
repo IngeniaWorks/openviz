@@ -2,6 +2,11 @@ import React, { useMemo, useRef } from 'react';
 import { NodeResizer } from '@xyflow/react';
 
 import { ArrowWorkbenchNode } from '@/types';
+import {
+    buildArrowheadPath,
+    buildArrowPath,
+    clampPointToBox,
+} from '@/services/workbench/arrowGeometry';
 
 interface ArrowNodeData extends ArrowWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
@@ -16,11 +21,6 @@ interface ArrowNodeProps {
     height?: number;
 }
 
-const clampPoint = (value: { x: number; y: number }, width: number, height: number) => ({
-    x: Math.max(0, Math.min(width, value.x)),
-    y: Math.max(0, Math.min(height, value.y)),
-});
-
 export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width, height }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const nodeWidth = Number.isFinite(width) && (width as number) > 0 ? (width as number) : 220;
@@ -28,9 +28,9 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
     const strokeColor = data.data?.strokeColor ?? '#111827';
     const strokeWidth = Number.isFinite(data.data?.strokeWidth) ? Math.max(1, data.data.strokeWidth) : 2;
     const geometry = useMemo(() => {
-        const start = clampPoint(data.data?.start ?? { x: 12, y: nodeHeight - 12 }, nodeWidth, nodeHeight);
-        const end = clampPoint(data.data?.end ?? { x: nodeWidth - 16, y: 16 }, nodeWidth, nodeHeight);
-        const control = clampPoint(
+        const start = clampPointToBox(data.data?.start ?? { x: 12, y: nodeHeight - 12 }, nodeWidth, nodeHeight);
+        const end = clampPointToBox(data.data?.end ?? { x: nodeWidth - 16, y: 16 }, nodeWidth, nodeHeight);
+        const control = clampPointToBox(
             data.data?.control ?? { x: nodeWidth / 2, y: nodeHeight / 2 },
             nodeWidth,
             nodeHeight
@@ -51,7 +51,7 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
             }
 
             const rect = container.getBoundingClientRect();
-            const nextPoint = clampPoint(
+            const nextPoint = clampPointToBox(
                 {
                     x: moveEvent.clientX - rect.left,
                     y: moveEvent.clientY - rect.top,
@@ -78,14 +78,14 @@ export const ArrowNode: React.FC<ArrowNodeProps> = ({ id, data, selected, width,
         <div ref={containerRef} className="relative h-full w-full rounded-lg border border-transparent bg-transparent">
             <svg className="h-full w-full overflow-visible" viewBox={`0 0 ${nodeWidth} ${nodeHeight}`} role="img" aria-label="Arrow node">
                 <path
-                    d={`M ${geometry.start.x} ${geometry.start.y} Q ${geometry.control.x} ${geometry.control.y} ${geometry.end.x} ${geometry.end.y}`}
+                    d={buildArrowPath(geometry.start, geometry.control, geometry.end)}
                     fill="none"
                     stroke={strokeColor}
                     strokeWidth={strokeWidth}
                     strokeLinecap="round"
                 />
                 <path
-                    d={`M ${geometry.end.x - 12} ${geometry.end.y - 4} L ${geometry.end.x} ${geometry.end.y} L ${geometry.end.x - 4} ${geometry.end.y + 12}`}
+                    d={buildArrowheadPath(geometry.end)}
                     fill="none"
                     stroke={strokeColor}
                     strokeWidth={strokeWidth}

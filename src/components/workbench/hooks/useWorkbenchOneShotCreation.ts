@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 
 import type { ArrowWorkbenchNode, NoteWorkbenchNode, TextWorkbenchNode, WorkbenchToolType } from '@/types';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
+import { generateUUID } from '@/utils/uuid';
 
 interface UseWorkbenchOneShotCreationOptions {
     activeWorkbenchTool: WorkbenchToolType;
@@ -31,7 +32,7 @@ export function useWorkbenchOneShotCreation({
         const flowPoint = screenToFlowPosition({ x: clientX, y: clientY });
         if (tool === 'text') {
             const textNode: TextWorkbenchNode = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'text',
                 x: flowPoint.x - 120,
                 y: flowPoint.y - 36,
@@ -49,7 +50,7 @@ export function useWorkbenchOneShotCreation({
 
         if (tool === 'note') {
             const noteNode: NoteWorkbenchNode = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'note',
                 x: flowPoint.x - 110,
                 y: flowPoint.y - 90,
@@ -129,7 +130,7 @@ export function useWorkbenchOneShotCreation({
             };
 
             const arrowNode: ArrowWorkbenchNode = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'arrow',
                 x,
                 y,

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { WorkbenchNode } from '@/types';
+import { generateUUID } from '@/utils/uuid';
 
 import {
     createAnimateNodeFromSource,
@@ -44,7 +45,7 @@ export function useWorkbenchBlockCreation({
             return;
         }
 
-        const newNodeId = crypto.randomUUID();
+        const newNodeId = generateUUID();
 
         if (type === 'render') {
             const newNode = createRenderNodeFromSource(sourceNode, newNodeId);

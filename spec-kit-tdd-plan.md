@@ -24,7 +24,7 @@ Current state (verified):
 
 ## Prerequisites
 - `specify` CLI (✅ installed)
-- Node 22 + npm (repo scripts use `npm run`; both `package-lock.json` and `pnpm-lock.yaml` exist — **npm is the source of truth for CI**)
+- Node 22 + **pnpm 10** (verified: `node_modules` is pnpm layout, lockfileVersion 9.0; npm install fails on this tree. `package-lock.json` is stale — recommend deleting it)
 - GitHub repo with Actions enabled (for Sprint 2 Task 2.5)
 
 ---
@@ -128,7 +128,7 @@ Current state (verified):
 
 ### Task 2.5: GitHub Actions workflow
 - **Location**: `.github/workflows/ci.yml` (new)
-- **Description**: On push/PR to main: Node 22, `npm ci` (uses `package-lock.json`), then `npm run lint`, `npx tsc --noEmit`, `npm run test:ci`. No DB/services needed (current suite passes without them). Do **not** run `next build` yet (heavy; needs env/DB — see Gotchas).
+- **Description**: On push/PR to main: Node 22, pnpm 10 (`pnpm install --frozen-lockfile`), then `pnpm lint`, `pnpm exec tsc --noEmit`, `pnpm test:ci`. No DB/services needed (current suite passes without them). Do **not** run `next build` yet (heavy; needs env/DB — see Gotchas).
 - **Dependencies**: Task 2.4
 - **Acceptance Criteria**: workflow green on main; red when a test is broken
 - **Validation**: push branch, watch Actions
@@ -217,12 +217,15 @@ Current state (verified):
 - **Dependencies**: Sprint 3 complete
 
 ## Coverage Baseline
-_Fill in after Task 2.3:_
-| Metric | Value |
-|---|---|
-| Lines | TBD |
-| Functions | TBD |
-| Branches | TBD |
+_Captured 2026-09-21 (v8 provider, 13 files / 48 tests):_
+| Metric | Value | CI floor (−1pt) |
+|---|---|---|
+| Statements | 42.45% | 41 |
+| Branches | 38.53% | 37 |
+| Functions | 31.44% | 30 |
+| Lines | 43.97% | 42 |
+
+> Note: v8 coverage table column order is Stmts / Branch / Funcs / Lines — don't misread.
 
 ---
 
@@ -234,7 +237,7 @@ _Fill in after Task 2.3:_
 
 ## Potential Risks & Gotchas
 1. **Repo is mid-migration Vite↔Next 16** — `vite.config.ts`, `src/main.tsx` AND `next.config.mjs`, `src/app/` both exist; dev runs `next dev`. Vitest is bundler-agnostic so tests are safe, but **CI must not run `next build`** yet (slow, may need env/DB). → Mitigation: CI = lint + tsc + test only (Task 2.5).
-2. **Dual lockfiles** (`package-lock.json` + `pnpm-lock.yaml`) — CI uses npm; the pnpm file is stale risk. → Decide: delete or sync (see open questions).
+2. **Dual lockfiles resolved**: `node_modules` proved to be a pnpm tree (npm install crashes with `edgesOut` error) → CI + local use pnpm 10. `package-lock.json` is stale — delete it (pending user confirmation).
 3. **`specify init --force` overwrites conflicting managed paths** — only run after Task 1.1 baseline; review diff before committing.
 4. **taskstoissues won't work in pi** (no MCP by default) — removed in Task 1.2; don't re-add.
 5. **Git extension auto-commits** — `speckit.git.commit` can commit automatically after each speckit command. Decide explicitly in Task 1.4 (recommend on, conventional messages); otherwise surprise commits land mid-review.

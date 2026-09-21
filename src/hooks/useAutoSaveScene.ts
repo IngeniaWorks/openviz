@@ -2,6 +2,12 @@ import { useEffect, useRef, useCallback } from "react";
 import { useStore } from "@/store/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { onImmediateSceneSaveRequested } from "@/services/workbench/sceneSyncBus";
+import {
+    clearPendingScene,
+    getPendingScene,
+    setPendingScene,
+    type PendingSceneRecord,
+} from "@/services/workbench/pendingSceneStore";
 
 const PROJECT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
@@ -14,12 +20,23 @@ type SceneSnapshot = {
 };
 
 export function useAutoSaveScene(projectId: string | null) {
-    const { workbenchNodes, connections, currentSceneVersion, setCurrentSceneVersion } = useStore(
+    const {
+        workbenchNodes,
+        connections,
+        currentSceneVersion,
+        setCurrentSceneVersion,
+        sceneHydrated,
+        setWorkbenchNodes,
+        setConnections,
+    } = useStore(
         useShallow((state) => ({
             workbenchNodes: state.workbenchNodes,
             connections: state.connections,
             currentSceneVersion: state.currentSceneVersion,
             setCurrentSceneVersion: state.setCurrentSceneVersion,
+            sceneHydrated: state.sceneHydrated,
+            setWorkbenchNodes: state.setWorkbenchNodes,
+            setConnections: state.setConnections,
         }))
     );
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -28,16 +45,23 @@ export function useAutoSaveScene(projectId: string | null) {
     const isSavingRef = useRef(false);
     const retryQueueRef = useRef<Array<() => void>>([]);
     const projectIdRef = useRef(projectId);
+    // A save that was interrupted by a reload/navigation, waiting to be re-applied.
+    const pendingRestoreRef = useRef<PendingSceneRecord | null>(null);
+    const restoreArmedRef = useRef(false);
 
     useEffect(() => {
         projectIdRef.current = projectId;
     }, [projectId]);
 
     // Read the latest scene state at save time so gesture-end flushes never persist stale data.
-    const getSceneSnapshot = useCallback((): SceneSnapshot => {
-        const { workbenchNodes: nodes, connections: currentConnections } = useStore.getState();
-        const data = { nodes, connections: currentConnections };
-        return { data, json: JSON.stringify(data) };
+    // An explicit override (the pending-restore path) pins the exact payload being re-saved.
+    const getSceneSnapshot = useCallback((overrideData?: PendingSceneRecord["data"]): SceneSnapshot => {
+        const source =
+            overrideData ?? (() => {
+                const { workbenchNodes: nodes, connections: currentConnections } = useStore.getState();
+                return { nodes, connections: currentConnections };
+            })();
+        return { data: source, json: JSON.stringify(source) };
     }, []);
 
     const applySavedVersion = useCallback(
@@ -60,7 +84,7 @@ export function useAutoSaveScene(projectId: string | null) {
 
     // Extract save logic into a callback
     const saveScene = useCallback(
-        async (currentProjectId: string, isRetry = false) => {
+        async (currentProjectId: string, isRetry = false, overrideData?: PendingSceneRecord["data"]) => {
             // If already saving and not a retry, queue the save
             if (isSavingRef.current && !isRetry) {
                 retryQueueRef.current.push(() => saveScene(currentProjectId, false));
@@ -69,7 +93,17 @@ export function useAutoSaveScene(projectId: string | null) {
 
             isSavingRef.current = true;
 
-            const snapshot = getSceneSnapshot();
+            const snapshot = getSceneSnapshot(overrideData);
+
+            // Durability net: remember this payload in IndexedDB before hitting the
+            // network. If the page unloads before the request lands, the next load
+            // re-issues exactly this save (see pendingRestoreRef / bootstrap below).
+            void setPendingScene({
+                projectId: currentProjectId,
+                expectedVersion: versionRef.current,
+                data: snapshot.data as PendingSceneRecord["data"],
+                savedAt: Date.now(),
+            });
 
             // Only save if data has changed since the last successful sync
             if (snapshot.json === lastSavedRef.current) {
@@ -93,6 +127,7 @@ export function useAutoSaveScene(projectId: string | null) {
                         applySavedVersion(updatedScene.version);
                     }
                     lastSavedRef.current = snapshot.json;
+                    void clearPendingScene(currentProjectId);
                     processQueue();
                     return;
                 }
@@ -125,6 +160,7 @@ export function useAutoSaveScene(projectId: string | null) {
                             applySavedVersion(retriedScene.version);
                         }
                         lastSavedRef.current = snapshot.json;
+                        void clearPendingScene(currentProjectId);
                     } else if (retry.status === 409) {
                         // Still conflicted - queue another retry
                         retryQueueRef.current.push(() => saveScene(currentProjectId, true));
@@ -211,6 +247,14 @@ export function useAutoSaveScene(projectId: string | null) {
 
         let mounted = true;
 
+        // Pick up a save that was interrupted by a reload/navigation. It is applied
+        // after the project page finishes hydrating (see currentSceneVersion effect).
+        void getPendingScene(projectId).then((pending) => {
+            if (!mounted || !pending) return;
+            pendingRestoreRef.current = pending;
+            restoreArmedRef.current = true;
+        });
+
         const bootstrapVersion = async () => {
             try {
                 const response = await fetch(`/api/projects/${projectId}/scenes`);
@@ -239,6 +283,34 @@ export function useAutoSaveScene(projectId: string | null) {
             versionRef.current = currentSceneVersion;
         }
     }, [currentSceneVersion]);
+
+    // Re-apply a save that was interrupted by a reload/navigation. Armed when the
+    // pending record is found on mount; fired exactly once, after the project page
+    // has hydrated the store from its own (possibly stale) fetch, so this restore
+    // always wins the last write to local state.
+    useEffect(() => {
+        if (!sceneHydrated || !restoreArmedRef.current) return;
+        restoreArmedRef.current = false;
+        const pending = pendingRestoreRef.current;
+        pendingRestoreRef.current = null;
+
+        if (!pending) return;
+
+        // Server already advanced past this record's base version: the interrupted
+        // request most likely landed after all — drop it.
+        if (
+            typeof pending.expectedVersion === "number" &&
+            typeof versionRef.current === "number" &&
+            versionRef.current > pending.expectedVersion
+        ) {
+            void clearPendingScene(pending.projectId);
+            return;
+        }
+
+        setWorkbenchNodes(pending.data.nodes);
+        setConnections(pending.data.connections);
+        void saveSceneRef.current?.(pending.projectId, false, pending.data);
+    }, [sceneHydrated, setWorkbenchNodes, setConnections]);
 
     useEffect(() => {
         if (!projectId) return;

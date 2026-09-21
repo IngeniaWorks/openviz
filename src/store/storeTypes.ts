@@ -47,6 +47,7 @@ export interface AppState {
     clipboard: WorkbenchNode[] | null;
     isExitingStudio: boolean;
     currentSceneVersion: number;
+    sceneHydrated: boolean;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
     isDrawMode: boolean;
@@ -142,6 +143,7 @@ export interface AppState {
     setConnections: (connections: Connection[]) => void;
     setCurrentProjectId: (id: string | null) => void;
     setCurrentSceneVersion: (version: number) => void;
+    setSceneHydrated: (hydrated: boolean) => void;
     setNodeLockState: (lock: NodeLockState) => void;
     clearNodeLockState: (nodeId: string) => void;
     upsertPresenceState: (presence: PresenceState) => void;

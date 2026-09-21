@@ -17,9 +17,12 @@ function getNodeSize(node: WorkbenchNode) {
         height = node.project.canvas.height * node.scale;
     }
 
+    const normalizedWidth = Number.isFinite(width) && (width as number) > 0 ? (width as number) : 256;
+    const normalizedHeight = Number.isFinite(height) && (height as number) > 0 ? (height as number) : 256;
+
     return {
-        width: width ?? 256,
-        height: height ?? 256,
+        width: normalizedWidth,
+        height: normalizedHeight,
     };
 }
 

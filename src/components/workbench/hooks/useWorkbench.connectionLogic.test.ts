@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WorkbenchNode } from '@/types';
-import { getCanonicalConnectionFromDrop } from './useWorkbench';
+import { getCanonicalConnectionFromDrop } from './workbenchConnectionLogic';
 
 function createNode(type: WorkbenchNode['type'], id: string): WorkbenchNode {
     if (type === 'image') {
@@ -90,13 +90,23 @@ describe('getCanonicalConnectionFromDrop', () => {
     it('maps reverse drag from animate target to image into image -> animate', () => {
         const nodes: WorkbenchNode[] = [createNode('animate', 'animate-1'), createNode('image', 'image-1')];
         const result = getCanonicalConnectionFromDrop({ nodeId: 'animate-1', handleType: 'target' }, 'image-1', nodes);
-        expect(result).toEqual({ fromId: 'image-1', toId: 'animate-1' });
+        expect(result).toEqual({
+            fromId: 'image-1',
+            toId: 'animate-1',
+            sourceHandle: 'image-source',
+            targetHandle: null,
+        });
     });
 
     it('maps reverse drag from render target to image into image -> render', () => {
         const nodes: WorkbenchNode[] = [createNode('render', 'render-1'), createNode('image', 'image-1')];
         const result = getCanonicalConnectionFromDrop({ nodeId: 'render-1', handleType: 'target' }, 'image-1', nodes);
-        expect(result).toEqual({ fromId: 'image-1', toId: 'render-1' });
+        expect(result).toEqual({
+            fromId: 'image-1',
+            toId: 'render-1',
+            sourceHandle: 'image-source',
+            targetHandle: null,
+        });
     });
 
     it('returns null for non-image drop target or non-target handle starts', () => {

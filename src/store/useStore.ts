@@ -56,6 +56,7 @@ export const useStore = create<AppState>()(
                 activeNodeId: state.activeNodeId,
                 clipboard: state.clipboard,
                 currentSceneVersion: state.currentSceneVersion,
+                activeWorkbenchTool: state.activeWorkbenchTool,
             }),
         }
     )

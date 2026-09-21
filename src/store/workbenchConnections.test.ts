@@ -162,6 +162,18 @@ describe('workbench store connection policy', () => {
         expect(saved?.targetHandle).toBe('animate-target-visible');
     });
 
+    it('defaults sourceHandle to image-source for image outbound connections', () => {
+        const store = useStore.getState();
+        store.addWorkbenchNode(imageNode('img-1', 0));
+        store.addWorkbenchNode(renderNode('render-1', 200));
+
+        store.addConnection('img-1', 'render-1');
+
+        const saved = useStore.getState().connections[0];
+        expect(saved?.sourceHandle).toBe('image-source');
+        expect(saved?.targetHandle).toBeNull();
+    });
+
     it('normalizes setConnections payloads and removes invalid/orphan/duplicate entries', () => {
         const store = useStore.getState();
         store.addWorkbenchNode(imageNode('img-1', 0));

@@ -1,6 +1,7 @@
 import { Connection, WorkbenchNode } from '@/types';
 
 type NodeType = WorkbenchNode['type'];
+const IMAGE_SOURCE_HANDLE = 'image-source';
 
 const INBOUND_CAPS: Partial<Record<NodeType, number>> = {
     animate: 2,
@@ -17,6 +18,16 @@ function isVideoEndpoint(sourceType: NodeType, targetType: NodeType): boolean {
 
 function makeConnectionId(): string {
     return Math.random().toString(36).slice(2, 11);
+}
+
+function resolveSourceHandle(
+    sourceNode: WorkbenchNode | undefined,
+    sourceHandle?: string | null,
+): string | null {
+    if (sourceHandle) {
+        return sourceHandle;
+    }
+    return sourceNode?.type === 'image' ? IMAGE_SOURCE_HANDLE : null;
 }
 
 function upsertPolicyConnection(
@@ -88,11 +99,12 @@ export function normalizeConnections(
         }
         seenPairs.add(pairKey);
 
+        const sourceNode = nodeById.get(connection.from);
         const normalizedConnection: Connection = {
             id: connection.id || makeConnectionId(),
             from: connection.from,
             to: connection.to,
-            sourceHandle: connection.sourceHandle ?? null,
+            sourceHandle: resolveSourceHandle(sourceNode, connection.sourceHandle),
             targetHandle: connection.targetHandle ?? null,
         };
         return upsertPolicyConnection(accumulator, normalizedConnection, nodeById);
@@ -109,11 +121,12 @@ export function addConnectionWithPolicy(
 ): Connection[] {
     const base = normalizeConnections(connections, nodes);
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const sourceNode = nodeById.get(fromId);
     const candidate: Connection = {
         id: makeConnectionId(),
         from: fromId,
         to: toId,
-        sourceHandle: sourceHandle ?? null,
+        sourceHandle: resolveSourceHandle(sourceNode, sourceHandle),
         targetHandle: targetHandle ?? null,
     };
     return upsertPolicyConnection(base, candidate, nodeById);

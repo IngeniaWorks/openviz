@@ -1,5 +1,6 @@
 export type AspectRatio = '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | 'square' | 'landscape' | 'portrait';
 export type ToolType = 'select' | 'brush' | 'eraser' | 'circle' | 'rectangle' | 'line' | 'paintbucket' | 'transform';
+export type WorkbenchToolType = 'select' | 'hand' | 'draw' | 'eraser' | 'arrow' | 'text' | 'note' | 'media';
 export type LayerType = 'sketch' | 'image' | 'render';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay';
 export type ViewMode = 'STUDIO' | 'WORKBENCH';
@@ -58,7 +59,7 @@ export interface Project {
     thumbnail?: string;
 }
 
-export type NodeType = 'image' | 'animate' | 'render' | 'video';
+export type NodeType = 'image' | 'animate' | 'render' | 'video' | 'freehand' | 'arrow' | 'text' | 'note' | 'media';
 
 export interface BaseNode {
     id: string;
@@ -107,7 +108,64 @@ export interface RenderNode extends BaseNode {
     data: RenderSettings;
 }
 
-export type WorkbenchNode = ImageNode | AnimateNode | RenderNode | VideoNode;
+export interface FreehandNode extends BaseNode {
+    type: 'freehand';
+    data: {
+        path: string;
+        width: number;
+        height: number;
+        color: string;
+        strokeWidth: number;
+    };
+}
+
+export interface ArrowWorkbenchNode extends BaseNode {
+    type: 'arrow';
+    data: {
+        start: { x: number; y: number };
+        end: { x: number; y: number };
+        control: { x: number; y: number };
+        strokeColor: string;
+        strokeWidth: number;
+    };
+}
+
+export interface TextWorkbenchNode extends BaseNode {
+    type: 'text';
+    data: {
+        text: string;
+        fontSize: number;
+        color: string;
+    };
+}
+
+export interface NoteWorkbenchNode extends BaseNode {
+    type: 'note';
+    data: {
+        text: string;
+        colorVariant: 'yellow';
+    };
+}
+
+export interface MediaWorkbenchNode extends BaseNode {
+    type: 'media';
+    data: {
+        src: string;
+        alt: string;
+        mimeType: string;
+    };
+}
+
+export type WorkbenchNode =
+    | ImageNode
+    | AnimateNode
+    | RenderNode
+    | VideoNode
+    | FreehandNode
+    | ArrowWorkbenchNode
+    | TextWorkbenchNode
+    | NoteWorkbenchNode
+    | MediaWorkbenchNode;
 
 export interface Connection {
     id: string;

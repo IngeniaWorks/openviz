@@ -3,7 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 import { ChevronDown, Layers, Plus, Wand2 } from 'lucide-react';
 import { RenderNode as RenderNodeType } from '../../types';
 import { useRenderNodeGeneration } from './hooks/useRenderNodeGeneration';
-import { cn, fullNodeTargetHandleStyle, getNodeContainerClass, imageLikeHandleStyle } from './nodeUi';
+import { cn, elevatedFullNodeTargetHandleStyle, getNodeContainerClass, imageLikeHandleStyle } from './nodeUi';
 
 interface RenderNodeProps {
     id: string;
@@ -38,16 +38,16 @@ export const RenderNode: React.FC<RenderNodeProps> = ({ id, data, selected }) =>
                 id="render-target-visible"
                 style={{
                     ...imageLikeHandleStyle,
-                    left: '0px',
+                    left: '13px',
                     top: '50%',
                     zIndex: 11000,
                     opacity: selected ? 1 : 0,
                     pointerEvents: selected ? 'auto' : 'none',
                 }}
             >
-                <Plus size={16} color="white" strokeWidth={3} />
+                <Plus size={16} color="white" strokeWidth={3} className="pointer-events-none" />
             </Handle>
-            <Handle type="target" position={Position.Left} style={fullNodeTargetHandleStyle} />
+            <Handle type="target" position={Position.Left} style={elevatedFullNodeTargetHandleStyle} />
 
             <div className="border-[#333] bg-[#222] p-4 border-b">
                 <div className="flex items-center justify-between">

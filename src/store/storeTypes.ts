@@ -7,11 +7,23 @@ import {
     WorkbenchNode,
     Connection,
     ToolType,
+    WorkbenchToolType,
+    TextWorkbenchNode,
+    NoteWorkbenchNode,
+    ArrowWorkbenchNode,
+    MediaWorkbenchNode,
     AspectRatio,
     Layer,
     NodeLockState,
     PresenceState,
 } from '../types';
+
+export interface WorkbenchHistorySnapshot {
+    workbenchNodes: WorkbenchNode[];
+    connections: Connection[];
+    selectedNodeIds: string[];
+    activeNodeId: string | null;
+}
 
 export interface AppState {
     project: Project;
@@ -35,8 +47,15 @@ export interface AppState {
     clipboard: WorkbenchNode[] | null;
     isExitingStudio: boolean;
     currentSceneVersion: number;
+    sceneHydrated: boolean;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, PresenceState>;
+    isDrawMode: boolean;
+    activeWorkbenchTool: WorkbenchToolType;
+    freehandColor: string;
+    freehandStrokeWidth: number;
+    workbenchHistory: WorkbenchHistorySnapshot[];
+    workbenchHistoryIndex: number;
 
     history: Project[];
     historyIndex: number;
@@ -96,6 +115,9 @@ export interface AppState {
     // Workbench Actions
     setViewMode: (mode: ViewMode) => void;
     addWorkbenchNode: (node: WorkbenchNode) => void;
+    createOneShotNode: (
+        node: TextWorkbenchNode | NoteWorkbenchNode | ArrowWorkbenchNode | MediaWorkbenchNode
+    ) => void;
     addConnection: (
         fromId: string,
         toId: string,
@@ -121,9 +143,18 @@ export interface AppState {
     setConnections: (connections: Connection[]) => void;
     setCurrentProjectId: (id: string | null) => void;
     setCurrentSceneVersion: (version: number) => void;
+    setSceneHydrated: (hydrated: boolean) => void;
     setNodeLockState: (lock: NodeLockState) => void;
     clearNodeLockState: (nodeId: string) => void;
     upsertPresenceState: (presence: PresenceState) => void;
     clearPresenceState: (userId: string) => void;
     clearCollaborationState: () => void;
+    setDrawMode: (isDrawMode: boolean) => void;
+    toggleDrawMode: () => void;
+    setActiveWorkbenchTool: (tool: WorkbenchToolType) => void;
+    setFreehandColor: (color: string) => void;
+    setFreehandStrokeWidth: (strokeWidth: number) => void;
+    undoLastFreehandNode: () => void;
+    undoWorkbench: () => void;
+    redoWorkbench: () => void;
 }

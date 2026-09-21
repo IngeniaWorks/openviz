@@ -22,6 +22,10 @@ export const CustomEdge = ({
     style = {},
     markerEnd,
 }: EdgeProps) => {
+    if (![sourceX, sourceY, targetX, targetY].every((value) => Number.isFinite(value))) {
+        return null;
+    }
+
     const { zoom } = useViewport();
     const [edgePath, labelX, labelY] = getSmoothStepPath({
         sourceX,
@@ -32,6 +36,10 @@ export const CustomEdge = ({
         targetPosition,
         borderRadius: 15,
     });
+
+    if (!edgePath || edgePath.includes('NaN') || !Number.isFinite(labelX) || !Number.isFinite(labelY)) {
+        return null;
+    }
 
     const removeConnection = useStore((state) => state.removeConnection);
     const activeNodeId = useStore((state) => state.activeNodeId);
@@ -82,4 +90,4 @@ export const CustomEdge = ({
             )}
         </>
     );
-}
+};

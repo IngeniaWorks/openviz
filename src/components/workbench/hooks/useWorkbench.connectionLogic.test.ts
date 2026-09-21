@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WorkbenchNode } from '@/types';
-import { getCanonicalConnectionFromDrop } from './useWorkbench';
+import { getCanonicalConnectionFromDrop } from './workbenchConnectionLogic';
 
 function createNode(type: WorkbenchNode['type'], id: string): WorkbenchNode {
     if (type === 'image') {
@@ -72,6 +72,30 @@ function createNode(type: WorkbenchNode['type'], id: string): WorkbenchNode {
         };
     }
 
+    if (type === 'arrow') {
+        return {
+            id,
+            type: 'arrow',
+            x: 0,
+            y: 0,
+            data: {
+                start: { x: 0, y: 0 },
+                end: { x: 10, y: 10 },
+                control: { x: 5, y: 5 },
+                strokeColor: '#000',
+                strokeWidth: 2,
+            },
+        };
+    }
+
+    if (type === 'text') {
+        return { id, type: 'text', x: 0, y: 0, data: { text: '', fontSize: 24, color: '#111827' } };
+    }
+
+    if (type === 'note') {
+        return { id, type: 'note', x: 0, y: 0, data: { text: '', colorVariant: 'yellow' } };
+    }
+
     return {
         id,
         type: 'render',
@@ -90,13 +114,23 @@ describe('getCanonicalConnectionFromDrop', () => {
     it('maps reverse drag from animate target to image into image -> animate', () => {
         const nodes: WorkbenchNode[] = [createNode('animate', 'animate-1'), createNode('image', 'image-1')];
         const result = getCanonicalConnectionFromDrop({ nodeId: 'animate-1', handleType: 'target' }, 'image-1', nodes);
-        expect(result).toEqual({ fromId: 'image-1', toId: 'animate-1' });
+        expect(result).toEqual({
+            fromId: 'image-1',
+            toId: 'animate-1',
+            sourceHandle: 'image-source',
+            targetHandle: null,
+        });
     });
 
     it('maps reverse drag from render target to image into image -> render', () => {
         const nodes: WorkbenchNode[] = [createNode('render', 'render-1'), createNode('image', 'image-1')];
         const result = getCanonicalConnectionFromDrop({ nodeId: 'render-1', handleType: 'target' }, 'image-1', nodes);
-        expect(result).toEqual({ fromId: 'image-1', toId: 'render-1' });
+        expect(result).toEqual({
+            fromId: 'image-1',
+            toId: 'render-1',
+            sourceHandle: 'image-source',
+            targetHandle: null,
+        });
     });
 
     it('returns null for non-image drop target or non-target handle starts', () => {
@@ -117,4 +151,32 @@ describe('getCanonicalConnectionFromDrop', () => {
         expect(getCanonicalConnectionFromDrop({ nodeId: 'missing', handleType: 'target' }, 'image-1', nodes)).toBeNull();
         expect(getCanonicalConnectionFromDrop({ nodeId: 'render-1', handleType: 'target' }, null, nodes)).toBeNull();
     });
+});
+
+describe('FR-015: arrow/text/note are not connection targets', () => {
+    const excludedTypes: Array<'arrow' | 'text' | 'note'> = ['arrow', 'text', 'note'];
+
+    it.each(excludedTypes)('%s node as drop target yields no canonical connection', (excludedType) => {
+        const nodes: WorkbenchNode[] = [
+            createNode('render', 'render-1'),
+            createNode(excludedType, `${excludedType}-1`),
+        ];
+        expect(
+            getCanonicalConnectionFromDrop({ nodeId: 'render-1', handleType: 'target' }, `${excludedType}-1`, nodes)
+        ).toBeNull();
+    });
+
+    it.each(excludedTypes)('%s node as connection source yields no canonical connection', (excludedType) => {
+        const nodes: WorkbenchNode[] = [
+            createNode('image', 'image-1'),
+            createNode(excludedType, `${excludedType}-1`),
+        ];
+        expect(
+            getCanonicalConnectionFromDrop({ nodeId: `${excludedType}-1`, handleType: 'target' }, 'image-1', nodes)
+        ).toBeNull();
+    });
+
+    // Structural guarantee (verified by code inspection): ArrowNode/TextNode/
+    // NoteNode render no <Handle> elements, so React Flow never offers them as
+    // drag sources or drop targets in the first place.
 });

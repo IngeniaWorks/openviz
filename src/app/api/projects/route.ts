@@ -90,7 +90,12 @@ export async function POST(req: Request) {
         }
     }
 
-    const validated = ProjectSchema.omit({ id: true, createdAt: true, updatedAt: true }).safeParse(body);
+    const validated = ProjectSchema.omit({
+        id: true,
+        createdAt: true,
+        updatedAt: true,
+        lastViewedAt: true,
+    }).safeParse(body);
 
     if (!validated.success) {
         return NextResponse.json({ error: validated.error.format() }, { status: 400 });

@@ -12,6 +12,7 @@ import { useStore } from '../../../store/useStore';
 import { renderService } from '../../../services/renderService';
 import { getRenderStyles } from '../../../services/ai/workflowRegistry';
 import { findNonOverlappingPosition } from '../../../services/nodePositioning';
+import { generateUUID } from '@/utils/uuid';
 
 type CanvasFlattenWindow = Window & {
     getFlattenedCanvas?: () => string;
@@ -123,7 +124,7 @@ export function useRenderNodeGeneration(id: string, data: RenderNodeType) {
 
             const batchNewNodes: WorkbenchNode[] = [];
             for (let i = 0; i < numImages; i++) {
-                const newId = crypto.randomUUID();
+                const newId = generateUUID();
                 placeholderIds.push(newId);
 
                 const { x: currentX, y: currentY } = findNonOverlappingPosition({

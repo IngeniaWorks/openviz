@@ -1,6 +1,7 @@
 import { RenderService, GenerateRequest, GenerateResponse, AnimateRequest } from './types';
 import { mockRenderService } from './mockRenderService';
 import { getWorkflow, mapStyleToId, WorkflowDefinition } from './ai/workflowRegistry';
+import { generateUUID } from '@/utils/uuid';
 
 // Using Vite proxy to avoid CORS issues
 let comfyUrl = '/comfy-api';
@@ -11,7 +12,7 @@ let wsUrl = browserWindow
     : 'ws://localhost/comfy-api';
 
 // Generate a persistent client ID for this session
-const client_id = crypto.randomUUID();
+const client_id = generateUUID();
 
 // Helper types for ComfyUI API responses
 interface ComfyUploadResponse {

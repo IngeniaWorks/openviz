@@ -1,4 +1,5 @@
 import type { MediaWorkbenchNode } from '@/types';
+import { generateUUID } from '@/utils/uuid';
 
 /**
  * Pure media-upload logic (research R4): file validation, node building, and
@@ -29,7 +30,7 @@ const DEFAULT_CENTER_POINT = { x: 200, y: 200 };
 /** Builds a media node centered on the given flow point (data-model Media entity). */
 export function buildMediaNode({ src, fileName, mimeType, centerPoint }: BuildMediaNodeInput): MediaWorkbenchNode {
     return {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         type: 'media',
         x: centerPoint.x - MEDIA_NODE_WIDTH / 2,
         y: centerPoint.y - MEDIA_NODE_HEIGHT / 2,

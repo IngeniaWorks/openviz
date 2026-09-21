@@ -5,6 +5,7 @@ import { useStore } from '../../../store/useStore';
 import { renderService } from '../../../services/renderService';
 import { getVideoStyles } from '../../../services/ai/workflowRegistry';
 import { findNonOverlappingPosition } from '../../../services/nodePositioning';
+import { generateUUID } from '@/utils/uuid';
 
 export function useAnimateNodeActions(id: string, data: AnimateNodeType) {
     const connection = useConnection();
@@ -72,7 +73,7 @@ export function useAnimateNodeActions(id: string, data: AnimateNodeType) {
         e.stopPropagation();
         setAnimating(true);
 
-        const placeholderId = crypto.randomUUID();
+        const placeholderId = generateUUID();
 
         try {
             let initImage = '';

@@ -41,6 +41,7 @@ function renderHandlers(workbenchNode: NoteWorkbenchNode | MediaWorkbenchNode = 
         updateWorkbenchNode,
         updateWorkbenchNodeTransient,
         openNodeInStudio,
+        setSelectedNodeIds: options.setSelectedNodeIds,
     };
 }
 
@@ -86,6 +87,31 @@ describe('useWorkbenchNodeHandlers gesture updates', () => {
 
         expect(setSelectedNodeIds).toHaveBeenCalledWith([]);
         expect(setActiveNodeId).toHaveBeenCalledWith(null);
+    });
+
+    it('replaces the previous selection when a plain click selects another node', () => {
+        const { result, setSelectedNodeIds } = renderHandlers();
+
+        act(() => {
+            result.current.handleNodesChange([
+                { id: 'note-1', type: 'select', selected: false },
+                { id: 'node-2', type: 'select', selected: true },
+            ]);
+        });
+
+        expect(setSelectedNodeIds).toHaveBeenCalledWith(['node-2']);
+    });
+
+    it('preserves the previous selection when Shift adds another node', () => {
+        const { result, setSelectedNodeIds } = renderHandlers();
+
+        act(() => {
+            result.current.handleNodesChange([
+                { id: 'node-2', type: 'select', selected: true },
+            ]);
+        });
+
+        expect(setSelectedNodeIds).toHaveBeenCalledWith(['note-1', 'node-2']);
     });
 
     it('routes position changes to transient updates during drag', () => {

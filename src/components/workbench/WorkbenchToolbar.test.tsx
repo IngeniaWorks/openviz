@@ -11,7 +11,6 @@ import { WorkbenchToolbar } from './WorkbenchToolbar';
 
 const TOOL_TITLES: Array<[WorkbenchToolType, string]> = [
     ['select', 'Select (V)'],
-    ['hand', 'Hand (H)'],
     ['draw', 'Draw (D)'],
     ['eraser', 'Eraser (E)'],
     ['arrow', 'Arrow (A)'],
@@ -52,15 +51,15 @@ function renderToolbar(
 }
 
 describe('WorkbenchToolbar — structure (C-1)', () => {
-    it('shows exactly eight tool buttons in order Select→Media with shortcut tooltips', () => {
+    it('shows the Workbench tools in order Select→Media without a Hand tool', () => {
         renderToolbar();
         const titles = TOOL_TITLES.map(([, title]) => screen.queryByTitle(title));
         // All present
         for (const el of titles) {
             expect(el).not.toBeNull();
         }
-        // Exactly eight tool buttons (no duplicates in the toolbar)
-        expect(titles.filter(Boolean)).toHaveLength(8);
+        // Exactly seven tool buttons (no duplicates in the toolbar)
+        expect(titles.filter(Boolean)).toHaveLength(7);
         // Order: each subsequent button must follow the previous in document order
         for (let i = 1; i < titles.length; i++) {
             expect(titles[i - 1]!.compareDocumentPosition(titles[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -94,9 +93,9 @@ describe('WorkbenchToolbar — click activation (C-2.1)', () => {
     });
 
     it('clicking an already-active tool does not error and still reports the tool', () => {
-        const { onSelectTool } = renderToolbar('hand');
-        fireEvent.click(screen.getByTitle('Hand (H)'));
-        expect(onSelectTool).toHaveBeenCalledWith('hand');
+        const { onSelectTool } = renderToolbar('select');
+        fireEvent.click(screen.getByTitle('Select (V)'));
+        expect(onSelectTool).toHaveBeenCalledWith('select');
     });
 });
 

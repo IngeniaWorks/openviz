@@ -16,17 +16,6 @@ describe('getFlowModeProps — select mode (C-3.1)', () => {
     });
 });
 
-describe('getFlowModeProps — hand mode (C-3.2)', () => {
-    it('enables panning and disables selection', () => {
-        const props = getFlowModeProps('hand');
-        expect(props.panOnDrag).toBe(true);
-        expect(props.selectionOnDrag).toBe(false);
-        expect(props.elementsSelectable).toBe(false);
-        expect(props.nodesDraggable).toBe(false);
-        expect(props.nodesConnectable).toBe(false);
-    });
-});
-
 describe('getFlowModeProps — creation/drawing modes', () => {
     it.each(['draw', 'eraser', 'arrow', 'text', 'note', 'media'] as const)(
         '%s mode disables selection and does not enable hand panning (WIP behavior)',

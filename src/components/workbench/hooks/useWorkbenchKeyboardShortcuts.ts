@@ -16,6 +16,13 @@ type UseWorkbenchKeyboardShortcutsOptions = {
     setActiveWorkbenchTool: (tool: WorkbenchToolType) => void;
     undoWorkbench: () => void;
     redoWorkbench: () => void;
+    panViewport: (direction: "up" | "down" | "left" | "right") => void;
+    zoomIn: () => void;
+    zoomOut: () => void;
+    fitView: () => void;
+    resetView: () => void;
+    zoomTo100: () => void;
+    clearSelection: () => void;
 };
 
 export function useWorkbenchKeyboardShortcuts({
@@ -31,6 +38,13 @@ export function useWorkbenchKeyboardShortcuts({
     setActiveWorkbenchTool,
     undoWorkbench,
     redoWorkbench,
+    panViewport,
+    zoomIn,
+    zoomOut,
+    fitView,
+    resetView,
+    zoomTo100,
+    clearSelection,
 }: UseWorkbenchKeyboardShortcutsOptions) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,7 +53,28 @@ export function useWorkbenchKeyboardShortcuts({
 
             const isMod = e.ctrlKey || e.metaKey;
 
-            if (isMod && e.key.toLowerCase() === "z") {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                clearSelection();
+            } else if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                panViewport(e.key.slice(5).toLowerCase() as "up" | "down" | "left" | "right");
+            } else if (e.key === "+" || e.key === "=") {
+                e.preventDefault();
+                zoomIn();
+            } else if (e.key === "-") {
+                e.preventDefault();
+                zoomOut();
+            } else if (e.shiftKey && e.key === "1" && !isMod) {
+                e.preventDefault();
+                fitView();
+            } else if (e.shiftKey && e.key === "0" && !isMod) {
+                e.preventDefault();
+                zoomTo100();
+            } else if (e.shiftKey && e.key.toLowerCase() === "r" && !isMod) {
+                e.preventDefault();
+                resetView();
+            } else if (isMod && e.key.toLowerCase() === "z") {
                 e.preventDefault();
                 if (e.shiftKey) {
                     redoWorkbench();
@@ -91,5 +126,12 @@ export function useWorkbenchKeyboardShortcuts({
         setActiveWorkbenchTool,
         undoWorkbench,
         redoWorkbench,
+        panViewport,
+        zoomIn,
+        zoomOut,
+        fitView,
+        resetView,
+        zoomTo100,
+        clearSelection,
     ]);
 }

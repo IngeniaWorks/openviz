@@ -18,6 +18,11 @@ export interface CursorOverlayProps {
  * name label) inside the flow wrapper. World coordinates are converted with
  * `screen = world × zoom + viewport offset` (spec US2 / SC-003).
  */
+function firstName(name?: string): string {
+    if (!name?.trim()) return 'Guest';
+    return name.trim().split(/\s+/)[0];
+}
+
 export function CursorOverlay({ remoteCursors, viewport }: CursorOverlayProps): JSX.Element {
     return (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden="true">
@@ -43,7 +48,7 @@ export function CursorOverlay({ remoteCursors, viewport }: CursorOverlayProps): 
                             className="ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
                             style={{ backgroundColor: cursor.color ?? '#f97316' }}
                         >
-                            {cursor.userName ?? 'Guest'}
+                            {firstName(cursor.userName)}
                         </span>
                     </div>
                 );

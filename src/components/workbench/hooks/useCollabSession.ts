@@ -117,6 +117,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         let sync: CollabStoreSync | null = null;
         let unsubscribeUndo: (() => void) | null = null;
         let sessionStatus: CollabSessionStatus = 'connecting';
+        // Once the document has synced, a transport drop is an OFFLINE state
+        // (US3): local edits keep flowing into the doc and merge on reconnect.
+        // Before the first sync it is just a cold connection attempt.
+        let wasSynced = false;
 
         const updateStatus = (next: CollabSessionStatus): void => {
             if (cancelled) return;
@@ -194,12 +198,22 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                 // The document is only safe to project after the initial sync.
                 handle.provider.on('synced', () => {
                     if (cancelled || !sync) return;
+                    wasSynced = true;
                     useStore.getState().setCollabSessionActive(true);
                     sync.start();
                     console.info('[collab] synced — live co-editing active for scene', tokenResponse.sceneId);
                 });
                 handle.provider.on('status', (event) => {
-                    const next = event.status === 'connected' ? 'connected' : 'connecting';
+                    let next: CollabSessionStatus;
+                    if (event.status === 'connected') {
+                        next = 'connected';
+                    } else if (wasSynced && sessionStatus !== 'failed') {
+                        // Post-sync drop/retry: offline with a local queue, not
+                        // a cold start. The session keeps owning scene writes.
+                        next = 'offline-queued';
+                    } else {
+                        next = 'connecting';
+                    }
                     if (next !== sessionStatus) console.info('[collab] status:', next);
                     updateStatus(next);
                 });

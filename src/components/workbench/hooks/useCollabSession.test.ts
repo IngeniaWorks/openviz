@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import * as Y from 'yjs';
 import type { CollabTokenResponse, SceneDataJson } from '@/types/collab.types';
 import type { TextWorkbenchNode } from '@/types';
 import { useStore } from '@/store/useStore';
@@ -281,11 +282,13 @@ describe('useCollabSession lifecycle', () => {
         const provider = FakeProvider.instances[0];
         const initialConnectCalls = provider.connectCalls;
 
-        // The transport drops (e.g. the tab was frozen long enough to exhaust retries).
+        // The transport drops (e.g. the tab was frozen long enough to exhaust
+        // retries). Once synced, a drop means offline-queued (US3), not a cold
+        // reconnect.
         act(() => {
             provider.emitStatus('disconnected');
         });
-        await waitFor(() => expect(result.current.status).toBe('connecting'));
+        await waitFor(() => expect(result.current.status).toBe('offline-queued'));
 
         // Coming back to the tab must re-trigger the connection so the
         // state-vector sync can deliver everything missed while away.
@@ -306,6 +309,84 @@ describe('useCollabSession lifecycle', () => {
         });
 
         await waitFor(() => expect(result.current.status).toBe('failed'));
+    });
+});
+
+describe('useCollabSession offline queue (US3 / SC-004)', () => {
+    it('moves to offline-queued on transport loss and keeps the session owning writes', async () => {
+        const options = seedOptions();
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        act(() => {
+            FakeProvider.instances[0].emitStatus('disconnected');
+        });
+
+        await waitFor(() => expect(result.current.status).toBe('offline-queued'));
+        // The session still owns this scene's writes — autosave stays suspended,
+        // hydration guards stay up, local edits keep flowing into the doc.
+        expect(useStore.getState().collabSessionActive).toBe(true);
+    });
+
+    it('keeps local edits flowing into the document while queued', async () => {
+        const doc = createSceneDoc();
+        seedSceneFromJson(doc, { nodes: [{ id: 'n1', x: 0, y: 0 }], connections: [] });
+        const options = seedOptions({}, doc);
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        act(() => {
+            FakeProvider.instances[0].emitStatus('disconnected');
+        });
+        await waitFor(() => expect(result.current.status).toBe('offline-queued'));
+
+        // Offline edit: store → doc flush must still happen (the doc IS the queue).
+        act(() => {
+            useStore.getState().setWorkbenchNodes([
+                { id: 'n1', type: 'text', x: 0, y: 0, data: { text: 'a', fontSize: 14, color: '#fff' } },
+                { id: 'n2', type: 'note', x: 9, y: 9, data: { text: 'offline', colorVariant: 'yellow' } },
+            ]);
+        });
+
+        expect(doc.getMap('nodes').size).toBe(2);
+    });
+
+    it('converges on reconnect: local queued edits + remote edits both survive', async () => {
+        const doc = createSceneDoc();
+        seedSceneFromJson(doc, { nodes: [{ id: 'n1', x: 0, y: 0 }], connections: [] });
+        const options = seedOptions({}, doc);
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        // Go offline and queue a local edit (adds n2).
+        act(() => {
+            FakeProvider.instances[0].emitStatus('disconnected');
+        });
+        await waitFor(() => expect(result.current.status).toBe('offline-queued'));
+        act(() => {
+            useStore.getState().setWorkbenchNodes([
+                { id: 'n1', type: 'text', x: 0, y: 0, data: { text: 'a', fontSize: 14, color: '#fff' } },
+                { id: 'n2', type: 'note', x: 9, y: 9, data: { text: 'offline', colorVariant: 'yellow' } },
+            ]);
+        });
+
+        // While offline, the server-side scene gained n3 (a peer's edit).
+        const remote = createSceneDoc();
+        seedSceneFromJson(remote, { nodes: [{ id: 'n1', x: 0, y: 0 }, { id: 'n3', type: 'note', x: 4, y: 4, data: { text: 'remote', colorVariant: 'blue' } }], connections: [] });
+
+        // Reconnect: the transport re-syncs (state-vector exchange delivers the
+        // remote update into our doc under a foreign origin).
+        act(() => {
+            FakeProvider.instances[0].connect();
+        });
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+        act(() => {
+            Y.applyUpdate(doc, Y.encodeStateAsUpdate(remote), 'server-sync');
+        });
+
+        // Converged: local queued edit (n2) AND remote edit (n3) both present.
+        const state = useStore.getState();
+        expect(state.workbenchNodes.map((node) => node.id).sort()).toEqual(['n1', 'n2', 'n3']);
     });
 });
 

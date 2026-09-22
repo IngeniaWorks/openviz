@@ -38,6 +38,7 @@ import { useResizeObserverWarningSuppression } from './hooks/useResizeObserverWa
 import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useCollabPresencePublisher } from './hooks/useCollabPresencePublisher';
 import { useSceneStream } from './hooks/useSceneStream';
+import { CollabStatusChip } from './CollabStatusChip';
 import { CursorOverlay } from './CursorOverlay';
 import { NodeLockBadges } from './NodeLockBadges';
 import { PresenceIndicator } from './PresenceIndicator';
@@ -309,8 +310,9 @@ const WorkbenchContent: React.FC = () => {
             {/* Awareness overlays (US2): remote cursors + soft-lock badges. */}
             <CursorOverlay remoteCursors={remoteCursors} viewport={viewport} />
             <NodeLockBadges nodes={nodes} nodeLocks={nodeLocks} viewport={viewport} />
-            {/* Presence chips replace the legacy SSE presence display (US2/SC-003). */}
-            <div className="absolute top-4 right-4 z-20">
+            {/* Collab session state + presence chips (US2/US3, SC-003/SC-004). */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                <CollabStatusChip status={collabSession.status} />
                 <PresenceIndicator presence={presenceByUser} />
             </div>
             <DrawingOverlay

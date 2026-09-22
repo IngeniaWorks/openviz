@@ -119,16 +119,16 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T033 [P] [US3] Write failing tests in `src/services/collab/offlineSync.test.ts` using `fake-indexeddb`: the per-scene y-indexeddb binding persists edits across a simulated disconnect and across store close/reopen; on reconnect, state-vector synchronization merges both sides with zero lost edits (SC-004)
-- [ ] T034 [P] [US3] Write failing tests (extend `src/components/workbench/hooks/useCollabSession.test.ts`): transport loss moves the session to `offline-queued`; local edits continue while queued; reconnect returns to `connected` with a converged document
-- [ ] T035 [P] [US3] Write failing behavior tests in `src/components/workbench/CollabStatusChip.test.tsx`: chip reflects connected vs offline-queued states and never claims durable save while edits are queued
+- [X] T033 [P] [US3] Write failing tests in `src/services/collab/offlineSync.test.ts` using `fake-indexeddb`: the per-scene y-indexeddb binding persists edits across a simulated disconnect and across store close/reopen; on reconnect, state-vector synchronization merges both sides with zero lost edits (SC-004)
+- [X] T034 [P] [US3] Write failing tests (extend `src/components/workbench/hooks/useCollabSession.test.ts`): transport loss moves the session to `offline-queued`; local edits continue while queued; reconnect returns to `connected` with a converged document
+- [X] T035 [P] [US3] Write failing behavior tests in `src/components/workbench/CollabStatusChip.test.tsx`: chip reflects connected vs offline-queued states and never claims durable save while edits are queued
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Bind the shared document to a per-scene y-indexeddb store (offline queue survives disconnects and browser close; continues mirroring the converged document after sync) in `src/services/collab/collabProviderFactory.ts` (depends on T033, T016)
-- [ ] T037 [US3] Implement the `offline-queued` lifecycle and reconnect resync (status transitions into the collaboration slice; local editing continues while queued) in `src/components/workbench/hooks/useCollabSession.ts` (depends on T034, T036)
-- [ ] T038 [P] [US3] Implement `CollabStatusChip` (connected / offline-queued indicator, Tailwind + Framer Motion) in `src/components/workbench/CollabStatusChip.tsx` (depends on T035, T037)
-- [ ] T039 [US3] Integrate `CollabStatusChip` into the workbench shell in `src/components/workbench/workbench.tsx` (depends on T038)
+- [X] T036 [US3] Bind the shared document to a per-scene y-indexeddb store (offline queue survives disconnects and browser close; continues mirroring the converged document after sync) in `src/services/collab/collabProviderFactory.ts` (depends on T033, T016)
+- [X] T037 [US3] Implement the `offline-queued` lifecycle and reconnect resync (status transitions into the collaboration slice; local editing continues while queued) in `src/components/workbench/hooks/useCollabSession.ts` (depends on T034, T036)
+- [X] T038 [P] [US3] Implement `CollabStatusChip` (connected / offline-queued indicator, Tailwind + Framer Motion) in `src/components/workbench/CollabStatusChip.tsx` (depends on T035, T037)
+- [X] T039 [US3] Integrate `CollabStatusChip` into the workbench shell in `src/components/workbench/workbench.tsx` (depends on T038)
 
 **Checkpoint**: Offline resilience complete — a dropped connection no longer ends editing.
 

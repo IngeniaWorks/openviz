@@ -142,12 +142,12 @@
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T040 [P] [US4] Write failing tests (extend `src/components/workbench/hooks/useCollabSession.test.ts`): an authentication rejection moves the session to `denied`; no retry occurs with the same token; requesting a fresh token and reconnecting succeeds
+- [X] T040 [P] [US4] Write failing tests (extend `src/components/workbench/hooks/useCollabSession.test.ts`): an authentication rejection moves the session to `denied`; no retry occurs with the same token; requesting a fresh token and reconnecting succeeds
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Implement the `denied` state and fresh-token re-request/reconnect flow in `src/components/workbench/hooks/useCollabSession.ts` (depends on T040)
-- [ ] T042 [US4] Verify SC-006 end-to-end per quickstart: non-member 403 at the token route; forged/absent/expired/out-of-scope tokens rejected at WS join; membership re-check applies when membership is lost; members always admitted — automated suites green plus the manual check in `specs/003-workbench-collaboration/quickstart.md`
+- [X] T041 [US4] Implement the `denied` state and fresh-token re-request/reconnect flow in `src/components/workbench/hooks/useCollabSession.ts` (depends on T040)
+- [X] T042 [US4] Verify SC-006 end-to-end per quickstart: non-member 403 at the token route; forged/absent/expired/out-of-scope tokens rejected at WS join; membership re-check applies when membership is lost; members always admitted — automated suites green plus the manual check in `specs/003-workbench-collaboration/quickstart.md`
 
 **Checkpoint**: Access control verified at both layers; no anonymous or partial access path exists.
 

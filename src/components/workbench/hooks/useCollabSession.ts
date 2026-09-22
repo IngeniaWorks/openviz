@@ -15,6 +15,7 @@ export interface CollabProviderLike {
     on(event: 'status', listener: (event: { status: string }) => void): unknown;
     on(event: 'synced', listener: () => void): unknown;
     on(event: 'maxAttemptsFailed', listener: () => void): unknown;
+    on(event: 'authenticationFailed', listener: (data: { reason: string }) => void): unknown;
     /** Awareness publishing (presence/cursors/soft locks, US2). */
     setAwarenessField(key: string, value: unknown): void;
     connect(): void | Promise<unknown>;
@@ -62,6 +63,8 @@ export interface UseCollabSessionResult {
     provider: CollabProviderLike | null;
     userId: string;
     userName: string;
+    /** Re-fetches the room token and rejoins (US4 recovery after `denied`). */
+    retryWithFreshToken(): void;
     undo(): void;
     redo(): void;
     canUndo: boolean;
@@ -103,6 +106,8 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
     const [doc, setDoc] = useState<Y.Doc | null>(null);
     const [origin, setOrigin] = useState<string | null>(null);
     const [provider, setProvider] = useState<CollabProviderLike | null>(null);
+    // Bumped by retryWithFreshToken — re-runs the join effect with a new token.
+    const [joinEpoch, setJoinEpoch] = useState(0);
     const [undoState, setUndoState] = useState({ canUndo: false, canRedo: false });
     const undoRef = useRef<CollabUndoManager | null>(null);
 
@@ -220,6 +225,16 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                 handle.provider.on('maxAttemptsFailed', () => {
                     updateStatus('failed');
                 });
+                handle.provider.on('authenticationFailed', (data) => {
+                    if (cancelled) return;
+                    console.info('[collab] authentication failed:', data.reason);
+                    // SC-006: a rejected join must not be retried with the same
+                    // token — stop the provider and surface `denied`. Recovery is
+                    // explicit (retryWithFreshToken re-fetches a fresh token).
+                    handle?.destroy();
+                    useStore.getState().clearCollaborationState();
+                    updateStatus('denied');
+                });
 
                 setDoc(handle.doc);
                 setOrigin(handle.origin);
@@ -246,7 +261,11 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
             setUndoState({ canUndo: false, canRedo: false });
             setStatus('idle');
         };
-    }, [projectId, userId, userName, serverUrl, getToken, createProvider]);
+    }, [projectId, userId, userName, serverUrl, getToken, createProvider, joinEpoch]);
+
+    const retryWithFreshToken = useCallback(() => {
+        setJoinEpoch((epoch) => epoch + 1);
+    }, []);
 
     const undo = useCallback(() => {
         undoRef.current?.undo();
@@ -256,5 +275,5 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         undoRef.current?.redo();
     }, []);
 
-    return { status, doc, origin, provider, userId, userName, undo, redo, canUndo: undoState.canUndo, canRedo: undoState.canRedo };
+    return { status, doc, origin, provider, userId, userName, retryWithFreshToken, undo, redo, canUndo: undoState.canUndo, canRedo: undoState.canRedo };
 }

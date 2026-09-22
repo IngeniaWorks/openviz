@@ -41,12 +41,11 @@ import { useSceneStream } from './hooks/useSceneStream';
 import { CollabStatusChip } from './CollabStatusChip';
 import { CursorOverlay } from './CursorOverlay';
 import { NodeLockBadges } from './NodeLockBadges';
-import { PresenceIndicator } from './PresenceIndicator';
 import { useShallow } from 'zustand/react/shallow';
 import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
 import { DrawingOverlay } from '@/drawing/DrawingOverlay';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
-import { getTrackpadPinchZoom, WORKBENCH_PAN_MOUSE_BUTTON } from './hooks/workbenchViewportGestures';
+import { WORKBENCH_PAN_MOUSE_BUTTON } from './hooks/workbenchViewportGestures';
 
 const nodeTypes: NodeTypes = {
     imageNode: ImageNode,
@@ -66,7 +65,7 @@ const edgeTypes: EdgeTypes = {
 
 const WorkbenchContent: React.FC = () => {
     const flowWrapperRef = useRef<HTMLDivElement>(null);
-    const { setCenter, zoomIn, zoomOut, fitView, setViewport, getViewport, screenToFlowPosition } = useReactFlow();
+    const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
     const viewport = useViewport();
     const { viewMode, currentProjectId } = useStore(
         useShallow((state) => ({
@@ -244,19 +243,6 @@ const WorkbenchContent: React.FC = () => {
         [commitWorkbenchGesture]
     );
 
-    const handleWheelCapture = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-        // Trackpad pinch is commonly exposed as a ctrl-modified wheel event.
-        // Normal two-finger translation is left to React Flow's panOnScroll.
-        if (!event.ctrlKey && !event.metaKey) {
-            return;
-        }
-
-        event.preventDefault();
-        const viewport = getViewport();
-        const nextZoom = getTrackpadPinchZoom(viewport.zoom, event.deltaY);
-        setViewport({ x: viewport.x, y: viewport.y, zoom: nextZoom });
-    }, [getViewport, setViewport]);
-
     const isDrawModeActive = activeWorkbenchTool === 'draw';
     const isEraserModeActive = activeWorkbenchTool === 'eraser';
     // C-3.1/C-3.2: mode-derived React Flow props from the pure contract fn (T018).
@@ -268,7 +254,6 @@ const WorkbenchContent: React.FC = () => {
             className="relative w-full h-screen bg-white"
             onMouseDown={handleCanvasMouseDownForArrow}
             onMouseUp={handleCanvasMouseUpForArrow}
-            onWheelCapture={handleWheelCapture}
         >
             <ReactFlow
                 nodes={nodes}
@@ -310,10 +295,11 @@ const WorkbenchContent: React.FC = () => {
             {/* Awareness overlays (US2): remote cursors + soft-lock badges. */}
             <CursorOverlay remoteCursors={remoteCursors} viewport={viewport} />
             <NodeLockBadges nodes={nodes} nodeLocks={nodeLocks} viewport={viewport} />
-            {/* Collab session state + presence chips (US2/US3, SC-003/SC-004). */}
+            {/* Collab session state (US3, SC-004). The PresenceIndicator chips
+                are intentionally not rendered — the component is kept for a
+                possible return (US2/SC-003). */}
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
                 <CollabStatusChip status={collabSession.status} peers={presenceByUser} />
-                <PresenceIndicator presence={presenceByUser} />
             </div>
             <DrawingOverlay
                 mode={isEraserModeActive ? 'erase' : isDrawModeActive || isDrawMode ? 'draw' : null}

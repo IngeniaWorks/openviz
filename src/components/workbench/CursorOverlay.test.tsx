@@ -9,12 +9,13 @@ const viewport = { x: 20, y: 30, zoom: 2 };
 describe('CursorOverlay', () => {
     it('positions each remote cursor in screen space (world × zoom + viewport offset)', () => {
         const cursors: Record<string, CollabRemoteCursorState> = {
-            '3': { userId: 'u-2', userName: 'Grace', color: '#f97316', x: 100, y: 50 },
+            '3': { userId: 'u-2', userName: 'Grace Hopper', color: '#f97316', x: 100, y: 50 },
         };
 
         render(<CursorOverlay remoteCursors={cursors} viewport={viewport} />);
 
         const label = screen.getByText('Grace');
+        expect(screen.queryByText('Grace Hopper')).not.toBeInTheDocument();
         // The positioned wrapper carries the computed left/top.
         const positioned = label.closest('[data-cursor-client="3"]') as HTMLElement;
         expect(positioned).not.toBeNull();
@@ -24,7 +25,7 @@ describe('CursorOverlay', () => {
 
     it('renders only peers that currently have an active cursor entry', () => {
         const cursors: Record<string, CollabRemoteCursorState> = {
-            '4': { userId: 'u-3', userName: 'Hugo', color: '#0ea5e9', x: 0, y: 0 },
+            '4': { userId: 'u-3', userName: 'Hugo Boss', color: '#0ea5e9', x: 0, y: 0 },
         };
 
         render(<CursorOverlay remoteCursors={cursors} viewport={viewport} />);

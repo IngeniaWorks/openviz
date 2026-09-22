@@ -312,7 +312,7 @@ const WorkbenchContent: React.FC = () => {
             <NodeLockBadges nodes={nodes} nodeLocks={nodeLocks} viewport={viewport} />
             {/* Collab session state + presence chips (US2/US3, SC-003/SC-004). */}
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-                <CollabStatusChip status={collabSession.status} />
+                <CollabStatusChip status={collabSession.status} peers={presenceByUser} />
                 <PresenceIndicator presence={presenceByUser} />
             </div>
             <DrawingOverlay

@@ -39,6 +39,7 @@ class FakeProvider {
     private syncedListeners: Array<() => void> = [];
     private maxAttemptsFailedListeners: Array<() => void> = [];
     private authenticationFailedListeners: Array<(data: { reason: string }) => void> = [];
+    private awarenessUpdateListeners: Array<(data: { states: Array<Record<string, unknown> & { clientId: number }> }) => void> = [];
     destroyed = false;
     connectCalls = 0;
 
@@ -47,11 +48,12 @@ class FakeProvider {
         FakeProvider.instances.push(this);
     }
 
-    on(event: string, listener: StatusListener | (() => void) | ((data: { reason: string }) => void)): this {
+    on(event: string, listener: StatusListener | (() => void) | ((data: { reason: string }) => void) | ((data: { states: Array<Record<string, unknown> & { clientId: number }> }) => void)): this {
         if (event === 'status') this.statusListeners.push(listener as StatusListener);
         if (event === 'synced') this.syncedListeners.push(listener as () => void);
         if (event === 'maxAttemptsFailed') this.maxAttemptsFailedListeners.push(listener as () => void);
         if (event === 'authenticationFailed') this.authenticationFailedListeners.push(listener as (data: { reason: string }) => void);
+        if (event === 'awarenessUpdate') this.awarenessUpdateListeners.push(listener as (data: { states: Array<Record<string, unknown> & { clientId: number }> }) => void);
         return this;
     }
 
@@ -68,6 +70,11 @@ class FakeProvider {
     /** Test helper: simulate the server rejecting the join (SC-006). */
     emitAuthenticationFailed(reason = 'unauthorized'): void {
         for (const listener of this.authenticationFailedListeners) listener({ reason });
+    }
+
+    /** Test helper: simulate an awareness snapshot update from the transport. */
+    emitAwarenessUpdate(states: Array<Record<string, unknown> & { clientId: number }>): void {
+        for (const listener of this.awarenessUpdateListeners) listener({ states });
     }
 
     setAwarenessField(key: string, value: unknown): void {
@@ -401,6 +408,39 @@ describe('useCollabSession offline queue (US3 / SC-004)', () => {
 function tokenCallCount(options: UseCollabSessionOptions): number {
     return options.getToken ? vi.mocked(options.getToken).mock.calls.length : 0;
 }
+
+describe('useCollabSession awareness projection (US2 wiring)', () => {
+    it('projects remote awareness updates into presence, cursors and soft locks', async () => {
+        const options = seedOptions();
+        renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(useStore.getState().collabSessionActive).toBe(true));
+
+        // A peer (client 7) publishes identity + cursor + a soft lock.
+        // The local client's own entry (clientID 1) must be excluded.
+        act(() => {
+            FakeProvider.instances[0].emitAwarenessUpdate([
+                { clientId: 1, user: { id: 'u-alice', name: 'Alice' } },
+                { clientId: 7, user: { id: 'u-bob', name: 'Bob' }, cursor: { x: 42, y: 17 }, activeNodeIds: ['n9'], selectedAt: 123 },
+            ]);
+        });
+
+        const state = useStore.getState();
+        expect(Object.keys(state.presenceByUser)).toEqual(['u-bob']);
+        expect(state.remoteCursors['7']).toMatchObject({ userId: 'u-bob', userName: 'Bob', x: 42, y: 17 });
+        expect(state.nodeLocks['n9']).toMatchObject({ nodeId: 'n9', userId: 'u-bob' });
+
+        // Peer leaves (snapshot no longer contains them) → all derived state clears.
+        act(() => {
+            FakeProvider.instances[0].emitAwarenessUpdate([
+                { clientId: 1, user: { id: 'u-alice', name: 'Alice' } },
+            ]);
+        });
+
+        expect(useStore.getState().presenceByUser).toEqual({});
+        expect(useStore.getState().remoteCursors).toEqual({});
+        expect(useStore.getState().nodeLocks).toEqual({});
+    });
+});
 
 describe('useCollabSession access control (US4 / SC-006)', () => {
     it('moves to denied on authentication failure and never retries the same token', async () => {

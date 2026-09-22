@@ -161,11 +161,11 @@
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T043 [P] [US5] Write failing tests (extend `src/services/collab/sceneDocMapping.test.ts` and `server/collab/persistence.test.ts`): first collaborative open of a scene with no `ydoc` seeds from JSON with 100% node/connection preservation; subsequent loads prefer `ydoc`; the single-user autosave path for never-collaborated scenes is behaviorally unchanged (FR-012, SC-007)
+- [X] T043 [P] [US5] Write failing tests (extend `src/services/collab/sceneDocMapping.test.ts` and `server/collab/persistence.test.ts`): first collaborative open of a scene with no `ydoc` seeds from JSON with 100% node/connection preservation; subsequent loads prefer `ydoc`; the single-user autosave path for never-collaborated scenes is behaviorally unchanged (FR-012, SC-007)
 
 ### Implementation for User Story 5
 
-- [ ] T044 [US5] Verify and fix the adoption flow end-to-end per quickstart US5 scenarios: pre-feature scene opens fully in two sessions; collaborative edit → reload loads the converged state (not a stale snapshot); single-user save of a never-collaborated scene is unchanged — touching `src/components/workbench/hooks/useCollabSession.ts` and `src/hooks/useAutoSaveScene.ts` only if verification finds gaps (depends on T043)
+- [X] T044 [US5] Verify and fix the adoption flow end-to-end per quickstart US5 scenarios: pre-feature scene opens fully in two sessions; collaborative edit → reload loads the converged state (not a stale snapshot); single-user save of a never-collaborated scene is unchanged — touching `src/components/workbench/hooks/useCollabSession.ts` and `src/hooks/useAutoSaveScene.ts` only if verification finds gaps (depends on T043)
 
 **Checkpoint**: All user stories independently functional; rollout requires no migration step.
 

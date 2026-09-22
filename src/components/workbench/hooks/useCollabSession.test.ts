@@ -38,6 +38,7 @@ class FakeProvider {
     private statusListeners: StatusListener[] = [];
     private syncedListeners: Array<() => void> = [];
     private maxAttemptsFailedListeners: Array<() => void> = [];
+    private authenticationFailedListeners: Array<(data: { reason: string }) => void> = [];
     destroyed = false;
     connectCalls = 0;
 
@@ -46,10 +47,11 @@ class FakeProvider {
         FakeProvider.instances.push(this);
     }
 
-    on(event: string, listener: StatusListener | (() => void)): this {
+    on(event: string, listener: StatusListener | (() => void) | ((data: { reason: string }) => void)): this {
         if (event === 'status') this.statusListeners.push(listener as StatusListener);
         if (event === 'synced') this.syncedListeners.push(listener as () => void);
         if (event === 'maxAttemptsFailed') this.maxAttemptsFailedListeners.push(listener as () => void);
+        if (event === 'authenticationFailed') this.authenticationFailedListeners.push(listener as (data: { reason: string }) => void);
         return this;
     }
 
@@ -61,6 +63,11 @@ class FakeProvider {
     /** Test helper: simulate the retry loop giving up. */
     emitMaxAttemptsFailed(): void {
         for (const listener of this.maxAttemptsFailedListeners) listener();
+    }
+
+    /** Test helper: simulate the server rejecting the join (SC-006). */
+    emitAuthenticationFailed(reason = 'unauthorized'): void {
+        for (const listener of this.authenticationFailedListeners) listener({ reason });
     }
 
     setAwarenessField(key: string, value: unknown): void {
@@ -387,6 +394,55 @@ describe('useCollabSession offline queue (US3 / SC-004)', () => {
         // Converged: local queued edit (n2) AND remote edit (n3) both present.
         const state = useStore.getState();
         expect(state.workbenchNodes.map((node) => node.id).sort()).toEqual(['n1', 'n2', 'n3']);
+    });
+});
+
+/** Token-fetch call count for the injected getToken (seedOptions always sets one). */
+function tokenCallCount(options: UseCollabSessionOptions): number {
+    return options.getToken ? vi.mocked(options.getToken).mock.calls.length : 0;
+}
+
+describe('useCollabSession access control (US4 / SC-006)', () => {
+    it('moves to denied on authentication failure and never retries the same token', async () => {
+        const options = seedOptions();
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        // The server rejects the join (e.g. membership was revoked mid-session).
+        act(() => {
+            FakeProvider.instances[0].emitAuthenticationFailed();
+        });
+
+        await waitFor(() => expect(result.current.status).toBe('denied'));
+        // No retry with the same token: the rejected provider is stopped…
+        expect(FakeProvider.instances[0].destroyed).toBe(true);
+        const tokenCalls = tokenCallCount(options);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        // …and no fresh join happens on its own.
+        expect(tokenCallCount(options)).toBe(tokenCalls);
+        expect(FakeProvider.instances).toHaveLength(1);
+        // Remote state is cleared — a denied session owns nothing.
+        expect(useStore.getState().collabSessionActive).toBe(false);
+    });
+
+    it('recovers with a fresh token when retryWithFreshToken is called after denial', async () => {
+        const options = seedOptions();
+        const { result } = renderHook(() => useCollabSession(options));
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+
+        act(() => {
+            FakeProvider.instances[0].emitAuthenticationFailed();
+        });
+        await waitFor(() => expect(result.current.status).toBe('denied'));
+
+        // Membership restored (or token refreshed) — explicitly rejoin.
+        act(() => {
+            result.current.retryWithFreshToken();
+        });
+
+        await waitFor(() => expect(result.current.status).toBe('connected'));
+        expect(tokenCallCount(options)).toBe(2);
+        expect(FakeProvider.instances).toHaveLength(2);
     });
 });
 

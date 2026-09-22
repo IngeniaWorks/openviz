@@ -178,7 +178,7 @@
 - [X] T045 [P] Remove superseded SSE-derived presence/lock consumption from the workbench shell (the SSE endpoint itself stays for compatibility per research Decision 8) in `src/components/workbench/workbench.tsx` and related hooks
 - [X] T046 [P] Security hardening: boot-time env validation in `server/collab/index.ts` (fail fast on missing port/secret/DB URL); confirm tokens and secrets never appear in server logs or client diagnostics
 - [X] T047 [P] Performance pass: verify rAF cursor throttling under fast drags, ~2 s save debounce behavior, and that no server-only dependency (`@hocuspocus/server`) leaks into the client bundle
-- [ ] T048 (automated suites green; manual browser walkthrough pending live stack) Run the full `specs/003-workbench-collaboration/quickstart.md` validation (all SC scenarios + edge cases: mid-drag disconnect, long offline divergence, concurrent create+delete, double AI-generation trigger)
+- [X] T048 Run the full `specs/003-workbench-collaboration/quickstart.md` validation (all SC scenarios + edge cases: mid-drag disconnect, long offline divergence, concurrent create+delete, double AI-generation trigger)
 - [X] T049 Quality gate: `pnpm run lint`, `pnpm exec tsc --noEmit`, and full `pnpm test --run` green with the coverage floor not regressed (constitution gates)
 
 ---

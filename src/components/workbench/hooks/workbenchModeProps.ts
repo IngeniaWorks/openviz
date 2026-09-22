@@ -6,11 +6,9 @@ import type { WorkbenchToolType } from '@/types';
  */
 export function getFlowModeProps(mode: WorkbenchToolType) {
     const isSelect = mode === 'select';
-    const isHand = mode === 'hand';
-
     return {
         selectionOnDrag: isSelect,
-        panOnDrag: isHand,
+        panOnDrag: false,
         elementsSelectable: isSelect,
         nodesDraggable: isSelect,
         nodesConnectable: isSelect,

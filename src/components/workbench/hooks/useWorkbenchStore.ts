@@ -6,6 +6,7 @@ export function useWorkbenchStore() {
     return useStore(
         useShallow((state) => ({
             workbenchNodes: state.workbenchNodes,
+            currentProjectId: state.currentProjectId,
             connections: state.connections,
             canUndoWorkbench: state.workbenchHistoryIndex > 0 && !state.activeWorkbenchGesture,
             canRedoWorkbench: state.workbenchHistoryIndex < state.workbenchHistory.length - 1 && !state.activeWorkbenchGesture,

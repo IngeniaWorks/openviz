@@ -3,7 +3,6 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
     ArrowUpRight,
     Eraser,
-    Hand,
     ImagePlus,
     MousePointer2,
     PenLine,
@@ -57,7 +56,6 @@ const menuItemClass =
 
 const TOOL_CONFIG: Array<{ id: WorkbenchToolType; label: string; shortcut: string; icon: LucideIcon }> = [
     { id: 'select', label: 'Select', shortcut: 'V', icon: MousePointer2 },
-    { id: 'hand', label: 'Hand', shortcut: 'H', icon: Hand },
     { id: 'draw', label: 'Draw', shortcut: 'D', icon: PenLine },
     { id: 'eraser', label: 'Eraser', shortcut: 'E', icon: Eraser },
     { id: 'arrow', label: 'Arrow', shortcut: 'A', icon: ArrowUpRight },

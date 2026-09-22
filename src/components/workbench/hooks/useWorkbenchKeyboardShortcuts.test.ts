@@ -23,6 +23,13 @@ function baseOptions() {
         setActiveWorkbenchTool: vi.fn(),
         undoWorkbench: vi.fn(),
         redoWorkbench: vi.fn(),
+        panViewport: vi.fn(),
+        zoomIn: vi.fn(),
+        zoomOut: vi.fn(),
+        fitView: vi.fn(),
+        resetView: vi.fn(),
+        zoomTo100: vi.fn(),
+        clearSelection: vi.fn(),
     };
 }
 
@@ -39,7 +46,6 @@ afterEach(() => {
 describe('useWorkbenchKeyboardShortcuts — tool activation (C-2.2)', () => {
     it.each([
         ['v', 'select'],
-        ['h', 'hand'],
         ['d', 'draw'],
         ['e', 'eraser'],
         ['a', 'arrow'],
@@ -93,6 +99,43 @@ describe('useWorkbenchKeyboardShortcuts — input focus suppression (C-2.3)', ()
             el.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true }));
         });
         expect(options.setActiveWorkbenchTool).not.toHaveBeenCalled();
+    });
+});
+
+describe('useWorkbenchKeyboardShortcuts — viewport and cancellation shortcuts', () => {
+    it.each([
+        ['ArrowUp', 'up'],
+        ['ArrowDown', 'down'],
+        ['ArrowLeft', 'left'],
+        ['ArrowRight', 'right'],
+    ] as const)('maps %s to viewport panning', (key, direction) => {
+        const options = makeOptions();
+        renderHook(() => useWorkbenchKeyboardShortcuts(options));
+        pressKey(key);
+        expect(options.panViewport).toHaveBeenCalledWith(direction);
+    });
+
+    it('maps zoom and view shortcuts', () => {
+        const options = makeOptions();
+        renderHook(() => useWorkbenchKeyboardShortcuts(options));
+        pressKey('+');
+        pressKey('=');
+        pressKey('-');
+        pressKey('1', { shiftKey: true });
+        pressKey('0', { shiftKey: true });
+        pressKey('r', { shiftKey: true });
+        expect(options.zoomIn).toHaveBeenCalledTimes(2);
+        expect(options.zoomOut).toHaveBeenCalledTimes(1);
+        expect(options.fitView).toHaveBeenCalledTimes(1);
+        expect(options.zoomTo100).toHaveBeenCalledTimes(1);
+        expect(options.resetView).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears selection on Escape', () => {
+        const options = makeOptions();
+        renderHook(() => useWorkbenchKeyboardShortcuts(options));
+        pressKey('Escape');
+        expect(options.clearSelection).toHaveBeenCalledTimes(1);
     });
 });
 

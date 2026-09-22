@@ -1,6 +1,6 @@
 export type AspectRatio = '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | 'square' | 'landscape' | 'portrait';
 export type ToolType = 'select' | 'brush' | 'eraser' | 'circle' | 'rectangle' | 'line' | 'paintbucket' | 'transform';
-export type WorkbenchToolType = 'select' | 'hand' | 'draw' | 'eraser' | 'arrow' | 'text' | 'note' | 'media';
+export type WorkbenchToolType = 'select' | 'draw' | 'eraser' | 'arrow' | 'text' | 'note' | 'media';
 export type LayerType = 'sketch' | 'image' | 'render';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay';
 export type ViewMode = 'STUDIO' | 'WORKBENCH';

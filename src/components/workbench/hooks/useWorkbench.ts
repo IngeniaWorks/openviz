@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useReactFlow } from '@xyflow/react';
 
 import { sketchFormats, useWorkbenchFormatMenu } from './useWorkbenchFormatMenu';
@@ -21,6 +23,7 @@ export interface UseWorkbenchOptions {
 export const useWorkbench = (options?: UseWorkbenchOptions) => {
     const {
         workbenchNodes,
+        currentProjectId,
         connections,
         canUndoWorkbench,
         canRedoWorkbench,
@@ -57,6 +60,15 @@ export const useWorkbench = (options?: UseWorkbenchOptions) => {
         redoWorkbench,
     } = useWorkbenchStore();
 
+    const router = useRouter();
+
+    const openNodeInStudioAndNavigate = useCallback((id: string) => {
+        openNodeInStudio(id);
+        if (currentProjectId) {
+            router.push(`/projects/${currentProjectId}/studio`);
+        }
+    }, [currentProjectId, openNodeInStudio, router]);
+
     const { showFormatDropdown, setShowFormatDropdown, dropdownRef, handleFormatSelect } =
         useWorkbenchFormatMenu({ createSketchWithFormat });
 
@@ -90,7 +102,7 @@ export const useWorkbench = (options?: UseWorkbenchOptions) => {
         commitWorkbenchGesture,
         cancelWorkbenchGesture,
         removeWorkbenchNode,
-        openNodeInStudio,
+        openNodeInStudio: openNodeInStudioAndNavigate,
         setActiveNodeId,
         setBasicBlocksMenu,
     });
@@ -100,8 +112,36 @@ export const useWorkbench = (options?: UseWorkbenchOptions) => {
         addConnection,
     });
 
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, getViewport, setViewport, zoomIn, zoomOut, fitView } = useReactFlow();
     const { getMousePosition } = useWorkbenchPointerTracking();
+
+    const panViewport = useCallback((direction: 'up' | 'down' | 'left' | 'right') => {
+        const viewport = getViewport();
+        const step = 80;
+        const delta = {
+            up: { x: 0, y: step },
+            down: { x: 0, y: -step },
+            left: { x: step, y: 0 },
+            right: { x: -step, y: 0 },
+        }[direction];
+        setViewport({ x: viewport.x + delta.x, y: viewport.y + delta.y, zoom: viewport.zoom });
+    }, [getViewport, setViewport]);
+
+    const zoomTo100 = useCallback(() => {
+        const viewport = getViewport();
+        setViewport({ x: viewport.x, y: viewport.y, zoom: 1 });
+    }, [getViewport, setViewport]);
+
+    const resetView = useCallback(() => {
+        setViewport({ x: 0, y: 0, zoom: 1 });
+    }, [setViewport]);
+
+    const clearSelection = useCallback(() => {
+        setSelectedNodeIds([]);
+        setActiveNodeId(null);
+        setContextMenu(null);
+        setBasicBlocksMenu(null);
+    }, [setActiveNodeId, setBasicBlocksMenu, setContextMenu, setSelectedNodeIds]);
 
     useWorkbenchKeyboardShortcuts({
         copyToClipboard,
@@ -116,6 +156,13 @@ export const useWorkbench = (options?: UseWorkbenchOptions) => {
         setActiveWorkbenchTool,
         undoWorkbench: options?.undoAction ?? undoWorkbench,
         redoWorkbench: options?.redoAction ?? redoWorkbench,
+        panViewport,
+        zoomIn: () => zoomIn({ duration: 0 }),
+        zoomOut: () => zoomOut({ duration: 0 }),
+        fitView: () => fitView({ duration: 0 }),
+        resetView,
+        zoomTo100,
+        clearSelection,
     });
 
     return {

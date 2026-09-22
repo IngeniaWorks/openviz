@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
-import type { CollabSessionStatus, CollabTokenResponse, SceneDataJson } from '@/types/collab.types';
+import type { CollabRemoteAwarenessEntry, CollabSessionStatus, CollabTokenResponse, SceneDataJson } from '@/types/collab.types';
 import type { Connection, WorkbenchNode } from '@/types';
 import { useStore } from '@/store/useStore';
 import { createCollabProvider } from '@/services/collab/collabProviderFactory';
@@ -11,11 +11,17 @@ import { createCollabUndoManager, type CollabUndoManager } from '@/services/coll
  * Structural view of the collaboration provider — everything the session hook
  * needs. The real HocuspocusProvider satisfies this; tests inject fakes.
  */
+/** One awareness state as emitted by the provider (`clientId` + flat payload). */
+export type CollabAwarenessStateEntry = Record<string, unknown> & { clientId: number };
+
 export interface CollabProviderLike {
     on(event: 'status', listener: (event: { status: string }) => void): unknown;
     on(event: 'synced', listener: () => void): unknown;
     on(event: 'maxAttemptsFailed', listener: () => void): unknown;
     on(event: 'authenticationFailed', listener: (data: { reason: string }) => void): unknown;
+    on(event: 'awarenessUpdate', listener: (data: { states: CollabAwarenessStateEntry[] }) => void): unknown;
+    /** The awareness instance backing this provider (null when disabled). */
+    readonly awareness?: { readonly clientID: number } | null;
     /** Awareness publishing (presence/cursors/soft locks, US2). */
     setAwarenessField(key: string, value: unknown): void;
     connect(): void | Promise<unknown>;
@@ -221,6 +227,17 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                     }
                     if (next !== sessionStatus) console.info('[collab] status:', next);
                     updateStatus(next);
+                });
+                handle.provider.on('awarenessUpdate', (data) => {
+                    if (cancelled) return;
+                    // The provider emits the full snapshot with each client's
+                    // payload fields spread flat next to `clientId`.
+                    const localClientId = handle?.provider.awareness?.clientID ?? -1;
+                    const entries: CollabRemoteAwarenessEntry[] = data.states.map(({ clientId, ...state }) => ({
+                        clientId,
+                        state: state as CollabRemoteAwarenessEntry['state'],
+                    }));
+                    useStore.getState().applyRemoteAwareness(entries, localClientId);
                 });
                 handle.provider.on('maxAttemptsFailed', () => {
                     updateStatus('failed');

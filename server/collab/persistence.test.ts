@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as Y from 'yjs';
 import type { SceneDataJson } from '../../src/types/collab.types';
-import { createSceneDoc, seedSceneFromJson, extractSceneFromDoc } from '../../src/services/collab/sceneDocMapping';
+import { createSceneDoc, seedSceneFromJson, extractSceneFromDoc, getNodesMap, jsonToYValue } from '../../src/services/collab/sceneDocMapping';
 import { createFetch, createStore, parseOriginUser } from './persistence';
 
 const SCENE_ID = 'scene-1';
@@ -61,6 +61,49 @@ describe('createFetch (load / lazy import)', () => {
         const getScene = vi.fn(async () => null);
         const fetch = createFetch({ getScene });
         expect(await fetch({ documentName: SCENE_ID } as never)).toBeNull();
+    });
+});
+
+describe('US5 adoption cycle (SC-007)', () => {
+    it('JSON-only scene seeds on first open, and reload loads the converged ydoc — not a stale snapshot', async () => {
+        // In-memory stand-in for the scenes row, mutated by the store hook.
+        let row: { id: string; data: SceneDataJson; ydoc: Uint8Array | null } = {
+            id: SCENE_ID,
+            data: sampleData,
+            ydoc: null, // pre-feature scene: JSON only
+        };
+        const deps = {
+            getScene: vi.fn(async () => row),
+            saveScene: vi.fn(async (input: { data: SceneDataJson; ydoc: Uint8Array }) => {
+                row = { id: SCENE_ID, data: input.data, ydoc: input.ydoc };
+            }),
+        };
+        const fetch = createFetch(deps);
+        const store = createStore(deps);
+
+        // First collaborative open: seeded from the saved JSON.
+        const first = await fetch({ documentName: SCENE_ID } as never);
+        expect(first).not.toBeNull();
+        const doc = new Y.Doc();
+        Y.applyUpdate(doc, first!);
+        expect(extractSceneFromDoc(doc).nodes.map((node) => node.id)).toEqual(['n1']);
+
+        // A collaborator adds a node; the server persists the converged state.
+        doc.transact(() => {
+            getNodesMap(doc).set('n2', jsonToYValue({ id: 'n2', type: 'text', x: 3, y: 4, data: { text: 'added live' } } as never));
+        }, 'user:b:1');
+        await store(fakeStorePayload(doc, 'user:b:1') as never);
+        expect(deps.saveScene).toHaveBeenCalledTimes(1);
+
+        // Simulate the JSON snapshot going stale (e.g. a failed partial write).
+        // The reload must still load the converged state from the ydoc.
+        row.data = sampleData; // only n1 — stale
+
+        const second = await fetch({ documentName: SCENE_ID } as never);
+        expect(second).not.toBeNull();
+        const reloaded = new Y.Doc();
+        Y.applyUpdate(reloaded, second!);
+        expect(extractSceneFromDoc(reloaded).nodes.map((node) => node.id)).toEqual(['n1', 'n2']);
     });
 });
 

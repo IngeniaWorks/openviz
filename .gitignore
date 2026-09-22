@@ -42,3 +42,4 @@ coverage/
 # Next.js build output and dependencies
 .next
 node_modules/
+.tsbuildinfo

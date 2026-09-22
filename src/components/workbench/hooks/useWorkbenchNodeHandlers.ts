@@ -58,6 +58,7 @@ export function useWorkbenchNodeHandlers({
     const handleNodesChange: OnNodesChange = useCallback((changes) => {
         const flowNodes = buildFlowNodes(workbenchNodes, selectedNodeIds);
         applyNodeChanges(changes as NodeChange[], flowNodes);
+        const nextSelectedNodeIds = new Set(selectedNodeIds);
 
         changes.forEach((change) => {
             if (change.type === 'dimensions') {
@@ -87,14 +88,17 @@ export function useWorkbenchNodeHandlers({
                     return;
                 }
                 if (change.selected) {
-                    if (!selectedNodeIds.includes(change.id)) {
-                        setSelectedNodeIds([...selectedNodeIds, change.id]);
-                    }
-                } else if (selectedNodeIds.includes(change.id)) {
-                    setSelectedNodeIds(selectedNodeIds.filter((id) => id !== change.id));
+                    nextSelectedNodeIds.add(change.id);
+                } else {
+                    nextSelectedNodeIds.delete(change.id);
                 }
             }
         });
+
+        const nextSelection = [...nextSelectedNodeIds];
+        if (nextSelection.length !== selectedNodeIds.length || nextSelection.some((id) => !selectedNodeIds.includes(id))) {
+            setSelectedNodeIds(nextSelection);
+        }
     }, [updateWorkbenchNodeTransient, removeWorkbenchNode, setSelectedNodeIds, selectedNodeIds, workbenchNodes]);
 
     const handleNodeDoubleClick = useCallback((_: React.MouseEvent, node: Node) => {

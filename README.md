@@ -81,8 +81,6 @@ specs/        Active, numbered feature specifications
 docs/         Product, architecture, development, and operations documentation
 AGENTS/       Detailed coding-agent rules
 .specify/     Spec Kit process configuration
-.pi/          Pi prompt configuration
-.opencode/    OpenCode configuration
 ```
 
 ## Project status

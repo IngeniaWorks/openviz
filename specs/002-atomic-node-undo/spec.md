@@ -4,7 +4,7 @@
 
 **Created**: 2026-04-21
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Implement Option A: atomic Workbench gestures with durable final state. Each completed node movement, included group movement, resize, and arrow-handle manipulation is one Undo/Redo action; no-op gestures add no history; persist completed Workbench state for future multi-user support without implementing full collaboration."
 

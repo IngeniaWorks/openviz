@@ -78,7 +78,7 @@
 - **Alternatives considered**:
   - *Extend SSE to carry Yjs updates*: SSE is one-directional; Yjs needs bidirectional sync — impossible without adding WS anyway, at which point Hocuspocus supersedes the hand-rolled stream.
   - *Delete the SSE endpoint now*: breaks any non-workbench consumers during rollout; premature.
-- **Sources**: `src/app/api/projects/[id]/scenes/stream/route.ts`; `src/components/workbench/hooks/useSceneStream.ts`; feature-product-plan.md (shipped phase 1 scope).
+- **Sources**: `src/app/api/projects/[id]/scenes/stream/route.ts`; `src/components/workbench/hooks/useSceneStream.ts`; the shipped collaboration scope documented in this feature specification.
 
 ## Decision 9: While a collab room is active, the server is the single scene writer; client autosave PATCH is suppressed for that scene
 

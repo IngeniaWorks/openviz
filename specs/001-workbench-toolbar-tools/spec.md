@@ -4,9 +4,9 @@
 
 **Created**: 2026-09-21
 
-**Status**: Draft
+**Status**: Implemented
 
-**Input**: User description: "Implement the workbench toolbar tools per plans/workbench-toolbar-tools-plan.md — tool order Select/Hand/Draw/Eraser/Arrow/Text/Note/Media, shortcuts V/H/D/E/A/T/N/M, sticky Draw/Eraser, one-shot Arrow/Text/Note/Media with auto-switch to Select, image-only media picker, non-connectable Arrow/Text/Note nodes in v1. Preserve existing selection and drawing behavior."
+**Input**: User description: "Implement the workbench toolbar tools per specs/001-workbench-toolbar-tools/spec.md — tool order Select/Hand/Draw/Eraser/Arrow/Text/Note/Media, shortcuts V/H/D/E/A/T/N/M, sticky Draw/Eraser, one-shot Arrow/Text/Note/Media with auto-switch to Select, image-only media picker, non-connectable Arrow/Text/Note nodes in v1. Preserve existing selection and drawing behavior."
 
 ## User Scenarios & Testing *(mandatory)*
 

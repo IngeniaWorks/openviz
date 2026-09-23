@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain — source plan (plans/workbench-toolbar-tools-plan.md) had all behaviors pre-confirmed; none needed
+- [x] No [NEEDS CLARIFICATION] markers remain — feature specification and clarification record had all behaviors pre-confirmed; none needed
 - [x] Requirements are testable and unambiguous (17 FRs, each observable via UI or shortcut)
 - [x] Success criteria are measurable (SC-001..005: time bounds, percentages, zero-regression)
 - [x] Success criteria are technology-agnostic (no implementation details)

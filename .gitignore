@@ -30,6 +30,9 @@ dist-ssr
 # Agent documentation
 # AGENTS.md
 # AGENTS/
+# Local agent tool configuration
+.pi
+.opencode
 
 # Environment files and local secrets
 .env

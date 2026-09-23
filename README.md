@@ -92,60 +92,49 @@ Your central hub for organizing creative work.
 
 ### Quick Setup (Docker-First, Recommended)
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Sander-HR/openviz.git
-   cd openviz
-   ```
+After Docker Desktop or Docker Engine with Compose is installed, run this one-liner:
 
-2. **(Optional) customize Docker env values**
-   ```bash
-   cp .env.docker.example .env.docker
-   ```
-   If `.env.docker` is present, `pnpm run dev:docker` will automatically use it.
-   If ports are already in use on your machine, change these values in `.env.docker`:
-   - `POSTGRES_HOST_PORT=5433`
-   - `REDIS_HOST_PORT=6380`
-   - `APP_HOST_PORT=3001`
+```bash
+git clone https://github.com/IngeniaWorks/openviz.git && cd openviz && docker compose up --build
+```
 
-3. **Start the full local stack**
-   ```bash
-   docker compose up --build
-   ```
-   Or run:
-   ```bash
-   pnpm run dev:docker
-   ```
+Then open [http://localhost:3000](http://localhost:3000). No Node.js, PostgreSQL, Redis, dependency installation, or environment-file setup is required on the host.
 
-   This starts:
-   - `app` (Next.js dev server, source-mounted),
-   - `postgres` (persistent volume),
-   - `redis` (persistent volume),
-   - automatic setup on app start:
-     - dependency check/install,
-     - DB readiness check,
-     - schema apply (`db:push`),
-     - default workspace + example project bootstrap.
+Docker automatically:
+- builds the app container;
+- installs dependencies;
+- starts PostgreSQL and Redis with persistent volumes;
+- waits for the database to become ready;
+- generates local development configuration and an auth secret;
+- applies the database schema; and
+- seeds the default workspace and example project.
 
-4. **Open in browser**
-   ```
-   http://localhost:3000
-   ```
+To customize the Docker setup, copy the example environment file before starting:
+
+```bash
+cp .env.docker.example .env.docker
+docker compose up --build
+```
+
+If ports are already in use, change these values in `.env.docker`:
+- `POSTGRES_HOST_PORT=5433`
+- `REDIS_HOST_PORT=6380`
+- `APP_HOST_PORT=3001`
 
 Useful Docker commands:
 ```bash
-pnpm run dev:docker    # same as docker compose up --build
-pnpm run docker:logs   # tail app/postgres/redis logs
+pnpm run dev:docker    # start or rebuild the local stack
+pnpm run docker:logs   # tail app, PostgreSQL, and Redis logs
 pnpm run docker:down   # stop containers
 ```
 
-If you hit `bind: address already in use`, free that host port or remap it in `.env.docker`.
+If you hit `bind: address already in use`, free the host port or remap it in `.env.docker`.
 
 ### Manual Host Setup (Fallback)
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Sander-HR/openviz.git
+   git clone https://github.com/IngeniaWorks/openviz.git
    cd openviz
    ```
 

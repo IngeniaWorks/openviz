@@ -6,6 +6,8 @@ export const AIComputeSettings: React.FC = () => {
     const {
         endpoint,
         setEndpoint,
+        targetKind,
+        setTargetKind,
         status,
         preference,
         setPreference,
@@ -37,9 +39,17 @@ export const AIComputeSettings: React.FC = () => {
                         <Wifi size={11} /> {status === 'connected' ? 'Connected' : status === 'checking' ? 'Checking' : 'Not tested'}
                     </span>
                 </div>
+                <div className="mb-3">
+                    <label htmlFor="execution-target-kind" className="mb-2 block text-xs font-medium text-zinc-400">Execution target</label>
+                    <select id="execution-target-kind" value={targetKind} onChange={(event) => setTargetKind(event.target.value as typeof targetKind)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500">
+                        <option value="local">Local ComfyUI</option>
+                        <option value="hosted">Hosted ComfyUI</option>
+                        <option value="hybrid">Hybrid · local first</option>
+                    </select>
+                </div>
                 <div className="flex items-end gap-3">
                     <div className="flex-1">
-                        <label htmlFor="comfy-endpoint" className="mb-2 block text-xs font-medium text-zinc-400">Endpoint</label>
+                        <label htmlFor="comfy-endpoint" className="mb-2 block text-xs font-medium text-zinc-400">{targetKind === 'hosted' ? 'Hosted endpoint' : 'Local endpoint'}</label>
                         <input
                             id="comfy-endpoint"
                             aria-label="ComfyUI endpoint"

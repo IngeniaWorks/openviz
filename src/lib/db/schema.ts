@@ -106,11 +106,13 @@ export const phoneUploadSessions = pgTable('phone_upload_sessions', {
 export const jobs = pgTable('jobs', {
     id: uuid('id').defaultRandom().primaryKey(),
     projectId: uuid('project_id').references(() => projects.id).notNull(),
-    type: text('type', { enum: ['render', 'animate'] }).notNull(),
-    status: text('status', { enum: ['pending', 'processing', 'completed', 'failed'] }).default('pending').notNull(),
+    type: text('type', { enum: ['render', 'animate', 'product'] }).notNull(),
+    status: text('status', { enum: ['pending', 'processing', 'completed', 'partial', 'cancelled', 'failed'] }).default('pending').notNull(),
     progress: integer('progress').default(0).notNull(),
     resultUrl: text('result_url'),
     error: text('error'),
+    retryOf: uuid('retry_of'),
+    metadata: jsonb('metadata'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -160,3 +162,17 @@ export const scenesRelations = relations(scenes, ({ one }) => ({
 export const jobsRelations = relations(jobs, ({ one }) => ({
     project: one(projects, { fields: [jobs.projectId], references: [projects.id] }),
 }));
+
+/** Redacted execution-target metadata. Provider credentials are not stored in this table. */
+export const executionTargets = pgTable('execution_targets', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').references(() => users.id).notNull(),
+    kind: text('kind', { enum: ['local', 'hosted', 'hybrid'] }).notNull(),
+    endpoint: text('endpoint').notNull(),
+    displayName: text('display_name').notNull(),
+    status: text('status', { enum: ['unknown', 'checking', 'ready', 'degraded', 'unavailable', 'auth-required'] }).notNull(),
+    authState: text('auth_state', { enum: ['unknown', 'valid', 'missing', 'expired', 'invalid'] }).notNull(),
+    capabilities: jsonb('capabilities'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

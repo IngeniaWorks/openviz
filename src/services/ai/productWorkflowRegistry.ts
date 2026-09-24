@@ -86,9 +86,16 @@ function createWorkflow(
     return {
         ...definition,
         template: {
-            prompt: { class_type: 'CLIPTextEncode', inputs: {} },
-            sampler: { class_type: 'KSampler', inputs: {} },
+            prompt: { class_type: 'CLIPTextEncode', inputs: { text: '' } },
+            negative_prompt: { class_type: 'CLIPTextEncode', inputs: { text: '' } },
+            sampler: { class_type: 'KSampler', inputs: { seed: 0 } },
+            reference_image: { class_type: 'LoadImage', inputs: { image: '' } },
+            mask: { class_type: 'LoadImage', inputs: { image: '' } },
+            width: { class_type: 'OpenVizWidthInput', inputs: { width: 0 } },
+            height: { class_type: 'OpenVizHeightInput', inputs: { height: 0 } },
+            batch_size: { class_type: 'OpenVizBatchInput', inputs: { batch_size: 1 } },
             save_image: { class_type: 'SaveImage', inputs: {} },
+            save_video: { class_type: 'VHS_VideoCombine', inputs: {} },
         },
         nodes: familyNodes,
     };

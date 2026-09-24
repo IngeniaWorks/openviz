@@ -10,6 +10,7 @@ import { ResultsPanel } from './studio/ResultsPanel';
 import { PreviewStatus } from './studio/PreviewStatus';
 import { ModifyPanel } from './studio/ModifyPanel';
 import { WorkflowTabs, type StudioWorkflowTab } from './studio/WorkflowTabs';
+import { ProductWorkflowPanel } from './product-design/ProductWorkflowPanel';
 import { ProjectHeader } from './common/ProjectHeader';
 import { useStore } from '../store/useStore';
 import { useStudioPanels } from './studio/hooks/useStudioPanels';
@@ -80,7 +81,7 @@ export const Studio: React.FC = () => {
                         variants={studioPanelVariants}
                     >
                         <WorkflowTabs active={activeWorkflow} onChange={setActiveWorkflow} />
-                        {activeWorkflow === 'modify' ? <ModifyPanel height={renderPanelHeight} /> : <RenderPanel height={renderPanelHeight} />}
+                        {activeWorkflow === 'generate' ? <ProductWorkflowPanel /> : activeWorkflow === 'modify' ? <ModifyPanel height={renderPanelHeight} /> : <RenderPanel height={renderPanelHeight} />}
                         <div
                             className="h-[5px] cursor-row-resize hover:bg-primary/30 transition-colors flex-shrink-0 pointer-events-auto"
                             onMouseDown={handleResizeStart}

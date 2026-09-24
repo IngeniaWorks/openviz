@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateProductWorkflowRequest } from './workflowValidation';
+import { validateProductWorkflowRequest, buildProductPrompt } from './workflowValidation';
 
 const baseRequest = {
     workflowId: 'product_edit',
@@ -28,5 +28,26 @@ describe('validateProductWorkflowRequest', () => {
         const result = validateProductWorkflowRequest({ ...baseRequest, width: 0, height: -1, batchSize: 0 });
         expect(result.valid).toBe(false);
         expect(result.issues.map((issue) => issue.field)).toEqual(expect.arrayContaining(['width', 'height', 'batchSize']));
+    });
+
+    it('builds a prompt with typed request injections', () => {
+        const prompt = buildProductPrompt({
+            ...baseRequest,
+            negativePrompt: 'text, watermark',
+            maskAssetId: 'mask.png',
+            seed: 42,
+            batchSize: 2,
+        });
+
+        expect(prompt.prompt).toMatchObject({
+            prompt: { inputs: { text: baseRequest.prompt } },
+            negative_prompt: { inputs: { text: 'text, watermark' } },
+            sampler: { inputs: { seed: 42 } },
+            reference_image: { inputs: { image: 'asset-1' } },
+            mask: { inputs: { image: 'mask.png' } },
+            width: { inputs: { width: 1024 } },
+            height: { inputs: { height: 1024 } },
+            batch_size: { inputs: { batch_size: 2 } },
+        });
     });
 });

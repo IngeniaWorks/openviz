@@ -105,6 +105,34 @@ export interface ProductReferenceInput {
     token?: string;
 }
 
+export type ProductReferenceRole = 'sketch' | 'cad' | 'render' | 'selected-concept' | 'hero' | 'mask';
+
+export interface ProductReference {
+    id: string;
+    assetId: string;
+    projectId?: string;
+    sourceJobId?: string;
+    width?: number;
+    height?: number;
+    contentType?: string;
+    role: ProductReferenceRole;
+    createdAt: number;
+}
+
+export type ProductVariantVariable = 'material' | 'color' | 'trim' | 'background' | 'camera';
+export type ProductVariantSetStatus = 'pending' | 'partial' | 'complete' | 'failed';
+
+export interface ProductVariantSet {
+    id: string;
+    referenceId: string;
+    variableType: ProductVariantVariable;
+    requestedValues: string[];
+    jobIds: string[];
+    status: ProductVariantSetStatus;
+    createdAt: number;
+    updatedAt: number;
+}
+
 export interface ProductWorkflowRequest {
     workflowId: string;
     projectId?: string;

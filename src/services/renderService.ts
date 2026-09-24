@@ -433,13 +433,14 @@ export const comfyRenderService: RenderService = {
 const openAIImageRenderService: RenderService = {
     async generate(request: GenerateRequest): Promise<GenerateResponse> {
         const settings = useStore.getState().computeSettings;
+        const size = normalizeImageApiSize(request.width, request.height);
         const target = createOpenAIImageTarget({
             id: 'image-api',
             endpoint: settings.imageApiEndpoint ?? '',
             model: settings.imageApiModel ?? '',
             apiKey: settings.imageApiKey ?? '',
             keyless: settings.imageApiKeyless ?? false,
-            size: settings.imageApiSize ?? `${request.width}x${request.height}`,
+            size,
         });
 
         try {
@@ -483,6 +484,17 @@ const openAIImageRenderService: RenderService = {
         return health.status === 'ready';
     },
 };
+
+/**
+ * Unsloth requires both dimensions to be multiples of 16. Round the requested
+ * canvas size to the nearest valid dimensions independently so the requested
+ * aspect ratio is retained instead of silently forcing a square image.
+ */
+export function normalizeImageApiSize(width: number, height: number): string {
+    const normalizedWidth = Math.max(16, Math.round(width / 16) * 16);
+    const normalizedHeight = Math.max(16, Math.round(height / 16) * 16);
+    return `${normalizedWidth}x${normalizedHeight}`;
+}
 
 /**
  * Generic render facade. Mock mode is an explicit environment override;

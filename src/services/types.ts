@@ -11,6 +11,7 @@ export interface GenerateResponse {
     success: boolean;
     images: string[]; // Full URLs to the generated images
     error?: string;
+    jobId?: string;
 }
 
 export interface AnimateRequest {

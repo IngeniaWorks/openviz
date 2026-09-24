@@ -120,6 +120,14 @@ describe('connectionPolicy', () => {
         expect(selfConnection).toHaveLength(1);
     });
 
+    it('allows image-to-modify connections with one inbound source', () => {
+        const nodes = [makeNode('image-1', 'image'), makeNode('modify-1', 'modify')];
+        const connections = addConnectionWithPolicy([], nodes, 'image-1', 'modify-1', 'image-source', 'modify-target-visible');
+
+        expect(connections).toHaveLength(1);
+        expect(connections[0]).toMatchObject({ from: 'image-1', to: 'modify-1' });
+    });
+
     it('rejects any connection with a video endpoint', () => {
         const fromVideo = addConnectionWithPolicy([], nodes, 'vid-1', 'anim-1');
         expect(fromVideo).toHaveLength(0);

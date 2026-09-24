@@ -17,6 +17,7 @@ import { ImageNode } from '../nodes/ImageNode';
 import { VideoNode } from '../nodes/VideoNode';
 import { AnimateNode } from '../nodes/AnimateNode';
 import { RenderNode } from '../nodes/RenderNode';
+import { ModifyNode } from '../nodes/ModifyNode';
 import { FreehandNode } from '../nodes/FreehandNode';
 import { ArrowNode } from '../nodes/ArrowNode';
 import { TextNode } from '../nodes/TextNode';
@@ -39,6 +40,7 @@ import { useWorkbenchGraph } from './hooks/useWorkbenchGraph';
 import { useCollabPresencePublisher } from './hooks/useCollabPresencePublisher';
 import { useSceneStream } from './hooks/useSceneStream';
 import { CollabStatusChip } from './CollabStatusChip';
+import { ComputePopover } from '@/components/product-design/ComputePopover';
 import { CursorOverlay } from './CursorOverlay';
 import { NodeLockBadges } from './NodeLockBadges';
 import { useShallow } from 'zustand/react/shallow';
@@ -52,6 +54,7 @@ const nodeTypes: NodeTypes = {
     videoNode: VideoNode,
     animateNode: AnimateNode,
     renderNode: RenderNode,
+    modifyNode: ModifyNode,
     freehandNode: FreehandNode,
     arrowNode: ArrowNode,
     textNode: TextNode,
@@ -299,6 +302,7 @@ const WorkbenchContent: React.FC = () => {
                 are intentionally not rendered — the component is kept for a
                 possible return (US2/SC-003). */}
             <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                <ComputePopover target="Local ComfyUI" tier="Auto" onOpenSettings={() => { window.location.href = '/settings'; }} />
                 <CollabStatusChip status={collabSession.status} peers={presenceByUser} />
             </div>
             <DrawingOverlay

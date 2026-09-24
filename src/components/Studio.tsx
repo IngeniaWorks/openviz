@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Toolbar } from './studio/Toolbar';
 import { RenderPanel } from './studio/RenderPanel';
@@ -8,6 +8,8 @@ import { CanvasControls } from './studio/CanvasControls';
 import { BottomLeftControls } from './studio/BottomLeftControls';
 import { ResultsPanel } from './studio/ResultsPanel';
 import { PreviewStatus } from './studio/PreviewStatus';
+import { ModifyPanel } from './studio/ModifyPanel';
+import { WorkflowTabs, type StudioWorkflowTab } from './studio/WorkflowTabs';
 import { ProjectHeader } from './common/ProjectHeader';
 import { useStore } from '../store/useStore';
 import { useStudioPanels } from './studio/hooks/useStudioPanels';
@@ -16,6 +18,7 @@ import { studioPanelVariants } from './studio/hooks/useStudioTransitions';
 import { useShallow } from 'zustand/react/shallow';
 
 export const Studio: React.FC = () => {
+    const [activeWorkflow, setActiveWorkflow] = useState<StudioWorkflowTab>('generate');
     const { setActiveTool, isExitingStudio, undo, redo, resultsPanelOpen } = useStore(
         useShallow((state) => ({
             setActiveTool: state.setActiveTool,
@@ -76,7 +79,8 @@ export const Studio: React.FC = () => {
                         animate={isExitingStudio ? "hiddenRight" : "visible"}
                         variants={studioPanelVariants}
                     >
-                        <RenderPanel height={renderPanelHeight} />
+                        <WorkflowTabs active={activeWorkflow} onChange={setActiveWorkflow} />
+                        {activeWorkflow === 'modify' ? <ModifyPanel height={renderPanelHeight} /> : <RenderPanel height={renderPanelHeight} />}
                         <div
                             className="h-[5px] cursor-row-resize hover:bg-primary/30 transition-colors flex-shrink-0 pointer-events-auto"
                             onMouseDown={handleResizeStart}

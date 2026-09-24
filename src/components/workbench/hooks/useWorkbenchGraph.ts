@@ -22,6 +22,7 @@ type WorkbenchFlowNodeType =
     | "videoNode"
     | "animateNode"
     | "renderNode"
+    | "modifyNode"
     | "freehandNode"
     | "arrowNode"
     | "textNode"
@@ -32,6 +33,7 @@ function mapNodeType(node: WorkbenchNode): WorkbenchFlowNodeType {
     if (node.type === "image") return "imageNode";
     if (node.type === "video") return "videoNode";
     if (node.type === "animate") return "animateNode";
+    if (node.type === "modify") return "modifyNode";
     if (node.type === "freehand") return "freehandNode";
     if (node.type === "arrow") return "arrowNode";
     if (node.type === "text") return "textNode";

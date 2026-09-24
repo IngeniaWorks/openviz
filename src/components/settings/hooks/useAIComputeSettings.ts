@@ -20,7 +20,16 @@ export function useAIComputeSettings() {
     const setImageApiModel = useStore((state) => state.setImageApiModel);
     const setImageApiSize = useStore((state) => state.setImageApiSize);
     const setPreference = useStore((state) => state.setComputePreference);
-    const endpoint = settings.targetKind === 'hosted' ? settings.hostedEndpoint : settings.localEndpoint;
+    // Persisted IndexedDB snapshots can predate the image API settings. Keep
+    // hydration backward-compatible instead of passing undefined to controls.
+    const protocol = settings.protocol ?? 'comfyui';
+    const imageApiEndpoint = settings.imageApiEndpoint ?? '';
+    const imageApiKey = settings.imageApiKey ?? '';
+    const imageApiKeyless = settings.imageApiKeyless ?? false;
+    const imageApiModels = settings.imageApiModels ?? [];
+    const imageApiModel = settings.imageApiModel ?? '';
+    const imageApiSize = settings.imageApiSize ?? '1024x1024';
+    const endpoint = settings.targetKind === 'hosted' ? (settings.hostedEndpoint ?? '') : (settings.localEndpoint ?? '');
     const setEndpoint = settings.targetKind === 'hosted' ? setHostedEndpoint : setLocalEndpoint;
     const [status, setStatus] = useState<ConnectionStatus>('idle');
     const [capabilities, setCapabilities] = useState<TargetCapabilities | null>(null);
@@ -42,13 +51,13 @@ export function useAIComputeSettings() {
     const testConnection = useCallback(async () => {
         setStatus('checking');
         try {
-            if (settings.protocol === 'openai-image') {
+            if (protocol === 'openai-image') {
                 const target = createOpenAIImageTarget({
                     id: 'image-api',
-                    endpoint: settings.imageApiEndpoint,
-                    model: settings.imageApiModel,
-                    apiKey: settings.imageApiKey,
-                    keyless: settings.imageApiKeyless,
+                    endpoint: imageApiEndpoint,
+                    model: imageApiModel,
+                    apiKey: imageApiKey,
+                    keyless: imageApiKeyless,
                     fetcher: fetch,
                 });
                 const health = await target.health();
@@ -61,26 +70,26 @@ export function useAIComputeSettings() {
         } catch {
             setStatus('unavailable');
         }
-    }, [settings, setImageApiModels]);
+    }, [imageApiEndpoint, imageApiKey, imageApiKeyless, imageApiModel, protocol, setImageApiModels]);
 
     return {
         endpoint,
         setEndpoint,
         targetKind: settings.targetKind,
         setTargetKind,
-        protocol: settings.protocol,
+        protocol,
         setProtocol,
-        imageApiEndpoint: settings.imageApiEndpoint,
+        imageApiEndpoint,
         setImageApiEndpoint,
-        imageApiKey: settings.imageApiKey,
+        imageApiKey,
         setImageApiKey,
-        imageApiKeyless: settings.imageApiKeyless,
+        imageApiKeyless,
         setImageApiKeyless,
-        imageApiModels: settings.imageApiModels,
+        imageApiModels,
         setImageApiModels,
-        imageApiModel: settings.imageApiModel,
+        imageApiModel,
         setImageApiModel,
-        imageApiSize: settings.imageApiSize,
+        imageApiSize,
         setImageApiSize,
         status,
         preference: settings.preference,

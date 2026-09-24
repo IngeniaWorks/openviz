@@ -20,4 +20,14 @@ describe('AIComputeSettings', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Test connection' }));
         expect((await screen.findAllByText('Connected', { exact: true })).length).toBeGreaterThan(0);
     });
+
+    it('renders safely when older persisted settings omit image API models', async () => {
+        const { useStore } = await import('@/store/useStore');
+        useStore.setState((state) => ({
+            ...state,
+            computeSettings: { ...state.computeSettings, protocol: 'openai-image', imageApiModels: undefined as unknown as string[] },
+        }));
+        render(<AIComputeSettings />);
+        expect(screen.getByRole('combobox', { name: 'Model' })).toHaveValue('');
+    });
 });

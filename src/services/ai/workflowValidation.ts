@@ -73,23 +73,47 @@ export function buildProductPrompt(request: ProductWorkflowRequest): { prompt: C
     const workflow = getProductWorkflow(request.workflowId);
     if (!workflow) throw new Error(`Unknown product workflow: ${request.workflowId}`);
 
+    const family = request.modelFamily ?? workflow.supportedFamilies[0];
+    const graph = workflow.templates[family];
+    if (!graph) {
+        throw new Error(`Workflow ${workflow.id} does not support model family ${family}.`);
+    }
+
     const validation = validateProductWorkflowRequest(request);
     if (!validation.valid) {
         throw new Error(validation.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message).join(' '));
     }
 
-    const prompt = clonePrompt(workflow.template);
-    const nodes = workflow.nodes;
+    const prompt = clonePrompt(graph.template);
+    const nodes = graph.nodes;
     const primaryReference = request.references.find((reference) => reference.role === 'primary')?.assetId;
 
     setNodeInput(prompt, nodes.prompt, ['text', 'string'], request.prompt);
-    setNodeInput(prompt, nodes.negativePrompt, ['text', 'string'], request.negativePrompt ?? '');
-    if (request.seed !== undefined) setNodeInput(prompt, nodes.seed, ['seed'], request.seed);
+    // Only override the official negative prompt when the user provides one.
+    if (request.negativePrompt) {
+        setNodeInput(prompt, nodes.negativePrompt, ['text', 'string'], request.negativePrompt);
+    }
+    if (request.seed !== undefined) setNodeInput(prompt, nodes.seed, ['seed', 'noise_seed'], request.seed);
     if (primaryReference) setNodeInput(prompt, nodes.reference, ['image', 'image_name', 'filename'], primaryReference);
-    if (request.maskAssetId) setNodeInput(prompt, nodes.mask, ['image', 'mask', 'mask_name', 'filename'], request.maskAssetId);
+    if (request.maskAssetId && nodes.mask) {
+        setNodeInput(prompt, nodes.mask, ['image', 'mask', 'mask_name', 'filename'], request.maskAssetId);
+    } else if (graph.maskOptional) {
+        // Keep the submitted graph valid when no mask asset is provided.
+        graph.maskOptional.removeNodes.forEach((nodeId) => delete prompt[nodeId]);
+        const rewire = graph.maskOptional.rewireInput;
+        const target = prompt[rewire.nodeId];
+        if (target) {
+            target.inputs[rewire.input] = rewire.value;
+        }
+    }
     setNodeInput(prompt, nodes.width, ['width', 'value'], request.width);
     setNodeInput(prompt, nodes.height, ['height', 'value'], request.height);
     setNodeInput(prompt, nodes.batchSize, ['batch_size', 'value'], request.batchSize);
+
+    const outputNode = nodes.imageOutput ?? nodes.videoOutput;
+    if (outputNode) {
+        setNodeInput(prompt, outputNode, ['filename_prefix'], workflow.id);
+    }
 
     return { prompt, workflowVersion: workflow.version };
 }

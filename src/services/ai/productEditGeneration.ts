@@ -1,7 +1,7 @@
 import type { AspectRatio } from '@/types';
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductModelFamily, ProductReferenceInput, ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { submitProductWorkflow, type SubmittedProductJob } from './generationJobService';
+import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
 export type ProductEditWorkflowId = 'product_edit' | 'material_study' | 'sketch_to_render' | 'product_background';
@@ -64,6 +64,7 @@ export async function submitProductEdit(
     input: ProductEditInput,
     targetKind: ExecutionTargetKind,
     targetId?: string,
+    options?: ProductJobOptions,
 ): Promise<SubmittedProductJob> {
-    return submitProductWorkflow(adapter, createProductEditRequest(input), targetKind, targetId);
+    return submitProductWorkflow(adapter, createProductEditRequest(input), targetKind, targetId, options);
 }

@@ -1,6 +1,6 @@
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { submitProductWorkflow, type SubmittedProductJob } from './generationJobService';
+import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
 export interface ProductAnimationInput {
@@ -29,6 +29,6 @@ export function createProductAnimationRequest(input: ProductAnimationInput): Pro
     return request;
 }
 
-export function submitProductAnimation(adapter: ExecutionTargetAdapter, input: ProductAnimationInput, targetKind: ExecutionTargetKind, targetId?: string): Promise<SubmittedProductJob> {
-    return submitProductWorkflow(adapter, createProductAnimationRequest(input), targetKind, targetId);
+export function submitProductAnimation(adapter: ExecutionTargetAdapter, input: ProductAnimationInput, targetKind: ExecutionTargetKind, targetId?: string, options?: ProductJobOptions): Promise<SubmittedProductJob> {
+    return submitProductWorkflow(adapter, createProductAnimationRequest(input), targetKind, targetId, options);
 }

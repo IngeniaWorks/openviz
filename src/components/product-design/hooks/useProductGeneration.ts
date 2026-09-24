@@ -3,6 +3,7 @@ import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/execut
 import type { GenerationJob } from '@/types/generationJob.types';
 import { useStore } from '@/store/useStore';
 import { cancelProductWorkflow, isTerminalJobStatus, pollProductWorkflow, type SubmittedProductJob } from '@/services/ai/generationJobService';
+import { createApiGenerationJobPersistence } from '@/services/ai/apiGenerationJobRepository';
 import { createProductConceptRequest, submitProductConcept, type ProductConceptInput } from '@/services/ai/productConceptGeneration';
 
 interface UseProductGenerationOptions {
@@ -18,6 +19,7 @@ export function useProductGeneration({ adapter, targetKind, targetId, projectId 
     const updateProductJob = useStore((state) => state.updateProductJob);
     const [error, setError] = useState<string | null>(null);
     const submittedJobs = useRef(new Map<string, SubmittedProductJob>());
+    const persistence = useMemo(() => createApiGenerationJobPersistence(), []);
 
     const generateConcept = useCallback(async (input: Omit<ProductConceptInput, 'projectId'>) => {
         if (!adapter) {
@@ -26,11 +28,11 @@ export function useProductGeneration({ adapter, targetKind, targetId, projectId 
             throw new Error(message);
         }
         setError(null);
-        const submitted = await submitProductConcept(adapter, { ...input, projectId }, targetKind, targetId);
+        const submitted = await submitProductConcept(adapter, { ...input, projectId }, targetKind, targetId, { persistence });
         submittedJobs.current.set(submitted.id, submitted);
         upsertProductJob(submitted);
         return submitted;
-    }, [adapter, projectId, targetId, targetKind, upsertProductJob]);
+    }, [adapter, persistence, projectId, targetId, targetKind, upsertProductJob]);
 
     useEffect(() => {
         if (!adapter) return undefined;
@@ -52,19 +54,19 @@ export function useProductGeneration({ adapter, targetKind, targetId, projectId 
     const refreshJob = useCallback(async (jobId: string) => {
         const submitted = submittedJobs.current.get(jobId);
         if (!adapter || !submitted) return jobs[jobId];
-        const refreshed = await pollProductWorkflow(adapter, submitted);
+        const refreshed = await pollProductWorkflow(adapter, submitted, { persistence });
         submittedJobs.current.set(jobId, refreshed);
         upsertProductJob(refreshed);
         return refreshed;
-    }, [adapter, jobs, upsertProductJob]);
+    }, [adapter, jobs, persistence, upsertProductJob]);
 
     const cancelJob = useCallback(async (jobId: string) => {
         const submitted = submittedJobs.current.get(jobId);
         if (!adapter || !submitted) return;
-        const cancelled = await cancelProductWorkflow(adapter, submitted);
+        const cancelled = await cancelProductWorkflow(adapter, submitted, { persistence });
         submittedJobs.current.set(jobId, cancelled);
         upsertProductJob(cancelled);
-    }, [adapter, upsertProductJob]);
+    }, [adapter, persistence, upsertProductJob]);
 
     const isGenerating = useMemo(() => Object.values(jobs).some((job) => job.status === 'queued' || job.status === 'running'), [jobs]);
 

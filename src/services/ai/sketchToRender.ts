@@ -1,6 +1,6 @@
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { submitProductWorkflow, type SubmittedProductJob } from './generationJobService';
+import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
 export interface SketchToRenderInput {
@@ -26,6 +26,6 @@ export function createSketchToRenderRequest(input: SketchToRenderInput): Product
     return request;
 }
 
-export function submitSketchToRender(adapter: ExecutionTargetAdapter, input: SketchToRenderInput, targetKind: ExecutionTargetKind, targetId?: string): Promise<SubmittedProductJob> {
-    return submitProductWorkflow(adapter, createSketchToRenderRequest(input), targetKind, targetId);
+export function submitSketchToRender(adapter: ExecutionTargetAdapter, input: SketchToRenderInput, targetKind: ExecutionTargetKind, targetId?: string, options?: ProductJobOptions): Promise<SubmittedProductJob> {
+    return submitProductWorkflow(adapter, createSketchToRenderRequest(input), targetKind, targetId, options);
 }

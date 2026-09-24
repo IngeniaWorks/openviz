@@ -47,4 +47,12 @@ describe('openAIImageTarget', () => {
         const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'model', apiKey: 'bad', fetcher });
         await expect(target.health()).resolves.toMatchObject({ status: 'auth-required', message: expect.stringContaining('Authorization header') });
     });
+
+    it('supports an explicit request size override through target configuration', async () => {
+        const fetcher = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ url: 'https://images.example/result.png' }] }), { status: 200 }));
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'model', apiKey: 'secret', size: '1536x1024', fetcher });
+        await target.submit(request);
+        expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({ size: '1536x1024' });
+    });
 });

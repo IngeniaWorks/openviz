@@ -2,6 +2,8 @@ import { RenderService, GenerateRequest, GenerateResponse, AnimateRequest } from
 import { mockRenderService } from './mockRenderService';
 import { getWorkflow, mapStyleToId, WorkflowDefinition } from './ai/workflowRegistry';
 import { generateUUID } from '@/utils/uuid';
+import { createOpenAIImageTarget } from './ai/targets/openAIImageTarget';
+import { useStore } from '@/store/useStore';
 
 // Using Vite proxy to avoid CORS issues
 let comfyUrl = '/comfy-api';
@@ -428,7 +430,74 @@ export const comfyRenderService: RenderService = {
     }
 };
 
-// Toggle between real and mock service using environment variable
+const openAIImageRenderService: RenderService = {
+    async generate(request: GenerateRequest): Promise<GenerateResponse> {
+        const settings = useStore.getState().computeSettings;
+        const target = createOpenAIImageTarget({
+            id: 'image-api',
+            endpoint: settings.imageApiEndpoint ?? '',
+            model: settings.imageApiModel ?? '',
+            apiKey: settings.imageApiKey ?? '',
+            keyless: settings.imageApiKeyless ?? false,
+            size: settings.imageApiSize ?? `${request.width}x${request.height}`,
+        });
+
+        try {
+            const submitted = await target.submit({
+                workflowId: request.workflowId ?? 'image-generation',
+                prompt: request.prompt,
+                references: [],
+                width: request.width,
+                height: request.height,
+                batchSize: request.numImages ?? 1,
+                parameters: {
+                    stylePreset: request.stylePreset,
+                    drawingInfluence: request.drawingInfluence,
+                },
+            });
+            const outputs = await target.getOutputs(submitted.jobId);
+            return { success: true, images: outputs.map((output) => output.url) };
+        } catch (error) {
+            return {
+                success: false,
+                images: [],
+                error: error instanceof Error ? error.message : 'OpenAI-compatible image generation failed.',
+            };
+        }
+    },
+
+    async animate(): Promise<GenerateResponse> {
+        return { success: false, images: [], error: 'The OpenAI-compatible image API does not support animation.' };
+    },
+
+    async checkConnection(): Promise<boolean> {
+        const settings = useStore.getState().computeSettings;
+        const target = createOpenAIImageTarget({
+            id: 'image-api',
+            endpoint: settings.imageApiEndpoint ?? '',
+            model: settings.imageApiModel ?? '',
+            apiKey: settings.imageApiKey ?? '',
+            keyless: settings.imageApiKeyless ?? false,
+        });
+        const health = await target.health();
+        return health.status === 'ready';
+    },
+};
+
+/**
+ * Generic render facade. Mock mode is an explicit environment override;
+ * otherwise the active protocol is selected from the persisted AI settings.
+ */
 const useMock = process.env.NEXT_PUBLIC_USE_MOCK_RENDER === 'true' || process.env.VITE_USE_MOCK_RENDER === 'true';
 
-export const renderService: RenderService = useMock ? mockRenderService : comfyRenderService;
+export const renderService: RenderService = useMock ? mockRenderService : {
+    generate: (request) => useStore.getState().computeSettings.protocol === 'openai-image'
+        ? openAIImageRenderService.generate(request)
+        : comfyRenderService.generate(request),
+    animate: (request) => useStore.getState().computeSettings.protocol === 'openai-image'
+        ? openAIImageRenderService.animate(request)
+        : comfyRenderService.animate(request),
+    checkConnection: () => useStore.getState().computeSettings.protocol === 'openai-image'
+        ? openAIImageRenderService.checkConnection()
+        : comfyRenderService.checkConnection(),
+};

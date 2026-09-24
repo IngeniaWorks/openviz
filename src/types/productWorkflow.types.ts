@@ -73,6 +73,31 @@ export interface WorkflowCapabilities {
     minimumFreeVramMb?: number;
 }
 
+export interface ProductWorkflowNodeRoles {
+    prompt?: string;
+    negativePrompt?: string;
+    seed?: string;
+    reference?: string;
+    mask?: string;
+    width?: string;
+    height?: string;
+    batchSize?: string;
+    imageOutput?: string;
+    videoOutput?: string;
+}
+
+export interface ProductWorkflowGraph {
+    /** Official ComfyUI API-format prompt graph for one model family. */
+    template: ComfyPrompt;
+    /** Role-to-node-id map for typed request injection. */
+    nodes: ProductWorkflowNodeRoles;
+    /** Optional mask path removed from the graph when the request has no mask asset. */
+    maskOptional?: {
+        removeNodes: string[];
+        rewireInput: { nodeId: string; input: string; value: [string, number] };
+    };
+}
+
 export interface ProductWorkflowDefinition {
     id: string;
     name: string;
@@ -83,20 +108,9 @@ export interface ProductWorkflowDefinition {
     supportedFamilies: ProductModelFamily[];
     inputs: WorkflowInputDefinition[];
     dependencies: WorkflowDependency[];
-    template: ComfyPrompt;
+    /** One official graph per model family the workflow supports. */
+    templates: Partial<Record<ProductModelFamily, ProductWorkflowGraph>>;
     capabilities: WorkflowCapabilities;
-    nodes: {
-        prompt?: string;
-        negativePrompt?: string;
-        seed?: string;
-        reference?: string;
-        mask?: string;
-        width?: string;
-        height?: string;
-        batchSize?: string;
-        imageOutput?: string;
-        videoOutput?: string;
-    };
 }
 
 export interface ProductReferenceInput {

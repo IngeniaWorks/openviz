@@ -82,7 +82,7 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 ### Implementation
 
-- [ ] T029 [US1] Implement the Qwen Image 2.1 concept workflow JSON and registry definition in `src/services/ai/workflows/qwen-image-product-concept.json` and `src/services/ai/productConceptGeneration.ts`.
+- [X] T029 [US1] Implement the Qwen Image 2.1 concept workflow JSON and registry definition in `src/services/ai/workflows/qwen-image-product-concept.json` and `src/services/ai/productConceptGeneration.ts`.
 - [X] T030 [US1] Implement `src/components/product-design/ProductWorkflowPicker.tsx`, `src/components/product-design/ProductParameterForm.tsx`, and `src/components/product-design/ProductVariantGallery.tsx` with labeled inputs, accessible validation, aspect-ratio controls, batch count, and status/live regions.
 - [X] T031 [US1] Integrate concept generation through `src/components/product-design/hooks/useProductGeneration.ts` and `src/store/slices/productDesignSlice.ts`; associate selected outputs with ProductReference and existing project/workbench image assets. Keep the shared gallery API extensible for the later variant-set lineage work.
 
@@ -114,7 +114,7 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 - [ ] T040 [P] [US2] Write failing Qwen/FLUX edit service tests first in `src/services/ai/productEditGeneration.test.ts` for source references, masks, preservation parameters, model selection, output lineage, and retry inputs.
 - [X] T041 [P] [US2] Write failing Studio Modify behavior tests first in `src/components/studio/ModifyPanel.test.tsx` and `src/components/studio/WorkflowTabs.test.tsx` for Modify defaulting when opened from an image, task tabs, status, and accessible controls.
-- [ ] T042 [US2] Implement Qwen Image Edit 2511 and FLUX Kontext-dev product-edit workflow JSON/templates and `src/services/ai/productEditGeneration.ts` with model-family selection, license metadata, and typed references/mask injection.
+- [X] T042 [US2] Implement Qwen Image Edit 2511 and FLUX Kontext-dev product-edit workflow JSON/templates and `src/services/ai/productEditGeneration.ts` with model-family selection, license metadata, and typed references/mask injection.
 - [X] T043 [US2] Implement `src/components/studio/WorkflowTabs.tsx` and `src/components/studio/ModifyPanel.tsx`; replace the disabled Studio Refine path in `src/components/Studio.tsx`/`src/components/studio/RenderPanel.tsx` with Generate/Modify/Variants/Background/Animate workflow navigation.
 - [ ] T044 [US2] Implement `src/components/nodes/hooks/useModifyNode.ts` and `src/components/studio/hooks/useStudioProductWorkflow.ts`; keep generation calls, polling, upload, and effects in hooks/services rather than presentational components.
 
@@ -152,7 +152,7 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 - [ ] T055 [P] [US5] Write failing product-animation service tests first in `src/services/ai/productAnimationGeneration.test.ts` for source image lineage, optional start/end images, duration, motion parameters, model tier, and video output extraction.
 - [ ] T056 [P] [US5] Write failing Animate/Studio behavior tests first in `src/components/nodes/AnimateNode.productDesign.test.tsx` and `src/components/studio/ProductAnimationPanel.test.tsx` for source selection, progress, cancellation, and failure recovery.
-- [ ] T057 [US5] Implement the Wan 2.2 product-animation workflow and `src/services/ai/productAnimationGeneration.ts`; preserve compatibility with the existing animation workflow while adding model-tier/preflight metadata.
+- [X] T057 [US5] Implement the Wan 2.2 product-animation workflow and `src/services/ai/productAnimationGeneration.ts`; preserve compatibility with the existing animation workflow while adding model-tier/preflight metadata.
 - [ ] T058 [US5] Extend `src/components/nodes/AnimateNode.tsx` through a focused product-animation hook or subcomponents under `src/components/nodes/animate/`, and add the Studio animation panel without exceeding the 300-line file limit.
 
 ---

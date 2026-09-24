@@ -1,8 +1,19 @@
 import type {
+    ComfyPrompt,
     ProductModelFamily,
     ProductWorkflowDefinition,
+    ProductWorkflowGraph,
     WorkflowDependency,
 } from '@/types/productWorkflow.types';
+import fluxKontextGraphJson from './workflows/flux-kontext-product.json';
+import qwenConceptGraphJson from './workflows/qwen-image-product-concept.json';
+import qwenEditGraphJson from './workflows/qwen-image-edit-product.json';
+import wanAnimationGraphJson from './workflows/wan-2.2-product-animation.json';
+
+const fluxKontextGraph = fluxKontextGraphJson as ComfyPrompt;
+const qwenConceptGraph = qwenConceptGraphJson as ComfyPrompt;
+const qwenEditGraph = qwenEditGraphJson as ComfyPrompt;
+const wanAnimationGraph = wanAnimationGraphJson as ComfyPrompt;
 
 const qwenImageDependencies: WorkflowDependency[] = [
     {
@@ -29,11 +40,24 @@ const qwenImageDependencies: WorkflowDependency[] = [
 ];
 
 const qwenEditDependencies: WorkflowDependency[] = [
-    ...qwenImageDependencies,
     {
         kind: 'diffusion-model',
         name: 'qwen_image_edit_2511',
         locations: ['models/diffusion_models'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'text-encoder',
+        name: 'qwen_2.5_vl_7b',
+        locations: ['models/text_encoders'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'vae',
+        name: 'qwen_image_vae',
+        locations: ['models/vae'],
         required: true,
         status: 'unknown',
     },
@@ -48,61 +72,129 @@ const fluxKontextDependencies: WorkflowDependency[] = [
         licenseUrl: 'https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev',
         status: 'unknown',
     },
+    {
+        kind: 'text-encoder',
+        name: 'clip_l',
+        locations: ['models/text_encoders'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'text-encoder',
+        name: 't5xxl',
+        locations: ['models/text_encoders'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'vae',
+        name: 'ae.safetensors',
+        locations: ['models/vae'],
+        required: true,
+        status: 'unknown',
+    },
 ];
 
 const wanDependencies: WorkflowDependency[] = [
     {
         kind: 'diffusion-model',
-        name: 'wan2.2_i2v',
+        name: 'wan2.2_i2v_high_noise_14B',
         locations: ['models/diffusion_models'],
         required: true,
         status: 'unknown',
     },
     {
-        kind: 'custom-node',
-        name: 'ComfyUI-WanVideoWrapper',
-        locations: ['custom_nodes'],
+        kind: 'diffusion-model',
+        name: 'wan2.2_i2v_low_noise_14B',
+        locations: ['models/diffusion_models'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'text-encoder',
+        name: 'umt5_xxl',
+        locations: ['models/text_encoders'],
+        required: true,
+        status: 'unknown',
+    },
+    {
+        kind: 'vae',
+        name: 'wan_2.1_vae',
+        locations: ['models/vae'],
         required: true,
         status: 'unknown',
     },
 ];
 
-const familyNodes = {
-    prompt: 'prompt',
-    negativePrompt: 'negative_prompt',
-    seed: 'sampler',
-    reference: 'reference_image',
-    mask: 'mask',
-    width: 'width',
-    height: 'height',
-    batchSize: 'batch_size',
-    imageOutput: 'save_image',
-    videoOutput: 'save_video',
+/** Official Qwen Image 2.1 text-to-image graph (Comfy-Org/Qwen-Image-2.1). */
+const qwenConceptGraphDef: ProductWorkflowGraph = {
+    template: qwenConceptGraph,
+    nodes: {
+        prompt: 'positive',
+        negativePrompt: 'negative',
+        seed: 'sampler',
+        width: 'latent',
+        height: 'latent',
+        batchSize: 'latent',
+        imageOutput: 'save',
+    },
 };
 
-function createWorkflow(
-    definition: Omit<ProductWorkflowDefinition, 'template' | 'nodes'>
-): ProductWorkflowDefinition {
-    return {
-        ...definition,
-        template: {
-            prompt: { class_type: 'CLIPTextEncode', inputs: { text: '' } },
-            negative_prompt: { class_type: 'CLIPTextEncode', inputs: { text: '' } },
-            sampler: { class_type: 'KSampler', inputs: { seed: 0 } },
-            reference_image: { class_type: 'LoadImage', inputs: { image: '' } },
-            mask: { class_type: 'LoadImage', inputs: { image: '' } },
-            width: { class_type: 'OpenVizWidthInput', inputs: { width: 0 } },
-            height: { class_type: 'OpenVizHeightInput', inputs: { height: 0 } },
-            batch_size: { class_type: 'OpenVizBatchInput', inputs: { batch_size: 1 } },
-            save_image: { class_type: 'SaveImage', inputs: {} },
-            save_video: { class_type: 'VHS_VideoCombine', inputs: {} },
-        },
-        nodes: familyNodes,
-    };
-}
+/** Official Qwen-Image-Edit 2511 graph (Comfy-Org/Qwen-Image-Edit_ComfyUI). */
+const qwenEditGraphDef: ProductWorkflowGraph = {
+    template: qwenEditGraph,
+    nodes: {
+        prompt: 'positive',
+        seed: 'sampler',
+        reference: 'reference',
+        mask: 'mask_source',
+        imageOutput: 'save',
+    },
+    maskOptional: {
+        removeNodes: ['mask', 'mask_source'],
+        rewireInput: { nodeId: 'sampler', input: 'latent_image', value: ['encode', 0] },
+    },
+};
+
+/** Official FLUX.1 Kontext dev graph (Comfy-Org/flux1-kontext-dev_ComfyUI). */
+const fluxKontextGraphDef: ProductWorkflowGraph = {
+    template: fluxKontextGraph,
+    nodes: {
+        prompt: 'positive',
+        seed: 'sampler',
+        reference: 'reference',
+        imageOutput: 'save',
+    },
+};
+
+/** Official Wan 2.2 image-to-video graph (Comfy-Org/Wan_2.2_ComfyUI_Repackaged). */
+const wanAnimationGraphDef: ProductWorkflowGraph = {
+    template: wanAnimationGraph,
+    nodes: {
+        prompt: 'positive',
+        negativePrompt: 'negative',
+        seed: 'sampler_high',
+        reference: 'reference',
+        width: 'video',
+        height: 'video',
+        batchSize: 'video',
+        videoOutput: 'save',
+    },
+};
+
+/** Edit-family workflows may run either the Qwen-Image-Edit or FLUX Kontext graph. */
+const editFamilyDependencies: WorkflowDependency[] = [
+    ...qwenEditDependencies,
+    ...fluxKontextDependencies.map((dependency) => ({ ...dependency, required: false })),
+];
+
+const editFamilyTemplates: ProductWorkflowDefinition['templates'] = {
+    'qwen-image-edit-2511': qwenEditGraphDef,
+    'flux-kontext-dev': fluxKontextGraphDef,
+};
 
 const workflows: ProductWorkflowDefinition[] = [
-    createWorkflow({
+    {
         id: 'product_concept',
         name: 'Product Concept',
         description: 'Explore industrial-design concepts from a structured product prompt.',
@@ -116,6 +208,7 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'batchSize', kind: 'batch-size', label: 'Concept count', required: true, defaultValue: 4 },
         ],
         dependencies: qwenImageDependencies,
+        templates: { 'qwen-image-2.1': qwenConceptGraphDef },
         capabilities: {
             supportsBatch: true,
             supportsMask: false,
@@ -123,8 +216,8 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 10000,
         },
-    }),
-    createWorkflow({
+    },
+    {
         id: 'product_edit',
         name: 'Modify Product',
         description: 'Change a product while preserving its selected identity attributes.',
@@ -139,7 +232,8 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'preservation', kind: 'preservation', label: 'Preserve structure', required: true, defaultValue: 0.78 },
             { id: 'aspectRatio', kind: 'aspect-ratio', label: 'Aspect ratio', required: true, defaultValue: '1:1' },
         ],
-        dependencies: [...qwenEditDependencies, ...fluxKontextDependencies],
+        dependencies: editFamilyDependencies,
+        templates: editFamilyTemplates,
         capabilities: {
             supportsBatch: true,
             supportsMask: true,
@@ -147,8 +241,8 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 12000,
         },
-    }),
-    createWorkflow({
+    },
+    {
         id: 'material_study',
         name: 'Material & Color Study',
         description: 'Generate material, color, and finish variants from a product reference.',
@@ -161,7 +255,8 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'reference', kind: 'reference', label: 'Source product', required: true },
             { id: 'batchSize', kind: 'batch-size', label: 'Variant count', required: true, defaultValue: 4 },
         ],
-        dependencies: [...qwenEditDependencies, ...fluxKontextDependencies],
+        dependencies: editFamilyDependencies,
+        templates: editFamilyTemplates,
         capabilities: {
             supportsBatch: true,
             supportsMask: true,
@@ -169,8 +264,8 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 12000,
         },
-    }),
-    createWorkflow({
+    },
+    {
         id: 'sketch_to_render',
         name: 'Sketch to Render',
         description: 'Turn a sketch or CAD screenshot into a realistic product visualization.',
@@ -183,7 +278,8 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'reference', kind: 'reference', label: 'Sketch or CAD image', required: true },
             { id: 'structureStrength', kind: 'structure-strength', label: 'Structure strength', required: true, defaultValue: 0.75 },
         ],
-        dependencies: [...qwenEditDependencies, ...fluxKontextDependencies],
+        dependencies: editFamilyDependencies,
+        templates: editFamilyTemplates,
         capabilities: {
             supportsBatch: true,
             supportsMask: true,
@@ -191,8 +287,8 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 12000,
         },
-    }),
-    createWorkflow({
+    },
+    {
         id: 'product_background',
         name: 'Product Background',
         description: 'Create catalog, e-commerce, or lifestyle backgrounds around a product.',
@@ -206,7 +302,8 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'mask', kind: 'mask', label: 'Product mask', required: false },
             { id: 'aspectRatio', kind: 'aspect-ratio', label: 'Marketing ratio', required: true, defaultValue: '1:1' },
         ],
-        dependencies: [...qwenEditDependencies, ...fluxKontextDependencies],
+        dependencies: editFamilyDependencies,
+        templates: editFamilyTemplates,
         capabilities: {
             supportsBatch: true,
             supportsMask: true,
@@ -214,8 +311,8 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 12000,
         },
-    }),
-    createWorkflow({
+    },
+    {
         id: 'product_animation',
         name: 'Product Animation',
         description: 'Animate a selected hero image with product-aware motion.',
@@ -229,6 +326,7 @@ const workflows: ProductWorkflowDefinition[] = [
             { id: 'duration', kind: 'duration', label: 'Duration', required: true, defaultValue: '4s' },
         ],
         dependencies: wanDependencies,
+        templates: { 'wan-2.2': wanAnimationGraphDef },
         capabilities: {
             supportsBatch: false,
             supportsMask: false,
@@ -236,7 +334,7 @@ const workflows: ProductWorkflowDefinition[] = [
             supportsAspectRatios: ['1:1', '4:3', '3:4', '16:9', '9:16'],
             minimumFreeVramMb: 24000,
         },
-    }),
+    },
 ];
 
 const workflowMap = new Map(workflows.map((workflow) => [workflow.id, workflow]));

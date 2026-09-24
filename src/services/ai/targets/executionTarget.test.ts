@@ -29,10 +29,13 @@ describe('createLocalComfyTarget', () => {
         expect(submitCall?.[0]).toBe('http://localhost:8188/prompt');
         const submitInit = submitCall?.[1];
         expect(submitInit?.method).toBe('POST');
-        expect(JSON.parse(String(submitInit?.body))).toMatchObject({
-            prompt: { prompt: { inputs: { text: request.prompt } }, sampler: { inputs: { seed: expect.any(Number) } } },
-            client_id: 'openviz-product-design',
-        });
+        const submittedBody = JSON.parse(String(submitInit?.body)) as {
+            prompt: Record<string, { class_type: string; inputs: Record<string, unknown> }>;
+            client_id?: string;
+        };
+        expect(Object.values(submittedBody.prompt).find((node) => node.class_type === 'CLIPTextEncode')?.inputs.text).toBe(request.prompt);
+        expect(Object.values(submittedBody.prompt).find((node) => node.class_type === 'KSampler')?.inputs.seed).toEqual(expect.any(Number));
+        expect(submittedBody.client_id).toBe('openviz-product-design');
     });
 
     it('normalizes history status and image outputs', async () => {

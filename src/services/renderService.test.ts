@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { comfyRenderService } from './renderService';
+import { comfyRenderService, normalizeImageApiSize } from './renderService';
 
 // Mock the fetch call
 global.fetch = vi.fn();
@@ -44,6 +44,11 @@ describe('renderService integration', () => {
             }
             return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
         });
+    });
+
+    it('normalizes API dimensions to multiples of 16 without forcing a square ratio', () => {
+        expect(normalizeImageApiSize(1024, 682)).toBe('1024x688');
+        expect(normalizeImageApiSize(900, 1200)).toBe('896x1200');
     });
 
     it('should correctly map nodes for animate_from_to workflow', async () => {

@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore';
 import { cancelProductWorkflow, isTerminalJobStatus, pollProductWorkflow, type SubmittedProductJob } from '@/services/ai/generationJobService';
 import { createApiGenerationJobPersistence } from '@/services/ai/apiGenerationJobRepository';
 import { createProductConceptRequest, submitProductConcept, type ProductConceptInput } from '@/services/ai/productConceptGeneration';
+import { submitProductVariants, type ProductVariantInput } from '@/services/ai/productVariantGeneration';
 
 interface UseProductGenerationOptions {
     adapter: ExecutionTargetAdapter | null;
@@ -29,6 +30,19 @@ export function useProductGeneration({ adapter, targetKind, targetId, projectId 
         }
         setError(null);
         const submitted = await submitProductConcept(adapter, { ...input, projectId }, targetKind, targetId, { persistence });
+        submittedJobs.current.set(submitted.id, submitted);
+        upsertProductJob(submitted);
+        return submitted;
+    }, [adapter, persistence, projectId, targetId, targetKind, upsertProductJob]);
+
+    const generateVariants = useCallback(async (input: Omit<ProductVariantInput, 'projectId'>) => {
+        if (!adapter) {
+            const message = 'Connect an execution target before generating variants.';
+            setError(message);
+            throw new Error(message);
+        }
+        setError(null);
+        const submitted = await submitProductVariants(adapter, { ...input, projectId }, targetKind, targetId, { persistence });
         submittedJobs.current.set(submitted.id, submitted);
         upsertProductJob(submitted);
         return submitted;
@@ -75,6 +89,7 @@ export function useProductGeneration({ adapter, targetKind, targetId, projectId 
         error,
         isGenerating,
         generateConcept,
+        generateVariants,
         refreshJob,
         cancelJob,
         clearError: () => setError(null),

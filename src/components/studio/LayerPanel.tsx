@@ -1,6 +1,7 @@
 import React from 'react';
 import {
     Plus,
+    ChevronDown,
     Eye,
     EyeOff,
     GripVertical,
@@ -29,6 +30,7 @@ export const LayerPanel: React.FC = () => {
     const panelRef = React.useRef<HTMLDivElement>(null);
     const [dropdownLayerId, setDropdownLayerId] = React.useState<string | null>(null);
     const [dropdownPos, setDropdownPos] = React.useState<{ x: number, y: number }>({ x: 0, y: 0 });
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     const sortedLayers = [...project.layers].reverse();
 
@@ -38,18 +40,23 @@ export const LayerPanel: React.FC = () => {
             className="w-60 flex flex-col bg-panel border border-panel-border rounded-panel shadow-2xl overflow-hidden h-fit max-h-[calc(100vh-120px)] backdrop-blur-md bg-opacity-95 pointer-events-auto"
         >
             {/* Layers Header */}
-            <div className="px-3 py-2 flex items-center justify-between">
-                <h3 className="text-white font-semibold text-xs uppercase tracking-wider opacity-60">Layers</h3>
+            <header className="flex h-10 shrink-0 items-center justify-between rounded-t-[14px] bg-neutral-800 px-3">
+                <button type="button" aria-expanded={!isCollapsed} aria-controls="studio-layers-content" onClick={() => setIsCollapsed((collapsed) => !collapsed)} className="flex h-full items-center gap-2 text-left">
+                    <ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden="true" />
+                    <h2 className="text-[11px] font-semibold">Layers</h2>
+                </button>
                 <button
+                    type="button"
                     onClick={() => addLayer()}
+                    aria-label="Add layer"
                     className="p-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20"
                 >
                     <Plus size={14} />
                 </button>
-            </div>
+            </header>
 
             {/* Layer List */}
-            <div className="flex-1 overflow-y-auto px-1.5 pb-1.5">
+            {!isCollapsed && <div id="studio-layers-content" className="flex-1 overflow-y-auto px-1.5 pb-1.5">
                 <Reorder.Group
                     axis="y"
                     values={sortedLayers}
@@ -150,7 +157,7 @@ export const LayerPanel: React.FC = () => {
 
                 {/* Canvas Settings Layer */}
                 <LayerPanelCanvasSettings />
-            </div>
+            </div>}
 
             {dropdownLayerId && (
                 <LayerDropdown

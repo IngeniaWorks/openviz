@@ -36,7 +36,7 @@ pnpm run setup
 pnpm run dev
 ```
 
-`pnpm run setup:container` performs setup without starting the development server and is intended for scripted or container environments. `pnpm run init` is an alias for `pnpm run setup`.
+`pnpm run dev` starts PostgreSQL and Redis through Docker, then starts Next.js and the collaboration WebSocket server. `pnpm run setup:container` performs setup without starting the development server and is intended for scripted or container environments. `pnpm run init` is an alias for `pnpm run setup`.
 
 ## Prerequisites
 

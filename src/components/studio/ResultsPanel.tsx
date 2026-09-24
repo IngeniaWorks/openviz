@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '../../store/useStore';
-import { ChevronDown, MoreHorizontal, RotateCcw, Eye, Download, ArrowLeft, ArrowRight, Archive, PlusSquare } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, RotateCcw, Eye, Download, ArrowLeft, ArrowRight, Archive, PlusSquare, Check, LoaderCircle, TriangleAlert } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +30,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
         loadRenderSettings,
         addGroupToWorkbench,
         addImageToWorkbench,
+        productJobs,
         isRendering
     } = useStore();
 
@@ -43,6 +44,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
         group.sourceNodeId === activeNodeId ||
         (!group.sourceNodeId && activeNodeId === 'default')
     );
+    const colorJobs = Object.values(productJobs ?? {}).filter((job) => job.workflowId === 'material_study' && job.parameters.variableType === 'color');
 
     // Flatten all images for navigation
     const allImages = filteredRenderResults.flatMap(g => g.images);
@@ -122,28 +124,28 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
     return (
         <div 
             className={cn(
-                "w-full flex flex-col bg-panel border border-panel-border rounded-panel shadow-2xl overflow-hidden backdrop-blur-md bg-opacity-95 text-white transition-all duration-300 pointer-events-auto flex-1",
-                !resultsPanelOpen && "h-10"
+                "w-full flex flex-col bg-neutral-900 border border-neutral-800 rounded-[14px] shadow-2xl overflow-hidden backdrop-blur-md bg-opacity-95 text-white transition-all duration-300 pointer-events-auto",
+                resultsPanelOpen ? "flex-none" : "h-10 flex-none mt-auto"
             )}
             style={resultsPanelOpen ? { height } : undefined}
         >
             {/* Header */}
             <div
-                className="flex items-center justify-between px-[5px] py-[5px] cursor-pointer hover:bg-white/5 transition-colors border-b border-panel-border"
+                className="flex h-10 items-center justify-between px-3 cursor-pointer bg-neutral-800 hover:bg-neutral-700 transition-colors"
                 onClick={() => setResultsPanelOpen(!resultsPanelOpen)}
             >
                 <div className="flex items-center gap-2">
                     <ChevronDown size={14} className={cn("transition-transform opacity-60", !resultsPanelOpen && "-rotate-90")} />
-                    <span className="text-xs font-bold tracking-tight">Results</span>
+                    <span className="text-[11px] font-semibold tracking-tight">Results</span>
                 </div>
-                <button className="p-1 hover:bg-white/10 rounded transition-colors opacity-60">
-                    <MoreHorizontal size={14} />
+                <button type="button" aria-label="Results menu" onClick={(event) => event.stopPropagation()} className="flex h-10 w-10 items-center justify-center hover:bg-white/10 rounded transition-colors opacity-60">
+                    <MoreHorizontal size={17} />
                 </button>
             </div>
 
             {/* Collapsed Content - Thumbnail Grid Only */}
             {!resultsPanelOpen && (
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="hidden">
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-[5px]">
                         {isRendering && (
                             <div className="grid grid-cols-4 gap-1">
@@ -265,6 +267,18 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
 
                         {/* Date Grouping */}
                         <div className="space-y-3">
+                            {colorJobs.length > 0 && <section className="space-y-2" aria-labelledby="color-variation-results-title">
+                                <div className="flex items-center justify-between"><h3 id="color-variation-results-title" className="text-xs font-bold opacity-90">Color Variations</h3><span className="text-[9px] text-white/40">{colorJobs.length} batch{colorJobs.length === 1 ? '' : 'es'}</span></div>
+                                {colorJobs.map((job) => {
+                                    const statusIcon = job.status === 'running' || job.status === 'queued' ? <LoaderCircle size={11} className="animate-spin" aria-hidden="true" /> : job.status === 'failed' ? <TriangleAlert size={11} aria-hidden="true" /> : <Check size={11} aria-hidden="true" />;
+                                    return <article key={job.id} className="space-y-2 rounded-lg border border-white/5 bg-black/10 p-2">
+                                        <div className="flex items-center justify-between gap-2"><div className="flex min-w-0 items-center gap-1.5 text-[9px] text-white/60">{statusIcon}<span className="truncate">{job.status === 'completed' ? 'Ready' : job.status === 'partial' ? 'Partial batch' : job.status === 'failed' ? 'Needs attention' : job.status === 'running' ? 'Generating' : 'Queued'}</span></div><span className="text-[9px] text-white/35">{job.progress}%</span></div>
+                                        {job.error && <p className="text-[9px] text-red-300/80">{job.error.message}</p>}
+                                        {job.outputs.length > 0 && <div className="grid grid-cols-4 gap-1">{job.outputs.map((output) => <button key={`${job.id}-${output.index}`} type="button" onClick={() => { setLastPreviewedImage(output.url); setIsPreviewVisible(true); setPreviewingRender(output.url); }} className="group relative aspect-square overflow-hidden rounded-md border border-white/5 hover:border-white/40"><img src={output.url} alt={`Color variation ${output.index + 1}`} className="h-full w-full object-cover" /><span className="absolute inset-x-0 bottom-0 hidden bg-black/70 px-1 py-1 text-[8px] text-white group-hover:block">Preview</span></button>)}</div>}
+                                        {job.outputs.length > 0 && <div className="flex justify-end"><button type="button" onClick={() => job.outputs.forEach((output) => addImageToWorkbench(output.url))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[9px] text-white/60 hover:bg-white/10 hover:text-white"><PlusSquare size={11} /> Add to Workbench</button></div>}
+                                    </article>;
+                                })}
+                            </section>}
                             {filteredRenderResults.length > 0 && <h3 className="text-xs font-bold opacity-90">Latest Renders</h3>}
 
                             {filteredRenderResults.length === 0 && !isRendering && (

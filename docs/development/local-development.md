@@ -19,7 +19,7 @@ pnpm run setup
 pnpm run dev
 ```
 
-The setup command validates configuration, prepares the database, and seeds local defaults. See [environment variables](../operations/environment-variables.md) for configuration guidance.
+The setup command validates configuration, prepares the database, and seeds local defaults. `pnpm run dev` starts PostgreSQL and Redis through Docker, then starts Next.js and the collaboration WebSocket server. See [environment variables](../operations/environment-variables.md) for configuration guidance.
 
 ## ComfyUI
 

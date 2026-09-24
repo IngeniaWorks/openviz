@@ -4,6 +4,7 @@ export type WorkbenchToolType = 'select' | 'hand' | 'draw' | 'eraser' | 'arrow' 
 export type LayerType = 'sketch' | 'image' | 'render';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay';
 export type ViewMode = 'STUDIO' | 'WORKBENCH';
+export type { AdjustmentName, AdjustmentValues } from './adjustments';
 
 export interface CanvasState {
     width: number;
@@ -35,6 +36,8 @@ export interface Layer {
     blendMode: BlendMode;
     strokes: Stroke[];
     image?: string; // base64 or URL
+    adjustments?: import('./adjustments').AdjustmentValues;
+    adjustmentsEnabled?: boolean;
     // Transform properties
     x?: number;
     y?: number;

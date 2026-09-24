@@ -3,12 +3,17 @@ import type { GenerationJob, GenerationJobError, GenerationJobStatus } from '@/t
 import type { ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 import { validateProductWorkflowRequest } from './workflowValidation';
+import type { GenerationJobPersistence } from './generationJobPersistence';
 import { generateUUID } from '@/utils/uuid';
 import { getProductWorkflow } from './productWorkflowRegistry';
 
 export interface SubmittedProductJob extends GenerationJob {
     remoteJobId?: string;
     preflight: PreflightResult;
+}
+
+export interface ProductJobOptions {
+    persistence?: GenerationJobPersistence;
 }
 
 function makeError(preflight: PreflightResult): GenerationJobError {
@@ -25,6 +30,33 @@ function makeSubmissionError(error: unknown): GenerationJobError {
         message: error instanceof Error ? error.message : 'The execution target rejected the workflow.',
         retryable: true,
     };
+}
+
+function terminalUpdates(job: GenerationJob): Partial<GenerationJob> {
+    const updates: Partial<GenerationJob> = { status: job.status, progress: job.progress };
+    if (job.error) updates.error = job.error;
+    if (job.remoteJobId) updates.remoteJobId = job.remoteJobId;
+    if (job.preflight) updates.preflight = job.preflight;
+    if (job.outputs.length > 0) updates.outputs = job.outputs;
+    return updates;
+}
+
+async function persistCreate(persistence: GenerationJobPersistence | undefined, job: GenerationJob): Promise<void> {
+    if (!persistence || !job.projectId) return;
+    try {
+        await persistence.create(job);
+    } catch (error) {
+        console.error(`Failed to persist generation job ${job.id}.`, error);
+    }
+}
+
+async function persistUpdate(persistence: GenerationJobPersistence | undefined, job: GenerationJob, updates: Partial<GenerationJob>): Promise<void> {
+    if (!persistence || !job.projectId) return;
+    try {
+        await persistence.update(job.id, updates);
+    } catch (error) {
+        console.error(`Failed to persist generation job ${job.id}.`, error);
+    }
 }
 
 function applyStatus(job: SubmittedProductJob, status: NormalizedJobStatus, outputs: GenerationJob['outputs']): SubmittedProductJob {
@@ -44,7 +76,8 @@ export async function submitProductWorkflow(
     adapter: ExecutionTargetAdapter,
     request: ProductWorkflowRequest,
     targetKind: ExecutionTargetKind,
-    targetId = 'active-target'
+    targetId = 'active-target',
+    options?: ProductJobOptions
 ): Promise<SubmittedProductJob> {
     const workflow = getProductWorkflow(request.workflowId);
     if (!workflow) throw new Error(`Unknown product workflow: ${request.workflowId}`);
@@ -81,6 +114,8 @@ export async function submitProductWorkflow(
         updatedAt: now,
     };
 
+    await persistCreate(options?.persistence, baseJob);
+
     const validation = validateProductWorkflowRequest(request);
     if (!validation.valid) {
         const preflight: PreflightResult = {
@@ -92,7 +127,9 @@ export async function submitProductWorkflow(
             })),
             explanation: 'Correct the highlighted workflow inputs before queueing.',
         };
-        return { ...baseJob, status: 'failed', error: makeError(preflight), updatedAt: Date.now(), preflight };
+        const failedJob = { ...baseJob, status: 'failed' as const, error: makeError(preflight), updatedAt: Date.now(), preflight };
+        await persistUpdate(options?.persistence, failedJob, terminalUpdates(failedJob));
+        return failedJob;
     }
 
     let preflight: PreflightResult;
@@ -109,27 +146,34 @@ export async function submitProductWorkflow(
 
     const preparedJob = { ...baseJob, modelTier: request.modelTier ?? preflight.selectedTier ?? 'hosted-auto', preflight };
     if (!preflight.ready) {
-        return { ...preparedJob, status: 'failed', error: makeError(preflight), updatedAt: Date.now() };
+        const failedJob = { ...preparedJob, status: 'failed' as const, error: makeError(preflight), updatedAt: Date.now() };
+        await persistUpdate(options?.persistence, failedJob, terminalUpdates(failedJob));
+        return failedJob;
     }
 
     try {
         const submitted = await adapter.submit(request);
-        return { ...preparedJob, remoteJobId: submitted.jobId };
+        const queuedJob = { ...preparedJob, remoteJobId: submitted.jobId };
+        await persistUpdate(options?.persistence, queuedJob, { remoteJobId: submitted.jobId });
+        return queuedJob;
     } catch (error) {
-        return { ...preparedJob, status: 'failed', error: makeSubmissionError(error), updatedAt: Date.now() };
+        const failedJob = { ...preparedJob, status: 'failed' as const, error: makeSubmissionError(error), updatedAt: Date.now() };
+        await persistUpdate(options?.persistence, failedJob, terminalUpdates(failedJob));
+        return failedJob;
     }
 }
 
 export async function pollProductWorkflow(
     adapter: ExecutionTargetAdapter,
     job: SubmittedProductJob,
+    options?: ProductJobOptions,
 ): Promise<SubmittedProductJob> {
     if (!job.remoteJobId || isTerminalJobStatus(job.status)) return job;
     const status = await adapter.getStatus(job.remoteJobId);
     const outputs = status.status === 'completed' || status.status === 'partial'
         ? await adapter.getOutputs(job.remoteJobId)
         : job.outputs;
-    return applyStatus(job, status, outputs.map((output) => ({
+    const next = applyStatus(job, status, outputs.map((output) => ({
         url: output.url,
         index: output.index,
         assetId: output.assetId,
@@ -137,14 +181,21 @@ export async function pollProductWorkflow(
         height: output.height,
         contentType: output.contentType,
     })));
+    if (next.status !== job.status && isTerminalJobStatus(next.status)) {
+        await persistUpdate(options?.persistence, next, terminalUpdates(next));
+    }
+    return next;
 }
 
 export async function cancelProductWorkflow(
     adapter: ExecutionTargetAdapter,
     job: SubmittedProductJob,
+    options?: ProductJobOptions,
 ): Promise<SubmittedProductJob> {
     if (job.remoteJobId && !isTerminalJobStatus(job.status)) await adapter.cancel(job.remoteJobId);
-    return { ...job, status: 'cancelled', progress: job.progress, updatedAt: Date.now() };
+    const cancelled = { ...job, status: 'cancelled' as const, progress: job.progress, updatedAt: Date.now() };
+    await persistUpdate(options?.persistence, cancelled, { status: 'cancelled' });
+    return cancelled;
 }
 
 export function isTerminalJobStatus(status: GenerationJobStatus): boolean {

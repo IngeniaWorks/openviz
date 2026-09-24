@@ -1,7 +1,7 @@
 import type { AspectRatio } from '@/types';
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductVariantVariable, ProductWorkflowRequest } from '@/types';
-import { submitProductWorkflow, type SubmittedProductJob } from './generationJobService';
+import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
 export interface ProductVariantInput {
@@ -32,6 +32,6 @@ export function createProductVariantRequest(input: ProductVariantInput): Product
     return request;
 }
 
-export function submitProductVariants(adapter: ExecutionTargetAdapter, input: ProductVariantInput, targetKind: ExecutionTargetKind, targetId?: string): Promise<SubmittedProductJob> {
-    return submitProductWorkflow(adapter, createProductVariantRequest(input), targetKind, targetId);
+export function submitProductVariants(adapter: ExecutionTargetAdapter, input: ProductVariantInput, targetKind: ExecutionTargetKind, targetId?: string, options?: ProductJobOptions): Promise<SubmittedProductJob> {
+    return submitProductWorkflow(adapter, createProductVariantRequest(input), targetKind, targetId, options);
 }

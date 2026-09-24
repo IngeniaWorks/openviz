@@ -1,7 +1,7 @@
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 import type { AspectRatio } from '@/types';
-import { submitProductWorkflow, type SubmittedProductJob } from './generationJobService';
+import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
 export interface ProductConceptInput {
@@ -45,6 +45,7 @@ export async function submitProductConcept(
     input: ProductConceptInput,
     targetKind: ExecutionTargetKind,
     targetId?: string,
+    options?: ProductJobOptions,
 ): Promise<SubmittedProductJob> {
-    return submitProductWorkflow(adapter, createProductConceptRequest(input), targetKind, targetId);
+    return submitProductWorkflow(adapter, createProductConceptRequest(input), targetKind, targetId, options);
 }

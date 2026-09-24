@@ -1,6 +1,7 @@
 import type { ModelTier, Precision, ProductWorkflowRequest } from './productWorkflow.types';
 
 export type ExecutionTargetKind = 'local' | 'hosted' | 'hybrid';
+export type ExecutionTargetProtocol = 'comfyui' | 'openai-image';
 export type ComputePreference = 'automatic' | 'low-memory' | 'balanced' | 'high-quality' | 'hosted';
 export type ExecutionTargetStatus = 'unknown' | 'checking' | 'ready' | 'degraded' | 'unavailable' | 'auth-required';
 export type AuthState = 'unknown' | 'valid' | 'missing' | 'expired' | 'invalid';
@@ -28,9 +29,16 @@ export interface TargetCapabilities {
 
 export interface ComputeSettings {
     targetKind: ExecutionTargetKind;
+    protocol: ExecutionTargetProtocol;
     preference: ComputePreference;
     localEndpoint: string;
     hostedEndpoint: string;
+    imageApiEndpoint: string;
+    imageApiKey: string;
+    imageApiKeyless: boolean;
+    imageApiModels: string[];
+    imageApiModel: string;
+    imageApiSize: string;
 }
 
 export interface ExecutionTarget {

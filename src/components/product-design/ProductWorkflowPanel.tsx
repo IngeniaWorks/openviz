@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import { createLocalComfyTarget } from '@/services/ai/targets/localComfyTarget';
+import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import type { AspectRatio } from '@/types';
 import { generateUUID } from '@/utils/uuid';
 import { useStore } from '@/store/useStore';
@@ -40,9 +41,21 @@ export const ProductWorkflowPanel: React.FC<ProductWorkflowPanelProps> = ({ coll
         if (collapsed === undefined) setInternalCollapsed(nextCollapsed);
     };
     const dimensions = dimensionsForRatio(aspectRatio);
-    const adapter = useMemo(() => settings.targetKind === 'local' && settings.localEndpoint
-        ? createLocalComfyTarget({ id: 'local', endpoint: settings.localEndpoint })
-        : null, [settings.localEndpoint, settings.targetKind]);
+    const adapter = useMemo(() => {
+        if (settings.protocol === 'openai-image' && settings.imageApiEndpoint) {
+            return createOpenAIImageTarget({
+                id: 'image-api',
+                endpoint: settings.imageApiEndpoint,
+                model: settings.imageApiModel,
+                apiKey: settings.imageApiKey,
+                keyless: settings.imageApiKeyless,
+                size: settings.imageApiSize,
+            });
+        }
+        return settings.targetKind === 'local' && settings.localEndpoint
+            ? createLocalComfyTarget({ id: 'local', endpoint: settings.localEndpoint })
+            : null;
+    }, [settings]);
     const generation = useProductGeneration({ adapter, targetKind: settings.targetKind, targetId: settings.targetKind, projectId: projectId ?? undefined });
     const jobs = Object.values(generation.jobs).filter((job) => job.workflowId === workflowId);
 

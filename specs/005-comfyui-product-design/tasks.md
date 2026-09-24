@@ -15,8 +15,8 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 **Purpose**: Establish feature boundaries and typed source locations without changing existing behavior.
 
-- [ ] T001 Create the product workflow source directories described in `specs/005-comfyui-product-design/plan.md`: `src/types/`, `src/services/ai/targets/`, `src/components/product-design/`, `src/components/nodes/modify/`, and `src/components/studio/` locations as needed.
-- [ ] T002 [P] Add model-family, workflow-category, model-tier, execution-target, dependency, job-status, and product-design parameter types in `src/types/productWorkflow.types.ts` and `src/types/generationJob.types.ts`; export named types through the existing type barrel without introducing `any`.
+- [X] T001 Create the product workflow source directories described in `specs/005-comfyui-product-design/plan.md`: `src/types/`, `src/services/ai/targets/`, `src/components/product-design/`, `src/components/nodes/modify/`, and `src/components/studio/` locations as needed.
+- [X] T002 [P] Add model-family, workflow-category, model-tier, execution-target, dependency, job-status, and product-design parameter types in `src/types/productWorkflow.types.ts` and `src/types/generationJob.types.ts`; export named types through the existing type barrel without introducing `any`.
 - [ ] T003 [P] Add the initial official-workflow dependency metadata fixtures under `src/services/ai/workflows/` without committing model weights: Qwen Image 2.1, Qwen Image Edit 2511, FLUX Kontext-dev, and Wan 2.2.
 - [ ] T004 [P] Add test fixtures for ComfyUI `/system_stats`, `/object_info`, `/queue`, `/prompt`, `/history`, and WebSocket progress payloads in `src/services/ai/targets/fixtures/`.
 
@@ -30,26 +30,26 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 ### Registry and workflow contracts
 
-- [ ] T005 Write failing registry contract tests first in `src/services/ai/productWorkflowRegistry.test.ts` covering task-oriented IDs, versions, supported model families, typed input mappings, output mappings, dependency manifests, and rejection of unknown workflow IDs.
-- [ ] T006 Implement the typed product workflow registry in `src/services/ai/productWorkflowRegistry.ts`; preserve the existing legacy render registry and expose product workflows separately or through a backward-compatible named API.
-- [ ] T007 Write failing workflow-input validation tests first in `src/services/ai/workflowValidation.test.ts` for required prompts, reference images, masks, dimensions, aspect ratios, batch limits, and contradictory/invalid parameters.
-- [ ] T008 Implement `src/services/ai/workflowValidation.ts` and typed ComfyUI prompt builders with explicit injection points for prompt, negative prompt, references, mask, seed, dimensions, batch size, and output nodes.
+- [X] T005 Write failing registry contract tests first in `src/services/ai/productWorkflowRegistry.test.ts` covering task-oriented IDs, versions, supported model families, typed input mappings, output mappings, dependency manifests, and rejection of unknown workflow IDs.
+- [X] T006 Implement the typed product workflow registry in `src/services/ai/productWorkflowRegistry.ts`; preserve the existing legacy render registry and expose product workflows separately or through a backward-compatible named API.
+- [X] T007 Write failing workflow-input validation tests first in `src/services/ai/workflowValidation.test.ts` for required prompts, reference images, masks, dimensions, aspect ratios, batch limits, and contradictory/invalid parameters.
+- [X] T008 Implement `src/services/ai/workflowValidation.ts` and typed ComfyUI prompt builders with explicit injection points for prompt, negative prompt, references, mask, seed, dimensions, batch size, and output nodes.
 
 ### Hardware detection and model-tier selection
 
-- [ ] T009 Write failing ComfyUI capability normalization tests first in `src/services/ai/targets/comfyCapabilitiesService.test.ts` for CUDA, ROCm, MPS, CPU, multiple devices, missing fields, and version-varying VRAM fields.
-- [ ] T010 Implement `src/services/ai/targets/comfyCapabilitiesService.ts` to normalize `/system_stats` and `/object_info` responses into typed target capabilities, including devices, free/total VRAM, available node types, loader options, and check timestamps.
-- [ ] T011 Write failing model-tier decision tests first in `src/services/ai/modelTierSelector.test.ts` for the documented deterministic matrix (under 10 GB, 10–16 GB, 16–32 GB, 32–48 GB, 48 GB+ free VRAM), automatic, low-memory, balanced, high-quality, hosted, unknown capability, insufficient free VRAM, and multi-device profiles.
-- [ ] T012 Implement `src/services/ai/modelTierSelector.ts` with the deterministic free-VRAM/backend/precision matrix, explicit configured-profile precedence, workflow requirements, and dependency availability; return the selected tier plus a human-readable explanation and warnings.
-- [ ] T013 Write failing dependency-preflight tests first in `src/services/ai/dependencyPreflight.test.ts` for ready, missing, incompatible, degraded, and license-warning results.
-- [ ] T014 Implement `src/services/ai/dependencyPreflight.ts` using normalized capabilities and workflow manifests; prevent known-incompatible jobs from being submitted and surface model license links.
+- [X] T009 Write failing ComfyUI capability normalization tests first in `src/services/ai/targets/comfyCapabilitiesService.test.ts` for CUDA, ROCm, MPS, CPU, multiple devices, missing fields, and version-varying VRAM fields.
+- [X] T010 Implement `src/services/ai/targets/comfyCapabilitiesService.ts` to normalize `/system_stats` and `/object_info` responses into typed target capabilities, including devices, free/total VRAM, available node types, loader options, and check timestamps.
+- [X] T011 Write failing model-tier decision tests first in `src/services/ai/modelTierSelector.test.ts` for the documented deterministic matrix (under 10 GB, 10–16 GB, 16–32 GB, 32–48 GB, 48 GB+ free VRAM), automatic, low-memory, balanced, high-quality, hosted, unknown capability, insufficient free VRAM, and multi-device profiles.
+- [X] T012 Implement `src/services/ai/modelTierSelector.ts` with the deterministic free-VRAM/backend/precision matrix, explicit configured-profile precedence, workflow requirements, and dependency availability; return the selected tier plus a human-readable explanation and warnings.
+- [X] T013 Write failing dependency-preflight tests first in `src/services/ai/dependencyPreflight.test.ts` for ready, missing, incompatible, degraded, and license-warning results.
+- [X] T014 Implement `src/services/ai/dependencyPreflight.ts` using normalized capabilities and workflow manifests; prevent known-incompatible jobs from being submitted and surface model license links.
 
 ### Execution targets and job lifecycle
 
-- [ ] T015 Write failing execution-target contract tests first in `src/services/ai/targets/executionTarget.test.ts` for health, capabilities, preflight, submit, status, cancel, and output normalization.
-- [ ] T016 Implement the typed execution-target contract in `src/types/executionTarget.types.ts` and the local ComfyUI adapter in `src/services/ai/targets/localComfyTarget.ts`; normalize HTTP/WebSocket progress and polling fallback without exposing raw API shapes to components.
-- [ ] T017 Write failing hosted and hybrid adapter tests first in `src/services/ai/targets/hostedComfyTarget.test.ts` and `src/services/ai/targets/hybridTarget.test.ts` for auth failures, capability forwarding, local-first routing, hosted fallback, and no-target failures.
-- [ ] T018 Implement `src/services/ai/targets/hostedComfyTarget.ts` and `src/services/ai/targets/hybridTarget.ts`; keep provider credentials and endpoint validation behind the service/server boundary.
+- [X] T015 Write failing execution-target contract tests first in `src/services/ai/targets/executionTarget.test.ts` for health, capabilities, preflight, submit, status, cancel, and output normalization.
+- [X] T016 Implement the typed execution-target contract in `src/types/executionTarget.types.ts` and the local ComfyUI adapter in `src/services/ai/targets/localComfyTarget.ts`; normalize HTTP/WebSocket progress and polling fallback without exposing raw API shapes to components.
+- [X] T017 Write failing hosted and hybrid adapter tests first in `src/services/ai/targets/hostedComfyTarget.test.ts` and `src/services/ai/targets/hybridTarget.test.ts` for auth failures, capability forwarding, local-first routing, hosted fallback, and no-target failures.
+- [X] T018 Implement `src/services/ai/targets/hostedComfyTarget.ts` and `src/services/ai/targets/hybridTarget.ts`; keep provider credentials and endpoint validation behind the service/server boundary.
 - [ ] T018A Add the target-settings API/service contract tests first in `src/services/ai/targetSettingsService.test.ts`, then implement `src/services/ai/targetSettingsService.ts`, `src/app/api/ai/targets/route.ts`, and `src/app/api/ai/targets/[id]/route.ts` for saving redacted target metadata, testing connections, refreshing capabilities, and storing automatic/local/hosted/hybrid preferences according to `contracts/target-settings.md`.
 - [ ] T019 Write failing generation-job reducer/store tests first in `src/store/slices/productDesignSlice.test.ts` for queued, running, partial, completed, failed, cancelled, retryable, reference, variant-set, target-setting, and terminal-state reporting transitions.
 - [ ] T020 Write failing persistence contract tests first in `src/services/ai/generationJobPersistence.test.ts` for preflight failure retention, terminal states, output lineage, retry linkage, and reload recovery.
@@ -62,8 +62,8 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 - [ ] T023 Write failing settings behavior tests first in `src/components/settings/AIComputeSettings.test.tsx`, `src/components/settings/ComfyConnectionSettings.test.tsx`, and `src/components/settings/HardwareSettings.test.tsx` for target selection, test connection, detected device display, automatic/manual profile selection, missing dependencies, and accessible error/status announcements.
 - [ ] T024 Implement Settings → AI & Compute UI in `src/components/settings/AIComputeSettings.tsx`, `src/components/settings/ComfyConnectionSettings.tsx`, `src/components/settings/HardwareSettings.tsx`, `src/components/settings/ModelDependencySettings.tsx`, and `src/components/settings/ComputeDiagnostics.tsx`; compose them from `src/app/settings/page.tsx`, use Tailwind/Radix, and keep fetch/effects in `src/components/settings/hooks/useAIComputeSettings.ts` and services.
-- [ ] T025 Write failing compute-status component tests first in `src/components/product-design/ComputeStatusChip.test.tsx`, `src/components/product-design/ModelTierBadge.test.tsx`, and `src/components/product-design/ComputePopover.test.tsx` for ready, offline, degraded, automatic-tier explanation, and hosted-fallback states.
-- [ ] T026 Implement `src/components/product-design/ComputeStatusChip.tsx`, `src/components/product-design/ModelTierBadge.tsx`, and `src/components/product-design/ComputePopover.tsx`; integrate the compact indicator into `src/components/workbench/workbench.tsx` without creating a Workbench-first settings panel.
+- [X] T025 Write failing compute-status component tests first in `src/components/product-design/ComputeStatusChip.test.tsx`, `src/components/product-design/ModelTierBadge.test.tsx`, and `src/components/product-design/ComputePopover.test.tsx` for ready, offline, degraded, automatic-tier explanation, and hosted-fallback states.
+- [X] T026 Implement `src/components/product-design/ComputeStatusChip.tsx`, `src/components/product-design/ModelTierBadge.tsx`, and `src/components/product-design/ComputePopover.tsx`; integrate the compact indicator into `src/components/workbench/workbench.tsx` without creating a Workbench-first settings panel.
 
 **Checkpoint**: Typed workflows, capability detection, model selection, dependency preflight, target adapters, job state, and Settings → AI & Compute are functional and tested before node work begins.
 
@@ -104,18 +104,18 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 ### Workbench implementation
 
-- [ ] T035 [US2] Implement `ModifyNode` data and types in `src/types/productWorkflow.types.ts` and update `src/types/index.ts` with the new node union while preserving strict typing.
+- [X] T035 [US2] Implement `ModifyNode` data and types in `src/types/productWorkflow.types.ts` and update `src/types/index.ts` with the new node union while preserving strict typing.
 - [ ] T036 [US2] Implement `src/components/nodes/ModifyNode.tsx`, `src/components/nodes/modify/ModifyPromptComposer.tsx`, `src/components/nodes/modify/ModifySourceStrip.tsx`, `src/components/nodes/modify/ModifyModeSelect.tsx`, `src/components/nodes/modify/AspectRatioSelect.tsx`, and `src/components/nodes/modify/PreservationControls.tsx` using the Vizcom-inspired dark rounded-card layout and purple primary action.
-- [ ] T037 [US2] Implement `src/components/nodes/modify/ReferenceChips.tsx` and `src/components/nodes/modify/ReferencePicker.tsx` for visual `@1`/`@2` references from eligible Workbench images/media nodes.
-- [ ] T038 [US2] Implement `createModifyNodeFromSource` in `src/components/workbench/hooks/workbenchBlockCreationLogic.ts`, enable `modify` in `src/components/workbench/hooks/useWorkbenchBlockCreation.ts`, register `modifyNode` in `src/components/workbench/workbench.tsx`, and map it in `src/components/workbench/hooks/useWorkbenchGraph.ts`.
+- [X] T037 [US2] Implement `src/components/nodes/modify/ReferenceChips.tsx` and `src/components/nodes/modify/ReferencePicker.tsx` for visual `@1`/`@2` references from eligible Workbench images/media nodes.
+- [X] T038 [US2] Implement `createModifyNodeFromSource` in `src/components/workbench/hooks/workbenchBlockCreationLogic.ts`, enable `modify` in `src/components/workbench/hooks/useWorkbenchBlockCreation.ts`, register `modifyNode` in `src/components/workbench/workbench.tsx`, and map it in `src/components/workbench/hooks/useWorkbenchGraph.ts`.
 - [ ] T039 [US2] Update `src/components/nodes/BasicBlocksMenu.tsx`, `src/components/workbench/hooks/useWorkbenchContextMenuActions.ts`, and `src/components/nodes/ImageNode.tsx` with accessible Modify actions from insertion, context menu, and image hover affordances.
 
 ### Product edit service and Studio
 
 - [ ] T040 [P] [US2] Write failing Qwen/FLUX edit service tests first in `src/services/ai/productEditGeneration.test.ts` for source references, masks, preservation parameters, model selection, output lineage, and retry inputs.
-- [ ] T041 [P] [US2] Write failing Studio Modify behavior tests first in `src/components/studio/ModifyPanel.test.tsx` and `src/components/studio/WorkflowTabs.test.tsx` for Modify defaulting when opened from an image, task tabs, status, and accessible controls.
+- [X] T041 [P] [US2] Write failing Studio Modify behavior tests first in `src/components/studio/ModifyPanel.test.tsx` and `src/components/studio/WorkflowTabs.test.tsx` for Modify defaulting when opened from an image, task tabs, status, and accessible controls.
 - [ ] T042 [US2] Implement Qwen Image Edit 2511 and FLUX Kontext-dev product-edit workflow JSON/templates and `src/services/ai/productEditGeneration.ts` with model-family selection, license metadata, and typed references/mask injection.
-- [ ] T043 [US2] Implement `src/components/studio/WorkflowTabs.tsx` and `src/components/studio/ModifyPanel.tsx`; replace the disabled Studio Refine path in `src/components/Studio.tsx`/`src/components/studio/RenderPanel.tsx` with Generate/Modify/Variants/Background/Animate workflow navigation.
+- [X] T043 [US2] Implement `src/components/studio/WorkflowTabs.tsx` and `src/components/studio/ModifyPanel.tsx`; replace the disabled Studio Refine path in `src/components/Studio.tsx`/`src/components/studio/RenderPanel.tsx` with Generate/Modify/Variants/Background/Animate workflow navigation.
 - [ ] T044 [US2] Implement `src/components/nodes/hooks/useModifyNode.ts` and `src/components/studio/hooks/useStudioProductWorkflow.ts`; keep generation calls, polling, upload, and effects in hooks/services rather than presentational components.
 
 **Checkpoint**: Workbench Modify and Studio Modify both independently complete a reference edit and display its source/output lineage.

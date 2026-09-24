@@ -1,6 +1,6 @@
 export type AspectRatio = '16:9' | '4:3' | '1:1' | '9:16' | '3:4' | 'square' | 'landscape' | 'portrait';
 export type ToolType = 'select' | 'brush' | 'eraser' | 'circle' | 'rectangle' | 'line' | 'paintbucket' | 'transform';
-export type WorkbenchToolType = 'select' | 'draw' | 'eraser' | 'arrow' | 'text' | 'note' | 'media';
+export type WorkbenchToolType = 'select' | 'hand' | 'draw' | 'eraser' | 'arrow' | 'text' | 'note' | 'media';
 export type LayerType = 'sketch' | 'image' | 'render';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay';
 export type ViewMode = 'STUDIO' | 'WORKBENCH';
@@ -59,7 +59,7 @@ export interface Project {
     thumbnail?: string;
 }
 
-export type NodeType = 'image' | 'animate' | 'render' | 'video' | 'freehand' | 'arrow' | 'text' | 'note' | 'media';
+export type NodeType = 'image' | 'modify' | 'animate' | 'render' | 'video' | 'freehand' | 'arrow' | 'text' | 'note' | 'media';
 
 export interface BaseNode {
     id: string;
@@ -106,6 +106,29 @@ export interface VideoNode extends BaseNode {
 export interface RenderNode extends BaseNode {
     type: 'render';
     data: RenderSettings;
+}
+
+export type ModifyNodeStatus = 'idle' | 'validating' | 'rendering' | 'done' | 'error';
+
+export interface ModifyNode extends BaseNode {
+    type: 'modify';
+    data: {
+        workflowId: string;
+        prompt: string;
+        negativePrompt?: string;
+        aspectRatio: AspectRatio;
+        preservation: number;
+        structureStrength: number;
+        references: Array<{
+            assetId: string;
+            role: 'primary' | 'material' | 'color' | 'style' | 'environment' | 'annotation' | 'mask';
+            token?: string;
+        }>;
+        maskAssetId?: string;
+        numImages: number;
+        status: ModifyNodeStatus;
+        error?: string;
+    };
 }
 
 export interface FreehandNode extends BaseNode {
@@ -158,6 +181,7 @@ export interface MediaWorkbenchNode extends BaseNode {
 
 export type WorkbenchNode =
     | ImageNode
+    | ModifyNode
     | AnimateNode
     | RenderNode
     | VideoNode
@@ -262,3 +286,34 @@ export interface PresenceState {
     };
     updatedAt: number;
 }
+
+export type {
+    ProductWorkflowCategory,
+    ProductModelFamily,
+    ModelTier,
+    Precision,
+    ProductWorkflowDefinition,
+    ProductWorkflowRequest,
+    ProductReferenceInput,
+    WorkflowDependency,
+    WorkflowInputDefinition,
+    WorkflowValidationIssue,
+    WorkflowValidationResult,
+} from './productWorkflow.types';
+export type {
+    ExecutionTarget,
+    ExecutionTargetKind,
+    ExecutionTargetStatus,
+    TargetCapabilities,
+    TargetHealth,
+    PreflightResult,
+    ExecutionTargetAdapter,
+    ComfyDeviceCapability,
+} from './executionTarget.types';
+export type {
+    GenerationJob,
+    GenerationJobError,
+    GenerationJobOutput,
+    GenerationJobStatus,
+    ModelTierDecision,
+} from './generationJob.types';

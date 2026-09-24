@@ -1,6 +1,7 @@
 import type { AspectRatio } from '@/types';
 import type { ExecutionTargetAdapter, ExecutionTargetKind } from '@/types/executionTarget.types';
 import type { ProductVariantVariable, ProductWorkflowRequest } from '@/types';
+import { normalizeHex } from '@/utils/colorUtils';
 import { submitProductWorkflow, type ProductJobOptions, type SubmittedProductJob } from './generationJobService';
 import { validateProductWorkflowRequest } from './workflowValidation';
 
@@ -17,7 +18,9 @@ export interface ProductVariantInput {
 }
 
 export function createProductVariantRequest(input: ProductVariantInput): ProductWorkflowRequest {
-    const values = input.values.map((value) => value.trim()).filter(Boolean);
+    const values = input.variableType === 'color'
+        ? input.values.map((value) => normalizeHex(value)).filter((value): value is string => value !== null)
+        : input.values.map((value) => value.trim()).filter(Boolean);
     if (values.length === 0 || values.length > 8) throw new Error('A variant set must contain between 1 and 8 values.');
     const aspectRatio = input.aspectRatio ?? '1:1';
     const request: ProductWorkflowRequest = {
@@ -25,6 +28,7 @@ export function createProductVariantRequest(input: ProductVariantInput): Product
         references: [{ assetId: input.referenceAssetId, role: 'primary' }], width: input.width, height: input.height,
         batchSize: values.length, aspectRatio, modelFamily: 'qwen-image-edit-2511', parameters: {
             values, variableType: input.variableType ?? 'material', batchSize: values.length, aspectRatio,
+            ...(input.variableType === 'color' ? { palette: values } : {}),
         },
     };
     const result = validateProductWorkflowRequest(request);

@@ -338,6 +338,34 @@ export const useCanvasViewport = () => {
         setTimeout(() => setExitingStudio(false), 100);
     };
 
+    const rasterizeActiveLayer = useCallback(() => {
+        if (!stageRef.current || !activeLayerId) return false;
+        const activeLayer = project.layers.find((layer) => layer.id === activeLayerId);
+        if (!activeLayer || activeLayer.locked) return false;
+        const layerNode = stageRef.current.findOne(`#${activeLayerId}`);
+        const width = activeLayer.width ?? canvas.width;
+        const height = activeLayer.height ?? canvas.height;
+        if (!layerNode || width <= 0 || height <= 0) return false;
+
+        try {
+            stageRef.current.draw();
+            const image = layerNode.toDataURL({ x: 0, y: 0, width, height, pixelRatio: 1, mimeType: 'image/png' });
+            if (!image) return false;
+            pushHistory();
+            updateLayer(activeLayerId, {
+                image,
+                thumbnail: image,
+                strokes: [],
+                adjustments: undefined,
+                adjustmentsEnabled: true,
+            });
+            return true;
+        } catch (error) {
+            console.error('Failed to rasterize active layer', error);
+            return false;
+        }
+    }, [activeLayerId, canvas.height, canvas.width, project.layers, pushHistory, updateLayer]);
+
     return {
         stageRef,
         isDrawing,
@@ -351,6 +379,7 @@ export const useCanvasViewport = () => {
         handleContextMenu,
         handleWheel,
         handleExitStudio,
+        rasterizeActiveLayer,
         fitToScreen
     };
 };

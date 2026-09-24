@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type StudioWorkflowTab = 'generate' | 'modify' | 'variants' | 'background' | 'animate';
+export type StudioWorkflowTab = 'generate' | 'modify' | 'adjust' | 'variation' | 'legacy';
 
 interface WorkflowTabsProps {
     active: StudioWorkflowTab;
@@ -10,9 +10,8 @@ interface WorkflowTabsProps {
 const tabs: Array<{ id: StudioWorkflowTab; label: string }> = [
     { id: 'generate', label: 'Generate' },
     { id: 'modify', label: 'Modify' },
-    { id: 'variants', label: 'Variants' },
-    { id: 'background', label: 'Background' },
-    { id: 'animate', label: 'Animate' },
+    { id: 'adjust', label: 'Adjust' },
+    { id: 'variation', label: 'Variation' },
 ];
 
 export const WorkflowTabs: React.FC<WorkflowTabsProps> = ({ active, onChange }) => (

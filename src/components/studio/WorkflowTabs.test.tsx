@@ -6,7 +6,7 @@ describe('WorkflowTabs', () => {
     it('switches the active workflow tab', () => {
         const onChange = vi.fn();
         render(<WorkflowTabs active="modify" onChange={onChange} />);
-        fireEvent.click(screen.getByRole('tab', { name: 'Variants' }));
-        expect(onChange).toHaveBeenCalledWith('variants');
+        fireEvent.click(screen.getByRole('tab', { name: 'Variation' }));
+        expect(onChange).toHaveBeenCalledWith('variation');
     });
 });

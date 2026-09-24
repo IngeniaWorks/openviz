@@ -311,6 +311,7 @@ export type {
 export type {
     ExecutionTarget,
     ExecutionTargetKind,
+    ExecutionTargetProtocol,
     ComputePreference,
     ComputeSettings,
     ExecutionTargetStatus,

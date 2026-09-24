@@ -8,6 +8,19 @@ export const AIComputeSettings: React.FC = () => {
         setEndpoint,
         targetKind,
         setTargetKind,
+        protocol,
+        setProtocol,
+        imageApiEndpoint,
+        setImageApiEndpoint,
+        imageApiKey,
+        setImageApiKey,
+        imageApiKeyless,
+        setImageApiKeyless,
+        imageApiModels,
+        imageApiModel,
+        setImageApiModel,
+        imageApiSize,
+        setImageApiSize,
         status,
         preference,
         setPreference,
@@ -31,14 +44,36 @@ export const AIComputeSettings: React.FC = () => {
                     <div>
                         <div className="flex items-center gap-2 text-white">
                             <Server size={17} className="text-violet-400" />
-                            <h3 id="connection-title" className="font-medium">ComfyUI connection</h3>
+                            <h3 id="connection-title" className="font-medium">{protocol === 'openai-image' ? 'OpenAI-compatible image API' : 'ComfyUI connection'}</h3>
                         </div>
-                        <p className="mt-1 text-xs text-zinc-500">OpenViz uses a proxied ComfyUI API connection for local and hosted targets.</p>
+                        <p className="mt-1 text-xs text-zinc-500">{protocol === 'openai-image' ? 'Connect to an OpenAI-compatible /v1 image generation endpoint.' : 'OpenViz uses a proxied ComfyUI API connection for local and hosted targets.'}</p>
                     </div>
                     <span className="flex items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-[10px] font-medium text-zinc-400">
                         <Wifi size={11} /> {status === 'connected' ? 'Connected' : status === 'checking' ? 'Checking' : 'Not tested'}
                     </span>
                 </div>
+                <div className="mb-3">
+                    <label htmlFor="execution-protocol" className="mb-2 block text-xs font-medium text-zinc-400">Provider protocol</label>
+                    <select id="execution-protocol" value={protocol} onChange={(event) => setProtocol(event.target.value as typeof protocol)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500">
+                        <option value="comfyui">ComfyUI</option>
+                        <option value="openai-image">OpenAI-compatible image API</option>
+                    </select>
+                </div>
+                {protocol === 'openai-image' ? <>
+                    <div className="mb-3">
+                        <label htmlFor="image-api-endpoint" className="mb-2 block text-xs font-medium text-zinc-400">API base URL (include /v1)</label>
+                        <input id="image-api-endpoint" value={imageApiEndpoint} onChange={(event) => setImageApiEndpoint(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500" placeholder="http://host:8001/v1" />
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="image-api-key" className="mb-2 block text-xs font-medium text-zinc-400">API key</label>
+                        <input id="image-api-key" type="password" value={imageApiKey} onChange={(event) => setImageApiKey(event.target.value)} disabled={imageApiKeyless} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500" />
+                    </div>
+                    <label className="mb-3 flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={imageApiKeyless} onChange={(event) => setImageApiKeyless(event.target.checked)} /> Keyless API access is explicitly enabled on the server</label>
+                    <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                        <div><label htmlFor="image-api-model" className="mb-2 block text-xs font-medium text-zinc-400">Model</label><select id="image-api-model" value={imageApiModel} onChange={(event) => setImageApiModel(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"><option value="">Select a model</option>{imageApiModels.map((model) => <option key={model} value={model}>{model}</option>)}</select></div>
+                        <div><label htmlFor="image-api-size" className="mb-2 block text-xs font-medium text-zinc-400">Size</label><select id="image-api-size" value={imageApiSize} onChange={(event) => setImageApiSize(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"><option>1024x1024</option><option>1536x1024</option><option>1024x1536</option></select></div>
+                    </div>
+                </> : <>
                 <div className="mb-3">
                     <label htmlFor="execution-target-kind" className="mb-2 block text-xs font-medium text-zinc-400">Execution target</label>
                     <select id="execution-target-kind" value={targetKind} onChange={(event) => setTargetKind(event.target.value as typeof targetKind)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500">
@@ -47,6 +82,7 @@ export const AIComputeSettings: React.FC = () => {
                         <option value="hybrid">Hybrid · local first</option>
                     </select>
                 </div>
+                </>}
                 <div className="flex items-end gap-3">
                     <div className="flex-1">
                         <label htmlFor="comfy-endpoint" className="mb-2 block text-xs font-medium text-zinc-400">{targetKind === 'hosted' ? 'Hosted endpoint' : 'Local endpoint'}</label>

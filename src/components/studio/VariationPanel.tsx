@@ -6,6 +6,7 @@ import { renderService } from '../../services/renderService';
 import { ColorPicker } from './ColorPicker';
 import { normalizeHex } from '../../utils/colorUtils';
 import { createLocalComfyTarget } from '../../services/ai/targets/localComfyTarget';
+import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import { useProductGeneration } from '../product-design/hooks/useProductGeneration';
 import { generateUUID } from '../../utils/uuid';
 
@@ -53,9 +54,21 @@ export const VariationPanel: React.FC<VariationPanelProps> = ({ collapsed, onCol
     const [palette, setPalette] = useState(colorPresets[0].colors);
     const [selectedColorIndex, setSelectedColorIndex] = useState<number | null>(null);
     const [selectedPreset, setSelectedPreset] = useState(colorPresets[0].name);
-    const adapter = useMemo(() => computeSettings.targetKind === 'local' && computeSettings.localEndpoint
-        ? createLocalComfyTarget({ id: 'local', endpoint: computeSettings.localEndpoint })
-        : null, [computeSettings.localEndpoint, computeSettings.targetKind]);
+    const adapter = useMemo(() => {
+        if (computeSettings.protocol === 'openai-image' && computeSettings.imageApiEndpoint) {
+            return createOpenAIImageTarget({
+                id: 'image-api',
+                endpoint: computeSettings.imageApiEndpoint,
+                model: computeSettings.imageApiModel,
+                apiKey: computeSettings.imageApiKey,
+                keyless: computeSettings.imageApiKeyless,
+                size: computeSettings.imageApiSize,
+            });
+        }
+        return computeSettings.targetKind === 'local' && computeSettings.localEndpoint
+            ? createLocalComfyTarget({ id: 'local', endpoint: computeSettings.localEndpoint })
+            : null;
+    }, [computeSettings]);
     const generation = useProductGeneration({ adapter, targetKind: computeSettings.targetKind, targetId: computeSettings.targetKind, projectId: currentProjectId ?? undefined });
     const activeReference = activeProductReferenceId ? productReferences[activeProductReferenceId] : undefined;
     const variationAreaRef = useRef<HTMLDivElement>(null);

@@ -126,6 +126,13 @@ export interface AppState {
     setLocalComfyEndpoint: (endpoint: string) => void;
     setHostedComfyEndpoint: (endpoint: string) => void;
     setExecutionTargetKind: (kind: import('@/types/executionTarget.types').ExecutionTargetKind) => void;
+    setExecutionTargetProtocol: (protocol: import('@/types/executionTarget.types').ExecutionTargetProtocol) => void;
+    setImageApiEndpoint: (endpoint: string) => void;
+    setImageApiKey: (key: string) => void;
+    setImageApiKeyless: (keyless: boolean) => void;
+    setImageApiModels: (models: string[]) => void;
+    setImageApiModel: (model: string) => void;
+    setImageApiSize: (size: string) => void;
     upsertProductJob: (job: GenerationJob) => void;
     updateProductJob: (jobId: string, updates: Partial<GenerationJob>) => void;
     removeProductJob: (jobId: string) => void;

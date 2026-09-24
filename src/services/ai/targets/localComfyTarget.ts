@@ -10,6 +10,7 @@ import type {
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 import { getProductWorkflow } from '../productWorkflowRegistry';
 import { runDependencyPreflight } from '../dependencyPreflight';
+import { buildProductPrompt } from '../workflowValidation';
 import { normalizeComfyCapabilities } from './comfyCapabilitiesService';
 
 type Fetcher = typeof fetch;
@@ -96,11 +97,12 @@ export function createLocalComfyTarget(options: LocalComfyTargetOptions): Execut
             const workflow = getProductWorkflow(request.workflowId);
             if (!workflow) throw new Error(`Unknown product workflow: ${request.workflowId}`);
 
+            const builtPrompt = buildProductPrompt({ ...request, seed: request.seed ?? Math.floor(Math.random() * 1_000_000_000_000) });
             const response = await sendRequest('/prompt', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: workflow.template,
+                    prompt: builtPrompt.prompt,
                     client_id: clientId,
                 }),
             });
@@ -139,16 +141,23 @@ export function createLocalComfyTarget(options: LocalComfyTargetOptions): Execut
             const result: GenerationOutput[] = [];
             Object.values(outputs).forEach((output) => {
                 const outputRecord = asRecord(output);
-                const images = Array.isArray(outputRecord.images) ? outputRecord.images : [];
-                images.forEach((image, index) => {
-                    const imageRecord = asRecord(image);
-                    if (typeof imageRecord.filename === 'string') {
+                const files = [
+                    ...(Array.isArray(outputRecord.images) ? outputRecord.images : []),
+                    ...(Array.isArray(outputRecord.videos) ? outputRecord.videos : []),
+                    ...(Array.isArray(outputRecord.gifs) ? outputRecord.gifs : []),
+                ];
+                files.forEach((file, index) => {
+                    const fileRecord = asRecord(file);
+                    if (typeof fileRecord.filename === 'string') {
                         const params = new URLSearchParams({
-                            filename: imageRecord.filename,
-                            subfolder: typeof imageRecord.subfolder === 'string' ? imageRecord.subfolder : '',
-                            type: typeof imageRecord.type === 'string' ? imageRecord.type : 'output',
+                            filename: fileRecord.filename,
+                            subfolder: typeof fileRecord.subfolder === 'string' ? fileRecord.subfolder : '',
+                            type: typeof fileRecord.type === 'string' ? fileRecord.type : 'output',
                         });
-                        result.push({ url: `${endpoint}/view?${params.toString()}`, index });
+                        const contentType = Array.isArray(outputRecord.videos) || Array.isArray(outputRecord.gifs)
+                            ? 'video/mp4'
+                            : 'image/png';
+                        result.push({ url: `${endpoint}/view?${params.toString()}`, index, contentType });
                     }
                 });
             });

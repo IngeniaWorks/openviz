@@ -1,4 +1,5 @@
 import type {
+    ComfyPrompt,
     ProductWorkflowRequest,
     WorkflowValidationIssue,
     WorkflowValidationResult,
@@ -6,6 +7,22 @@ import type {
 import { getProductWorkflow } from './productWorkflowRegistry';
 
 const MAX_BATCH_SIZE = 8;
+
+function clonePrompt(template: ComfyPrompt): ComfyPrompt {
+    return Object.fromEntries(
+        Object.entries(template).map(([nodeId, node]) => [nodeId, {
+            class_type: node.class_type,
+            inputs: { ...node.inputs },
+        }])
+    );
+}
+
+function setNodeInput(prompt: ComfyPrompt, nodeId: string | undefined, keys: string[], value: string | number): void {
+    if (!nodeId || !prompt[nodeId]) return;
+    const inputs = prompt[nodeId].inputs;
+    const existingKey = keys.find((key) => key in inputs) ?? keys[0];
+    inputs[existingKey] = value;
+}
 
 export function validateProductWorkflowRequest(
     request: ProductWorkflowRequest
@@ -50,4 +67,29 @@ export function validateProductWorkflowRequest(
     }
 
     return { valid: issues.every((issue) => issue.severity !== 'error'), issues };
+}
+
+export function buildProductPrompt(request: ProductWorkflowRequest): { prompt: ComfyPrompt; workflowVersion: string } {
+    const workflow = getProductWorkflow(request.workflowId);
+    if (!workflow) throw new Error(`Unknown product workflow: ${request.workflowId}`);
+
+    const validation = validateProductWorkflowRequest(request);
+    if (!validation.valid) {
+        throw new Error(validation.issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message).join(' '));
+    }
+
+    const prompt = clonePrompt(workflow.template);
+    const nodes = workflow.nodes;
+    const primaryReference = request.references.find((reference) => reference.role === 'primary')?.assetId;
+
+    setNodeInput(prompt, nodes.prompt, ['text', 'string'], request.prompt);
+    setNodeInput(prompt, nodes.negativePrompt, ['text', 'string'], request.negativePrompt ?? '');
+    if (request.seed !== undefined) setNodeInput(prompt, nodes.seed, ['seed'], request.seed);
+    if (primaryReference) setNodeInput(prompt, nodes.reference, ['image', 'image_name', 'filename'], primaryReference);
+    if (request.maskAssetId) setNodeInput(prompt, nodes.mask, ['image', 'mask', 'mask_name', 'filename'], request.maskAssetId);
+    setNodeInput(prompt, nodes.width, ['width', 'value'], request.width);
+    setNodeInput(prompt, nodes.height, ['height', 'value'], request.height);
+    setNodeInput(prompt, nodes.batchSize, ['batch_size', 'value'], request.batchSize);
+
+    return { prompt, workflowVersion: workflow.version };
 }

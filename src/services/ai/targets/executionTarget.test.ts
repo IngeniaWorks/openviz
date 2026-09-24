@@ -25,7 +25,29 @@ describe('createLocalComfyTarget', () => {
         expect(health.status).toBe('ready');
         const submitted = await target.submit(request);
         expect(submitted).toEqual({ jobId: 'prompt-1', targetId: 'local' });
-        expect(fetcher).toHaveBeenCalledWith('http://localhost:8188/prompt', expect.objectContaining({ method: 'POST' }));
+        const submitCall = fetcher.mock.calls[2];
+        expect(submitCall?.[0]).toBe('http://localhost:8188/prompt');
+        const submitInit = submitCall?.[1];
+        expect(submitInit?.method).toBe('POST');
+        expect(JSON.parse(String(submitInit?.body))).toMatchObject({
+            prompt: { prompt: { inputs: { text: request.prompt } }, sampler: { inputs: { seed: expect.any(Number) } } },
+            client_id: 'openviz-product-design',
+        });
+    });
+
+    it('normalizes history status and image outputs', async () => {
+        const historyResponse = () => new Response(JSON.stringify({
+            'prompt-1': {
+                status: { status_str: 'success' },
+                outputs: { save_image: { images: [{ filename: 'result.png', subfolder: '', type: 'output' }] } },
+            },
+        }), { status: 200 });
+        const fetcher = vi.fn<typeof fetch>()
+            .mockImplementation(async () => historyResponse());
+        const target = createLocalComfyTarget({ id: 'local', endpoint: 'http://localhost:8188', fetcher });
+
+        await expect(target.getStatus('prompt-1')).resolves.toMatchObject({ status: 'completed', progress: 100 });
+        await expect(target.getOutputs('prompt-1')).resolves.toEqual([{ url: 'http://localhost:8188/view?filename=result.png&subfolder=&type=output', index: 0, contentType: 'image/png' }]);
     });
 
     it('returns an unavailable health state when the endpoint fails', async () => {

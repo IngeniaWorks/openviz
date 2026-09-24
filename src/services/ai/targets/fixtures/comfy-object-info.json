@@ -1,0 +1,7 @@
+{
+  "CheckpointLoaderSimple": { "input": { "required": { "ckpt_name": [["qwen_image_2.1.safetensors", "flux1-dev-kontext.safetensors"]] } } },
+  "UNETLoader": { "input": { "required": { "unet_name": [["qwen_image_edit_2511_fp8.safetensors", "wan2.2_i2v_fp8.safetensors"]] } } },
+  "CLIPLoader": { "input": { "required": { "clip_name": [["qwen_2.5_vl_7b.safetensors"]] } } },
+  "VAELoader": { "input": { "required": { "vae_name": [["qwen_image_vae.safetensors"]] } } },
+  "ComfyUI-WanVideoWrapper": { "name": "ComfyUI-WanVideoWrapper" }
+}

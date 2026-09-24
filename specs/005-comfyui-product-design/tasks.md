@@ -17,8 +17,8 @@ description: "Implementation tasks for ComfyUI product design workflows"
 
 - [X] T001 Create the product workflow source directories described in `specs/005-comfyui-product-design/plan.md`: `src/types/`, `src/services/ai/targets/`, `src/components/product-design/`, `src/components/nodes/modify/`, and `src/components/studio/` locations as needed.
 - [X] T002 [P] Add model-family, workflow-category, model-tier, execution-target, dependency, job-status, and product-design parameter types in `src/types/productWorkflow.types.ts` and `src/types/generationJob.types.ts`; export named types through the existing type barrel without introducing `any`.
-- [ ] T003 [P] Add the initial official-workflow dependency metadata fixtures under `src/services/ai/workflows/` without committing model weights: Qwen Image 2.1, Qwen Image Edit 2511, FLUX Kontext-dev, and Wan 2.2.
-- [ ] T004 [P] Add test fixtures for ComfyUI `/system_stats`, `/object_info`, `/queue`, `/prompt`, `/history`, and WebSocket progress payloads in `src/services/ai/targets/fixtures/`.
+- [X] T003 [P] Add the initial official-workflow dependency metadata fixtures under `src/services/ai/workflows/` without committing model weights: Qwen Image 2.1, Qwen Image Edit 2511, FLUX Kontext-dev, and Wan 2.2.
+- [X] T004 [P] Add test fixtures for ComfyUI `/system_stats`, `/object_info`, `/queue`, `/prompt`, `/history`, and WebSocket progress payloads in `src/services/ai/targets/fixtures/`.
 
 ---
 
@@ -54,7 +54,7 @@ description: "Implementation tasks for ComfyUI product design workflows"
 - [ ] T019 Write failing generation-job reducer/store tests first in `src/store/slices/productDesignSlice.test.ts` for queued, running, partial, completed, failed, cancelled, retryable, reference, variant-set, target-setting, and terminal-state reporting transitions.
 - [ ] T020 Write failing persistence contract tests first in `src/services/ai/generationJobPersistence.test.ts` for preflight failure retention, terminal states, output lineage, retry linkage, and reload recovery.
 - [ ] T020A Implement the durable lineage persistence boundary in `src/services/ai/generationJobPersistence.ts` and the typed integration with the existing `src/app/api/jobs/[id]/route.ts`, reusing existing generation/project storage or adding a generated Drizzle migration; persist job inputs before queue submission and link retries/outputs according to `contracts/generation-persistence.md`.
-- [ ] T020B Implement `src/store/slices/productDesignSlice.ts` and the typed generation-job service in `src/services/ai/generationJobService.ts`; retain prompts, references, masks, target/tier decisions, dependency snapshots, progress, errors, outputs, and retry inputs.
+- [X] T020B Implement `src/store/slices/productDesignSlice.ts` and the typed generation-job service in `src/services/ai/generationJobService.ts`; retain prompts, references, masks, target/tier decisions, dependency snapshots, progress, errors, outputs, and retry inputs.
 - [ ] T021 Write failing render-service compatibility tests first in `src/services/renderService.productWorkflow.test.ts` for legacy presets and the new target adapter facade.
 - [ ] T022 Migrate `src/services/renderService.ts` to delegate through the execution-target/product-generation boundary while preserving existing `generate`, `animate`, connection health, proxy behavior, and legacy request payloads; remove untyped error handling introduced by the migration.
 
@@ -83,8 +83,8 @@ description: "Implementation tasks for ComfyUI product design workflows"
 ### Implementation
 
 - [ ] T029 [US1] Implement the Qwen Image 2.1 concept workflow JSON and registry definition in `src/services/ai/workflows/qwen-image-product-concept.json` and `src/services/ai/productConceptGeneration.ts`.
-- [ ] T030 [US1] Implement `src/components/product-design/ProductWorkflowPicker.tsx`, `src/components/product-design/ProductParameterForm.tsx`, and `src/components/product-design/ProductVariantGallery.tsx` with labeled inputs, accessible validation, aspect-ratio controls, batch count, and status/live regions.
-- [ ] T031 [US1] Integrate concept generation through `src/components/product-design/hooks/useProductGeneration.ts` and `src/store/slices/productDesignSlice.ts`; associate selected outputs with ProductReference and existing project/workbench image assets. Keep the shared gallery API extensible for the later variant-set lineage work.
+- [X] T030 [US1] Implement `src/components/product-design/ProductWorkflowPicker.tsx`, `src/components/product-design/ProductParameterForm.tsx`, and `src/components/product-design/ProductVariantGallery.tsx` with labeled inputs, accessible validation, aspect-ratio controls, batch count, and status/live regions.
+- [X] T031 [US1] Integrate concept generation through `src/components/product-design/hooks/useProductGeneration.ts` and `src/store/slices/productDesignSlice.ts`; associate selected outputs with ProductReference and existing project/workbench image assets. Keep the shared gallery API extensible for the later variant-set lineage work.
 
 **Checkpoint**: Concept generation works independently without requiring Modify, Studio, or animation.
 

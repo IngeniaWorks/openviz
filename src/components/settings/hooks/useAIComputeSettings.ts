@@ -2,14 +2,19 @@ import { useCallback, useState } from 'react';
 import { renderService } from '@/services/renderService';
 import type { TargetCapabilities } from '@/types/executionTarget.types';
 import { normalizeComfyCapabilities } from '@/services/ai/targets/comfyCapabilitiesService';
+import { useStore } from '@/store/useStore';
 
 type ConnectionStatus = 'idle' | 'checking' | 'connected' | 'unavailable';
-type ComputePreference = 'automatic' | 'low-memory' | 'balanced' | 'high-quality' | 'hosted';
 
 export function useAIComputeSettings() {
-    const [endpoint, setEndpoint] = useState('/comfy-api');
+    const settings = useStore((state) => state.computeSettings);
+    const setLocalEndpoint = useStore((state) => state.setLocalComfyEndpoint);
+    const setHostedEndpoint = useStore((state) => state.setHostedComfyEndpoint);
+    const setTargetKind = useStore((state) => state.setExecutionTargetKind);
+    const setPreference = useStore((state) => state.setComputePreference);
+    const endpoint = settings.targetKind === 'hosted' ? settings.hostedEndpoint : settings.localEndpoint;
+    const setEndpoint = settings.targetKind === 'hosted' ? setHostedEndpoint : setLocalEndpoint;
     const [status, setStatus] = useState<ConnectionStatus>('idle');
-    const [preference, setPreference] = useState<ComputePreference>('automatic');
     const [capabilities, setCapabilities] = useState<TargetCapabilities | null>(null);
 
     const refreshCapabilities = useCallback(async () => {
@@ -35,8 +40,10 @@ export function useAIComputeSettings() {
     return {
         endpoint,
         setEndpoint,
+        targetKind: settings.targetKind,
+        setTargetKind,
         status,
-        preference,
+        preference: settings.preference,
         setPreference,
         capabilities,
         refreshCapabilities,

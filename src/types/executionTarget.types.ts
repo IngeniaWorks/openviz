@@ -1,6 +1,7 @@
 import type { ModelTier, Precision, ProductWorkflowRequest } from './productWorkflow.types';
 
 export type ExecutionTargetKind = 'local' | 'hosted' | 'hybrid';
+export type ComputePreference = 'automatic' | 'low-memory' | 'balanced' | 'high-quality' | 'hosted';
 export type ExecutionTargetStatus = 'unknown' | 'checking' | 'ready' | 'degraded' | 'unavailable' | 'auth-required';
 export type AuthState = 'unknown' | 'valid' | 'missing' | 'expired' | 'invalid';
 export type HardwareBackend = 'cuda' | 'rocm' | 'mps' | 'cpu' | 'cloud' | 'unknown';
@@ -23,6 +24,13 @@ export interface TargetCapabilities {
     availableNodeTypes: string[];
     supportedPrecisions: Precision[];
     supportedWorkflows: string[];
+}
+
+export interface ComputeSettings {
+    targetKind: ExecutionTargetKind;
+    preference: ComputePreference;
+    localEndpoint: string;
+    hostedEndpoint: string;
 }
 
 export interface ExecutionTarget {

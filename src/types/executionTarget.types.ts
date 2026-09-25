@@ -39,6 +39,7 @@ export interface ComputeSettings {
     imageApiModels: string[];
     imageApiModel: string;
     imageApiSize: string;
+    endpointConcurrency: number;
 }
 
 export interface ExecutionTarget {

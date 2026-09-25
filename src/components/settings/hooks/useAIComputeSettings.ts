@@ -19,6 +19,7 @@ export function useAIComputeSettings() {
     const setImageApiModels = useStore((state) => state.setImageApiModels);
     const setImageApiModel = useStore((state) => state.setImageApiModel);
     const setImageApiSize = useStore((state) => state.setImageApiSize);
+    const setEndpointConcurrency = useStore((state) => state.setEndpointConcurrency);
     const setPreference = useStore((state) => state.setComputePreference);
     // Persisted IndexedDB snapshots can predate the image API settings. Keep
     // hydration backward-compatible instead of passing undefined to controls.
@@ -29,6 +30,7 @@ export function useAIComputeSettings() {
     const imageApiModels = settings.imageApiModels ?? [];
     const imageApiModel = settings.imageApiModel ?? '';
     const imageApiSize = settings.imageApiSize ?? '1024x1024';
+    const endpointConcurrency = Math.max(1, Math.min(3, settings.endpointConcurrency ?? 2));
     const endpoint = settings.targetKind === 'hosted' ? (settings.hostedEndpoint ?? '') : (settings.localEndpoint ?? '');
     const setEndpoint = settings.targetKind === 'hosted' ? setHostedEndpoint : setLocalEndpoint;
     const [status, setStatus] = useState<ConnectionStatus>('idle');
@@ -91,6 +93,8 @@ export function useAIComputeSettings() {
         setImageApiModel,
         imageApiSize,
         setImageApiSize,
+        endpointConcurrency,
+        setEndpointConcurrency,
         status,
         preference: settings.preference,
         setPreference,

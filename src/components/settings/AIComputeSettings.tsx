@@ -21,6 +21,8 @@ export const AIComputeSettings: React.FC = () => {
         setImageApiModel,
         imageApiSize,
         setImageApiSize,
+        endpointConcurrency,
+        setEndpointConcurrency,
         status,
         preference,
         setPreference,
@@ -72,6 +74,15 @@ export const AIComputeSettings: React.FC = () => {
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">
                         <div><label htmlFor="image-api-model" className="mb-2 block text-xs font-medium text-zinc-400">Model</label><select id="image-api-model" value={imageApiModel} onChange={(event) => setImageApiModel(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"><option value="">Select a model</option>{(imageApiModels ?? []).map((model) => <option key={model} value={model}>{model}</option>)}</select></div>
                         <div><label htmlFor="image-api-size" className="mb-2 block text-xs font-medium text-zinc-400">Size</label><select id="image-api-size" value={imageApiSize} onChange={(event) => setImageApiSize(event.target.value)} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"><option>1024x1024</option><option>1536x1024</option><option>1024x1536</option></select></div>
+                    </div>
+                    <div className="mb-3">
+                        <label htmlFor="endpoint-concurrency" className="mb-2 block text-xs font-medium text-zinc-400">Maximum simultaneous requests</label>
+                        <select id="endpoint-concurrency" value={endpointConcurrency} onChange={(event) => setEndpointConcurrency(Number(event.target.value))} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500">
+                            <option value={1}>1 request</option>
+                            <option value={2}>2 requests</option>
+                            <option value={3}>3 requests</option>
+                        </select>
+                        <p className="mt-1 text-xs text-zinc-600">Applied per configured endpoint across all media jobs.</p>
                     </div>
                 </> : <>
                 <div className="mb-3">

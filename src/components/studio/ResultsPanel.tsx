@@ -124,22 +124,22 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
     return (
         <div 
             className={cn(
-                "w-full flex flex-col bg-neutral-900 border border-neutral-800 rounded-[14px] shadow-2xl overflow-hidden backdrop-blur-md bg-opacity-95 text-white transition-all duration-300 pointer-events-auto",
+                "w-full flex flex-col bg-viz-panel border border-viz-border rounded-xl2 shadow-viz overflow-hidden text-white transition-all duration-300 pointer-events-auto",
                 resultsPanelOpen ? "flex-none" : "h-10 flex-none mt-auto"
             )}
             style={resultsPanelOpen ? { height } : undefined}
         >
             {/* Header */}
             <div
-                className="flex h-10 items-center justify-between px-3 cursor-pointer bg-neutral-800 hover:bg-neutral-700 transition-colors"
+                className="flex h-10 items-center justify-between px-3 cursor-pointer hover:bg-white/5 transition-colors"
                 onClick={() => setResultsPanelOpen(!resultsPanelOpen)}
             >
                 <div className="flex items-center gap-2">
-                    <ChevronDown size={14} className={cn("transition-transform opacity-60", !resultsPanelOpen && "-rotate-90")} />
-                    <span className="text-[11px] font-semibold tracking-tight">Results</span>
+                    <ChevronDown size={14} strokeWidth={2} className={cn("text-viz-muted transition-transform", !resultsPanelOpen && "-rotate-90")} />
+                    <span className="text-xs font-semibold tracking-tight">Results</span>
                 </div>
-                <button type="button" aria-label="Results menu" onClick={(event) => event.stopPropagation()} className="flex h-10 w-10 items-center justify-center hover:bg-white/10 rounded transition-colors opacity-60">
-                    <MoreHorizontal size={17} />
+                <button type="button" aria-label="Results menu" onClick={(event) => event.stopPropagation()} className="flex h-8 w-8 items-center justify-center rounded-lg text-viz-muted hover:bg-white/10 hover:text-white transition-colors">
+                    <MoreHorizontal size={16} />
                 </button>
             </div>
 
@@ -282,8 +282,9 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
                             {filteredRenderResults.length > 0 && <h3 className="text-xs font-bold opacity-90">Latest Renders</h3>}
 
                             {filteredRenderResults.length === 0 && !isRendering && (
-                                <div className="flex items-center justify-center h-32 text-sm opacity-50 text-center px-4">
-                                    nothing here yet! once you generate something it will appear here
+                                <div className="flex h-32 flex-col items-center justify-center gap-1.5 px-4 text-center">
+                                    <p className="text-xs font-semibold text-white">Nothing here - yet!</p>
+                                    <p className="text-[11px] leading-4 text-viz-muted">Once you generate something, it will appear here.</p>
                                 </div>
                             )}
 
@@ -328,27 +329,27 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({ height }) => {
                                                             initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                                             animate={{ opacity: 1, scale: 1, y: 0 }}
                                                             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                                            className="absolute right-0 top-full mt-1 w-40 bg-neutral-900 border border-panel-border rounded-xl shadow-2xl z-[70] overflow-hidden py-1"
+                                                            className="absolute right-0 top-full mt-1 w-44 bg-viz-surface border border-viz-border rounded-lg shadow-viz z-[70] overflow-hidden p-1"
                                                         >
                                                             <button
                                                                 onClick={() => {
                                                                     addGroupToWorkbench(group);
                                                                     setOpenMenuId(null);
                                                                 }}
-                                                                className="w-full px-2.5 py-1.5 text-left text-[10px] hover:bg-primary/20 flex items-center gap-2 transition-colors"
+                                                                className="w-full px-4 py-2.5 text-left text-xs text-white hover:bg-white/10 flex items-center gap-2 transition-colors"
                                                             >
-                                                                <PlusSquare size={12} className="text-primary" />
+                                                                <PlusSquare size={14} className="text-viz-muted" />
                                                                 Add all to Workbench
                                                             </button>
                                                             <button
                                                                 onClick={() => handleExportZip(group)}
                                                                 disabled={isExporting === group.id}
-                                                                className="w-full px-2.5 py-1.5 text-left text-[10px] hover:bg-primary/20 flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                                className="w-full px-4 py-2.5 text-left text-xs text-white hover:bg-white/10 flex items-center gap-2 transition-colors disabled:opacity-50"
                                                             >
                                                                 {isExporting === group.id ? (
                                                                     <div className="animate-spin rounded-full h-3 w-3 border border-white/20 border-t-white" />
                                                                 ) : (
-                                                                    <Archive size={12} className="text-primary" />
+                                                                    <Archive size={14} className="text-viz-muted" />
                                                                 )}
                                                                 Export as ZIP
                                                             </button>

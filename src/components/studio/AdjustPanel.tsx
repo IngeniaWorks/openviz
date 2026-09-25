@@ -121,14 +121,14 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ collapsed, onCollapsed
                 style={{ background: track }}
                 className="h-3.5 w-full cursor-pointer appearance-none rounded-full accent-white touch-none [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white/40 [&::-webkit-slider-thumb]:bg-white"
             />
-            <output htmlFor={`studio-adjust-${name.toLowerCase()}`} className="rounded-lg bg-neutral-800 px-1.5 py-0.5 text-right text-[11px] leading-5 text-white/85">{displayValue}</output>
+            <output htmlFor={`studio-adjust-${name.toLowerCase()}`} className="rounded-md bg-viz-surface px-1.5 py-0.5 text-right text-[11px] leading-5 text-white/85">{displayValue}</output>
         </label>
         );
     };
 
     return (
         <StudioPanelFrame title="Adjust" className="h-full max-h-full" collapsed={collapsed} onCollapsedChange={onCollapsedChange}>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#242424]">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-3 custom-scrollbar">
                     <div className="grid grid-cols-3 gap-3">
                     {[
@@ -136,7 +136,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ collapsed, onCollapsed
                         ['Remove Bg.', ImagePlus, onRemoveBackground],
                         ['Unify', Sparkles, onUnify],
                     ].map(([label, Icon, action]) => (
-                        <button key={label as string} type="button" onClick={() => runAction(label as string, action as (() => void) | undefined)} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border border-white/10 bg-neutral-800 px-1 text-center text-[9px] font-semibold text-white/85 transition hover:border-white/25 hover:bg-neutral-750 focus:outline-none focus:ring-2 focus:ring-white/50">
+                        <button key={label as string} type="button" onClick={() => runAction(label as string, action as (() => void) | undefined)} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border border-viz-border bg-viz-surface px-1 text-center text-[9px] font-semibold text-white/85 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50">
                             {React.createElement(Icon as React.ElementType, { size: 25, strokeWidth: 1.6, 'aria-hidden': true })}
                             <span>{label as string}</span>
                         </button>
@@ -184,7 +184,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ collapsed, onCollapsed
                 </div>}
                 </div>
                 <div className="flex shrink-0 flex-col gap-2 px-3 pb-3 pt-3">
-                    <button type="button" onClick={() => { const rasterized = onRasterize?.(); setStatus(onRasterize && rasterized !== false ? 'Rasterize started' : 'Rasterize unavailable'); }} className="min-h-9 w-full rounded-lg bg-neutral-800 text-[10px] font-medium text-white/70 transition hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-white/50">Rasterize adjustment</button>
+                    <button type="button" onClick={() => { const rasterized = onRasterize?.(); setStatus(onRasterize && rasterized !== false ? 'Rasterize started' : 'Rasterize unavailable'); }} className="min-h-9 w-full rounded-lg bg-viz-surface text-[10px] font-medium text-white/70 transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/50">Rasterize adjustment</button>
                     <p role="status" aria-live="polite" className="min-h-5 text-center text-[11px] text-white/50">{status || (preview ? 'Previewing original' : '')}</p>
                 </div>
             </div>

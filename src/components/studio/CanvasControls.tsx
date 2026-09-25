@@ -160,19 +160,19 @@ export const CanvasControls: React.FC<CanvasControlsProps> = ({
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute bottom-full right-0 mb-4 w-64 bg-neutral-900 border border-panel-border rounded-2xl shadow-2xl overflow-hidden z-[100] pointer-events-auto nowheel"
+                        className="absolute bottom-full right-0 mb-4 w-64 bg-viz-surface border border-viz-border rounded-lg shadow-viz overflow-hidden z-[100] pointer-events-auto nowheel"
                     >
-                        <div className="p-3 border-b border-panel-border flex items-center justify-between bg-white/5">
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Shortcuts</h3>
-                            <button onClick={() => setShowShortcuts(false)} className="text-white/40 hover:text-white transition-colors">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                            <h3 className="text-xs font-semibold text-white">Shortcuts</h3>
+                            <button onClick={() => setShowShortcuts(false)} className="text-viz-muted hover:text-white transition-colors">
                                 <X size={14} />
                             </button>
                         </div>
                         <div className="p-3 space-y-1.5">
                             {shortcuts.map((s, i) => (
                                 <div key={i} className="flex justify-between items-center text-[11px]">
-                                    <span className="text-white/60">{s.label}</span>
-                                    <span className="px-1.5 py-0.5 bg-neutral-800 border border-panel-border rounded text-[9px] font-mono text-primary font-bold">
+                                    <span className="text-viz-muted">{s.label}</span>
+                                    <span className="px-1.5 py-0.5 bg-white/10 border border-viz-border rounded text-[9px] font-mono text-white font-semibold">
                                         {s.key}
                                     </span>
                                 </div>

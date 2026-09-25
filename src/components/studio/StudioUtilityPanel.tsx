@@ -32,10 +32,10 @@ export const StudioUtilityPanel: React.FC<StudioUtilityPanelProps> = ({ activeUt
 
     const { title, description, icon: Icon } = utilityCopy[activeUtility];
     return (
-        <section className="flex h-fit max-h-[calc(100vh-120px)] min-h-48 w-full flex-col overflow-hidden rounded-[14px] border border-panel-border bg-panel text-white shadow-2xl" aria-labelledby="studio-utility-panel-title">
-            <header className="flex h-10 shrink-0 items-center gap-2 border-b border-panel-border bg-panel-light px-3">
-                <Icon size={16} aria-hidden="true" />
-                <h2 id="studio-utility-panel-title" className="text-[11px] font-semibold">{title}</h2>
+        <section className="flex h-fit max-h-[calc(100vh-120px)] min-h-48 w-full flex-col overflow-hidden rounded-xl2 border border-viz-border bg-viz-panel text-white shadow-viz" aria-labelledby="studio-utility-panel-title">
+            <header className="flex h-10 shrink-0 items-center gap-2 px-3">
+                <Icon size={15} className="text-viz-muted" aria-hidden="true" />
+                <h2 id="studio-utility-panel-title" className="text-xs font-semibold">{title}</h2>
             </header>
             <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
                 <Layers3 size={28} className="text-primary/80" aria-hidden="true" />

@@ -38,37 +38,37 @@ export const ModifyPanel: React.FC<ModifyPanelProps> = ({ height: _height, refer
 
     return (
         <form
-            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] bg-neutral-900 text-white shadow-2xl"
+            className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl2 border border-viz-border bg-viz-panel text-white shadow-viz"
             onSubmit={(event) => {
                 event.preventDefault();
                 if (prompt.trim()) onGenerate?.(prompt.trim());
             }}
         >
-            <header className="flex h-10 shrink-0 items-center justify-between rounded-t-[14px] bg-neutral-800 px-3">
+            <header className="flex h-10 shrink-0 items-center justify-between px-3">
                 <button type="button" aria-expanded={!isCollapsed} aria-controls="studio-modify-content" onClick={() => setCollapsed(!isCollapsed)} className="flex h-full items-center gap-2 text-left">
-                    <ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden="true" />
-                    <h2 className="text-[11px] font-semibold">Modify</h2>
+                    <ChevronDown size={14} strokeWidth={2} className={`text-viz-muted transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden="true" />
+                    <h2 className="text-xs font-semibold">Modify</h2>
                 </button>
-                <button type="button" aria-label="Modify menu" className="flex h-10 w-10 items-center justify-center text-white/80 hover:text-white"><MoreHorizontal size={17} aria-hidden="true" /></button>
+                <button type="button" aria-label="Modify menu" className="flex h-8 w-8 items-center justify-center rounded-lg text-viz-muted transition-colors hover:bg-white/10 hover:text-white"><MoreHorizontal size={16} aria-hidden="true" /></button>
             </header>
             {!isCollapsed && <div id="studio-modify-content" className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 custom-scrollbar">
-                <div className="rounded-xl bg-neutral-800 p-3">
+                <div className="rounded-lg border border-viz-border bg-viz-surface">
                     <label htmlFor="studio-modify-prompt" className="sr-only">What are you creating?</label>
-                    <textarea id="studio-modify-prompt" aria-label="Modify prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="What are you creating?" className="min-h-16 w-full resize-none bg-transparent text-[11px] text-white outline-none placeholder:text-white/35" />
-                    <div className="flex items-center justify-between">
-                        <div className="flex gap-2">
-                            <button type="button" aria-label="Add image reference" className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-700 text-white/70 hover:text-white"><ImageIcon size={18} /></button>
-                            <button type="button" aria-label="Use microphone" className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-700 text-white/70 hover:text-white"><Mic size={18} /></button>
+                    <textarea id="studio-modify-prompt" aria-label="Modify prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="What are you creating?" className="min-h-9 w-full resize-none bg-transparent p-2 text-xs text-white outline-none placeholder:text-white/35" />
+                    <div className="flex items-center justify-between px-2 py-1.5">
+                        <div className="flex gap-1.5">
+                            <button type="button" aria-label="Add image reference" className="flex h-6 w-6 items-center justify-center rounded-lg bg-viz-border text-viz-muted transition-colors hover:text-white"><ImageIcon size={12} /></button>
+                            <button type="button" aria-label="Use microphone" className="flex h-6 w-6 items-center justify-center rounded-lg bg-viz-border text-viz-muted transition-colors hover:text-white"><Mic size={12} /></button>
                         </div>
-                        <button type="submit" aria-label="Generate" disabled={!prompt.trim()} className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-30"><ArrowRight size={19} /></button>
+                        <button type="submit" aria-label="Generate" disabled={!prompt.trim()} className="flex h-6 w-6 items-center justify-center rounded-lg bg-viz-accent text-white transition-colors hover:bg-viz-accent/80 disabled:cursor-not-allowed disabled:opacity-30"><ArrowRight size={16} /></button>
                     </div>
                 </div>
-                {referenceImage && <div className="mt-3 flex items-center gap-2 text-xs text-white/60"><img src={referenceImage} alt="Product reference" className="h-8 w-8 rounded object-cover" /><span>Selected product reference</span></div>}
-                <div className="mt-5 flex items-center justify-between text-[11px]"><span>Outputs</span><button type="button" aria-label="Number of outputs" className="flex min-h-9 min-w-12 items-center justify-between rounded-lg bg-neutral-800 px-2" onClick={() => setOutputs((count) => count === 4 ? 1 : count + 1)}>{outputs}<ArrowRight size={12} className="rotate-90" /></button></div>
-                <label htmlFor="studio-modify-mode" className="mt-4 flex items-center justify-between text-[11px]">Mode<select id="studio-modify-mode" value={mode} onChange={(event) => setMode(event.target.value)} className="min-h-9 rounded-lg bg-neutral-800 px-2 text-[10px] text-white outline-none"><option>Standard</option><option>Precise</option><option>Creative</option></select></label>
-                <div className="my-6 h-px bg-white/15" />
-                <div className="space-y-1" aria-label="Modify actions">
-                    {actions.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-pressed={selectedAction === id} onClick={() => handleAction(id)} className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-2 text-left text-[10px] text-white/85 transition ${selectedAction === id ? 'bg-indigo-500 text-white' : 'hover:bg-white/10'}`}><Icon size={15} aria-hidden="true" /><span>{label}</span></button>)}
+                {referenceImage && <div className="mt-3 flex items-center gap-2 text-xs text-viz-muted"><img src={referenceImage} alt="Product reference" className="h-8 w-8 rounded object-cover" /><span>Selected product reference</span></div>}
+                <label htmlFor="studio-modify-outputs" className="mt-4 flex items-center justify-between text-xs"><span className="text-white/90">Outputs</span><select id="studio-modify-outputs" value={outputs} onChange={(event) => setOutputs(Number(event.target.value))} className="h-8 rounded-lg bg-viz-surface px-3 text-xs font-medium text-white outline-none"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+                <label htmlFor="studio-modify-mode" className="mt-3 flex items-center justify-between text-xs"><span className="text-white/90">Mode</span><select id="studio-modify-mode" value={mode} onChange={(event) => setMode(event.target.value)} className="h-8 rounded-lg bg-viz-surface px-3 text-xs font-medium text-white outline-none"><option>Standard</option><option>Precise</option><option>Creative</option></select></label>
+                <div className="my-5 h-px bg-white/10" />
+                <div className="space-y-0.5" aria-label="Modify actions">
+                    {actions.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-pressed={selectedAction === id} onClick={() => handleAction(id)} className={`flex min-h-9 w-full items-center gap-3 rounded-lg px-2 text-left text-xs transition-colors ${selectedAction === id ? 'bg-viz-accent text-white' : 'text-white/85 hover:bg-white/10'}`}><Icon size={15} aria-hidden="true" /><span>{label}</span></button>)}
                 </div>
             </div>}
         </form>

@@ -78,8 +78,25 @@ function parseImageOutputs(body: unknown): GenerationOutput[] {
     if (!Array.isArray(data)) return [];
     return data.flatMap((entry, index) => {
         const record = asRecord(entry);
-        if (typeof record.url !== 'string' || !/^https?:\/\//.test(record.url)) return [];
-        return [{ url: record.url, index, contentType: 'image/*' }];
+        if (typeof record.url === 'string' && /^https?:\/\//.test(record.url)) {
+            return [{ url: record.url, index, contentType: 'image/*' }];
+        }
+
+        // OpenAI's Images API commonly returns base64 image data instead of a
+        // hosted URL. Convert it to a browser-readable data URL so the rest of
+        // the render pipeline can treat both response formats identically.
+        if (typeof record.b64_json === 'string' && record.b64_json.length > 0) {
+            const contentType = typeof record.mime_type === 'string' && record.mime_type.startsWith('image/')
+                ? record.mime_type
+                : 'image/png';
+            return [{
+                url: `data:${contentType};base64,${record.b64_json}`,
+                index,
+                contentType,
+            }];
+        }
+
+        return [];
     });
 }
 

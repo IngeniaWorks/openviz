@@ -13,10 +13,16 @@ const request: ProductWorkflowRequest = {
 };
 
 describe('openAIImageTarget', () => {
-    it('parses OpenAI model objects and image URLs', () => {
+    it('parses OpenAI model objects, image URLs, and base64 image data', () => {
         expect(parseModels({ data: [{ id: 'Qwen-Image-2.1' }, { id: 'other' }] })).toEqual(['Qwen-Image-2.1', 'other']);
-        expect(parseImageOutputs({ data: [{ url: 'https://images.example/result.png' }, { b64_json: 'ignored' }] })).toEqual([
+        expect(parseImageOutputs({
+            data: [
+                { url: 'https://images.example/result.png' },
+                { b64_json: 'encoded-image' },
+            ],
+        })).toEqual([
             { url: 'https://images.example/result.png', index: 0, contentType: 'image/*' },
+            { url: 'data:image/png;base64,encoded-image', index: 1, contentType: 'image/png' },
         ]);
     });
 

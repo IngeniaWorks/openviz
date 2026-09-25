@@ -15,6 +15,7 @@ export interface AIComputeSlice {
     setImageApiModels: (models: string[]) => void;
     setImageApiModel: (model: string) => void;
     setImageApiSize: (size: string) => void;
+    setEndpointConcurrency: (concurrency: number) => void;
 }
 
 export const createAIComputeSlice: StateCreator<AppState, [], [], AIComputeSlice> = (set) => ({
@@ -30,6 +31,7 @@ export const createAIComputeSlice: StateCreator<AppState, [], [], AIComputeSlice
         imageApiModels: [],
         imageApiModel: '',
         imageApiSize: '1024x1024',
+        endpointConcurrency: 2,
     },
     setComputePreference: (preference) => set((state) => ({ computeSettings: { ...state.computeSettings, preference } })),
     setLocalComfyEndpoint: (localEndpoint) => set((state) => ({ computeSettings: { ...state.computeSettings, localEndpoint } })),
@@ -42,4 +44,5 @@ export const createAIComputeSlice: StateCreator<AppState, [], [], AIComputeSlice
     setImageApiModels: (imageApiModels) => set((state) => ({ computeSettings: { ...state.computeSettings, imageApiModels } })),
     setImageApiModel: (imageApiModel) => set((state) => ({ computeSettings: { ...state.computeSettings, imageApiModel } })),
     setImageApiSize: (imageApiSize) => set((state) => ({ computeSettings: { ...state.computeSettings, imageApiSize } })),
+    setEndpointConcurrency: (endpointConcurrency) => set((state) => ({ computeSettings: { ...state.computeSettings, endpointConcurrency: Math.max(1, Math.min(3, Math.floor(endpointConcurrency))) } })),
 });

@@ -4,6 +4,7 @@ import { getWorkflow, mapStyleToId, WorkflowDefinition } from './ai/workflowRegi
 import { generateUUID } from '@/utils/uuid';
 import { createOpenAIImageTarget } from './ai/targets/openAIImageTarget';
 import { useStore } from '@/store/useStore';
+import { createGenerationQueue } from '@/services/ai/generationQueue';
 
 // Using Vite proxy to avoid CORS issues
 let comfyUrl = '/comfy-api';
@@ -430,41 +431,48 @@ export const comfyRenderService: RenderService = {
     }
 };
 
+const openAIImageGenerationQueue = createGenerationQueue();
+
 const openAIImageRenderService: RenderService = {
     async generate(request: GenerateRequest): Promise<GenerateResponse> {
         const settings = useStore.getState().computeSettings;
-        const size = normalizeImageApiSize(request.width, request.height);
-        const target = createOpenAIImageTarget({
-            id: 'image-api',
-            endpoint: settings.imageApiEndpoint ?? '',
-            model: settings.imageApiModel ?? '',
-            apiKey: settings.imageApiKey ?? '',
-            keyless: settings.imageApiKeyless ?? false,
-            size,
-        });
+        const endpoint = settings.imageApiEndpoint ?? '';
+        openAIImageGenerationQueue.setConcurrency(settings.endpointConcurrency ?? 2);
 
-        try {
-            const submitted = await target.submit({
-                workflowId: request.workflowId ?? 'image-generation',
-                prompt: request.prompt,
-                references: [],
-                width: request.width,
-                height: request.height,
-                batchSize: request.numImages ?? 1,
-                parameters: {
-                    stylePreset: request.stylePreset,
-                    drawingInfluence: request.drawingInfluence,
-                },
+        return openAIImageGenerationQueue.enqueue(endpoint, async () => {
+            const size = normalizeImageApiSize(request.width, request.height);
+            const target = createOpenAIImageTarget({
+                id: 'image-api',
+                endpoint,
+                model: settings.imageApiModel ?? '',
+                apiKey: settings.imageApiKey ?? '',
+                keyless: settings.imageApiKeyless ?? false,
+                size,
             });
-            const outputs = await target.getOutputs(submitted.jobId);
-            return { success: true, images: outputs.map((output) => output.url) };
-        } catch (error) {
-            return {
-                success: false,
-                images: [],
-                error: error instanceof Error ? error.message : 'OpenAI-compatible image generation failed.',
-            };
-        }
+
+            try {
+                const submitted = await target.submit({
+                    workflowId: request.workflowId ?? 'image-generation',
+                    prompt: request.prompt,
+                    references: [],
+                    width: request.width,
+                    height: request.height,
+                    batchSize: request.numImages ?? 1,
+                    parameters: {
+                        stylePreset: request.stylePreset,
+                        drawingInfluence: request.drawingInfluence,
+                    },
+                });
+                const outputs = await target.getOutputs(submitted.jobId);
+                return { success: true, images: outputs.map((output) => output.url) };
+            } catch (error) {
+                return {
+                    success: false,
+                    images: [],
+                    error: error instanceof Error ? error.message : 'OpenAI-compatible image generation failed.',
+                };
+            }
+        }).promise;
     },
 
     async animate(): Promise<GenerateResponse> {

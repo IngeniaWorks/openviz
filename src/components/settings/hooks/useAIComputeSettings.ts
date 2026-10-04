@@ -19,6 +19,7 @@ export function useAIComputeSettings() {
     const setImageApiModel = useStore((state) => state.setImageApiModel);
     const setImageApiSize = useStore((state) => state.setImageApiSize);
     const setEndpointConcurrency = useStore((state) => state.setEndpointConcurrency);
+    const setBenchmarkGateEnabled = useStore((state) => state.setBenchmarkGateEnabled);
     const applyComputeSettings = useStore((state) => state.applyComputeSettings);
     const setPreference = useStore((state) => state.setComputePreference);
     // Persisted IndexedDB snapshots can predate the image API settings. Keep
@@ -31,6 +32,7 @@ export function useAIComputeSettings() {
     const imageApiModel = settings.imageApiModel ?? '';
     const imageApiSize = settings.imageApiSize ?? '1024x1024';
     const endpointConcurrency = Math.max(1, Math.min(3, settings.endpointConcurrency ?? 2));
+    const benchmarkGateEnabled = settings.benchmarkGateEnabled ?? true;
     const endpoint = settings.targetKind === 'hosted' ? (settings.hostedEndpoint ?? '') : (settings.localEndpoint ?? '');
     const setEndpoint = settings.targetKind === 'hosted' ? setHostedEndpoint : setLocalEndpoint;
     const [status, setStatus] = useState<ConnectionStatus>('idle');
@@ -165,6 +167,8 @@ export function useAIComputeSettings() {
         setImageApiSize,
         endpointConcurrency,
         setEndpointConcurrency,
+        benchmarkGateEnabled,
+        setBenchmarkGateEnabled,
         status,
         preference: settings.preference,
         setPreference,

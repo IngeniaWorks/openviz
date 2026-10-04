@@ -60,6 +60,7 @@ function makeSettings(overrides: Partial<ComputeSettings> = {}): ComputeSettings
         imageApiModel: '',
         imageApiSize: '1024x1024',
         endpointConcurrency: 2,
+        benchmarkGateEnabled: true,
         ...overrides,
     };
 }

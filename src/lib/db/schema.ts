@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, jsonb, customType, primaryKey, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, integer, real, jsonb, customType, primaryKey, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 /** Postgres `bytea` column type (removed from drizzle pg-core in 0.4x). */
@@ -226,4 +226,77 @@ export const usersRelations = relations(users, ({ many }) => ({
     ownedWorkspaces: many(workspaces),
     aiComputeSettings: many(aiComputeSettings),
     aiEndpointProfiles: many(aiEndpointProfiles),
+}));
+
+// ---------------------------------------------------------------------------
+// Feature 012 — AI Render Task Parameters (specs/012-ai-render-task-params)
+// Deliberate deviation from the uuid/timestamp convention above: all IDs are
+// strings (ULID) and timestamps are epoch milliseconds, per data-model.md.
+// ---------------------------------------------------------------------------
+
+/** FR-019 machine-readable task record; SC-008 reproducibility source. */
+export const taskRecords = pgTable('task_records', {
+    id: text('id').primaryKey(),
+    projectId: text('project_id'),
+    kind: text('kind', { enum: ['modify', 'instant-render', 'form-variate', 'color-variate', 'new-view', 'animate', 'extract'] }).notNull(),
+    /** Full RenderTaskRequest, verbatim user-level inputs. */
+    request: jsonb('request').notNull(),
+    /** Exact ResolvedRenderParameters (provider-neutral) used. */
+    resolved: jsonb('resolved').notNull(),
+    protocol: text('protocol', { enum: ['openai-compatible', 'comfyui'] }).notNull(),
+    modelFamily: text('model_family'),
+    /** One seed per output (SC-008 lock target). */
+    seeds: jsonb('seeds').notNull(),
+    status: text('status', { enum: ['queued', 'active', 'completed', 'partial', 'failed', 'cancelled', 'interrupted'] }).notNull(),
+    queuePositionAtSubmit: integer('queue_position_at_submit'),
+    error: text('error'),
+    /** → GenerationResult rows; a batch shares one task. */
+    outputIds: jsonb('output_ids').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+}, (table) => ({
+    projectIdIdx: index('task_records_project_id_idx').on(table.projectId),
+    statusIdx: index('task_records_status_idx').on(table.status),
+}));
+
+/** Structured extraction result for a kind='extract' task (FR-018). */
+export const extractionRecords = pgTable('extraction_records', {
+    id: text('id').primaryKey(),
+    taskId: text('task_id').references(() => taskRecords.id, { onDelete: 'cascade' }).notNull(),
+    sourceImageId: text('source_image_id').notNull(),
+    kind: text('kind', { enum: ['color', 'material', 'parts'] }).notNull(),
+    sampleBy: text('sample_by', { enum: ['hierarchy', 'region'] }).notNull(),
+    /** Array of ExtractionComponent; background excluded. */
+    components: jsonb('components').notNull(),
+    /** Overall record confidence, 0–1. */
+    confidence: real('confidence').notNull(),
+    createdAt: integer('created_at').notNull(),
+}, (table) => ({
+    taskIdIdx: index('extraction_records_task_id_idx').on(table.taskId),
+}));
+
+/** Saved, referenceable unit of design data created from an extraction record (FR-023). */
+export const projectAssets = pgTable('project_assets', {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').notNull(),
+    kind: text('kind', { enum: ['palette', 'material-notes', 'part-list'] }).notNull(),
+    /** Provenance → ExtractionRecord.id. */
+    extractionRecordId: text('extraction_record_id').references(() => extractionRecords.id, { onDelete: 'cascade' }).notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: integer('created_at').notNull(),
+}, (table) => ({
+    projectIdIdx: index('project_assets_project_id_idx').on(table.projectId),
+}));
+
+export const taskRecordsRelations = relations(taskRecords, ({ one }) => ({
+    extractionRecord: one(extractionRecords, { fields: [taskRecords.id], references: [extractionRecords.taskId] }),
+}));
+
+export const extractionRecordsRelations = relations(extractionRecords, ({ one }) => ({
+    task: one(taskRecords, { fields: [extractionRecords.taskId], references: [taskRecords.id] }),
+    projectAsset: one(projectAssets, { fields: [extractionRecords.id], references: [projectAssets.extractionRecordId] }),
+}));
+
+export const projectAssetsRelations = relations(projectAssets, ({ one }) => ({
+    extractionRecord: one(extractionRecords, { fields: [projectAssets.extractionRecordId], references: [extractionRecords.id] }),
 }));

@@ -1,3 +1,14 @@
+/**
+ * OpenAI-compatible image generation target (Unsloth endpoint).
+ *
+ * Feature 012 (T006): payload building and step-level progress polling live
+ * in `openAIImagePayload.ts` / `openAIImageProgress.ts`. The native route
+ * passes through `negative_prompt`, `strength`, per-output `seeds`, and
+ * `reference_resolution`; fields the endpoint rejects are dropped on a single
+ * retry (capability-tolerant, R4). Runtime internals are never emitted
+ * (FR-002).
+ */
+
 import type {
     ExecutionTargetAdapter,
     GenerationOutput,
@@ -9,6 +20,17 @@ import type {
 } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 import { blobToDataUrl } from '@/services/imageSource';
+import {
+    NATIVE_OPTIONAL_FIELDS,
+    buildNativeImagePayload,
+    endpointRoot,
+    normalizeInputImage,
+    parseImageOutputs,
+    parseModels,
+    parseNativeImageOutputs,
+    parseRequestDimensions,
+} from './openAIImagePayload';
+import { createNativeProgressPoller, type NativeProgressState } from './openAIImageProgress';
 
 type Fetcher = typeof fetch;
 type JsonRecord = Record<string, unknown>;
@@ -20,6 +42,8 @@ export interface OpenAIImageTargetOptions {
     apiKey?: string;
     keyless?: boolean;
     size?: string;
+    /** Capability probe result: the endpoint exposes generate-progress (SC-009). */
+    progressTelemetry?: boolean;
     fetcher?: Fetcher;
 }
 
@@ -47,6 +71,8 @@ function errorMessage(body: unknown, fallback: string): string {
     if (typeof nested.message === 'string') return nested.message;
     if (typeof record.error === 'string') return record.error;
     if (typeof record.message === 'string') return record.message;
+    // FastAPI-style validation errors (400/422) surface in `detail`.
+    if (typeof record.detail === 'string') return record.detail;
     return fallback;
 }
 
@@ -62,122 +88,6 @@ function headers(options: OpenAIImageTargetOptions, includeJson = false): Header
         ...(includeJson ? { 'Content-Type': 'application/json' } : {}),
         ...(authorization ? { Authorization: authorization } : {}),
     };
-}
-
-function parseModels(body: unknown): string[] {
-    const record = asRecord(body);
-    const data = Array.isArray(record.data) ? record.data : [];
-    return data.flatMap((entry) => {
-        if (typeof entry === 'string') return [entry];
-        const model = asRecord(entry);
-        return typeof model.id === 'string' ? [model.id] : [];
-    });
-}
-
-function parseImageOutputs(body: unknown): GenerationOutput[] {
-    const data = asRecord(body).data;
-    if (!Array.isArray(data)) return [];
-    return data.flatMap((entry, index) => {
-        const record = asRecord(entry);
-        if (typeof record.url === 'string' && /^https?:\/\//.test(record.url)) {
-            return [{ url: record.url, index, contentType: 'image/*' }];
-        }
-
-        // OpenAI's Images API commonly returns base64 image data instead of a
-        // hosted URL. Convert it to a browser-readable data URL so the rest of
-        // the render pipeline can treat both response formats identically.
-        if (typeof record.b64_json === 'string' && record.b64_json.length > 0) {
-            const contentType = typeof record.mime_type === 'string' && record.mime_type.startsWith('image/')
-                ? record.mime_type
-                : 'image/png';
-            return [{
-                url: `data:${contentType};base64,${record.b64_json}`,
-                index,
-                contentType,
-            }];
-        }
-
-        return [];
-    });
-}
-
-function parseSize(size: string | undefined, width: number, height: number): { width: number; height: number } {
-    const match = size?.match(/^(\d+)x(\d+)$/);
-    return match ? { width: Number(match[1]), height: Number(match[2]) } : { width, height };
-}
-
-function normalizeNativeImageDimensions(
-    dimensions: { width: number; height: number },
-    model: string,
-): { width: number; height: number } {
-    // Qwen Image 2.1 requires both dimensions to be divisible by 32.
-    // Keep the requested aspect ratio as closely as possible while satisfying
-    // the backend contract instead of allowing a 16-aligned canvas size through.
-    if (/qwen[-_ ]image[-_ ]2\.1/i.test(model)) {
-        return {
-            width: Math.max(32, Math.round(dimensions.width / 32) * 32),
-            height: Math.max(32, Math.round(dimensions.height / 32) * 32),
-        };
-    }
-    return dimensions;
-}
-
-function endpointRoot(endpoint: string): string {
-    return endpoint.replace(/\/v\d+$/i, '');
-}
-
-function resolveNativeImageUrl(endpoint: string, url: string): string {
-    const normalizedUrl = url.replace(/\/$/, '');
-    const galleryPath = normalizedUrl.match(/^(\/api\/inference\/images\/gallery\/[^/]+)(?:\/file)?$/);
-    const resolvedPath = galleryPath ? `${galleryPath[1]}/file` : normalizedUrl;
-    if (/^(?:data:|https?:\/\/)/.test(resolvedPath)) return resolvedPath;
-    return `${endpointRoot(endpoint)}${resolvedPath.startsWith('/') ? '' : '/'}${resolvedPath}`;
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-    }
-    return btoa(binary);
-}
-
-async function normalizeInputImage(input: string | undefined, fetcher: Fetcher): Promise<string | undefined> {
-    if (!input?.trim()) return undefined;
-    const value = input.trim();
-
-    if (value.startsWith('data:')) {
-        const match = value.match(/^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/]+={0,2})$/i);
-        if (!match || match[2].length % 4 === 1) {
-            throw new Error('The source image is not valid base64 image data.');
-        }
-        return value;
-    }
-
-    if (/^(?:https?:|blob:)/i.test(value)) {
-        // Source images belong to the user's project or a third-party host.
-        // Never forward the image API's Authorization header to that host.
-        const response = await fetcher(value);
-        if (!response.ok) throw new Error(`Source image download failed (${response.status}).`);
-        const contentType = response.headers.get('content-type')?.split(';')[0] ?? 'image/png';
-        if (!contentType.startsWith('image/')) throw new Error('The source image URL did not return an image.');
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        return `data:${contentType};base64,${bytesToBase64(bytes)}`;
-    }
-
-    throw new Error('The source image must be a data URL or an image URL.');
-}
-
-function parseNativeImageOutputs(body: unknown, endpoint: string): GenerationOutput[] {
-    const images = asRecord(body).images;
-    if (!Array.isArray(images)) return [];
-    return images.flatMap((entry, index) => {
-        const record = asRecord(entry);
-        return typeof record.url === 'string'
-            ? [{ url: resolveNativeImageUrl(endpoint, record.url), index, contentType: 'image/png' }]
-            : [];
-    });
 }
 
 async function materializeNativeImageOutputs(
@@ -202,6 +112,12 @@ export function createOpenAIImageTarget(options: OpenAIImageTargetOptions): Exec
     const fetcher = options.fetcher ?? fetch;
     let cachedModels: string[] = [];
     let cachedOutputs: GenerationOutput[] = [];
+    const progressState: NativeProgressState = {
+        inFlight: false,
+        telemetry: Boolean(options.progressTelemetry),
+        lastFraction: null,
+    };
+    const progressPoller = createNativeProgressPoller(progressState, endpointRoot(endpoint), fetcher);
 
     async function listModels(): Promise<string[]> {
         const response = await fetcher(`${endpoint}/models`, { headers: headers(options) });
@@ -213,6 +129,41 @@ export function createOpenAIImageTarget(options: OpenAIImageTargetOptions): Exec
         cachedModels = parseModels(body);
         if (cachedModels.length === 0) throw new Error('The image API returned no usable models.');
         return cachedModels;
+    }
+
+    async function postJson(url: string, payload: Record<string, unknown>): Promise<Response> {
+        return fetcher(url, { method: 'POST', headers: headers(options, true), body: JSON.stringify(payload) });
+    }
+
+    async function submitNative(request: ProductWorkflowRequest): Promise<void> {
+        const dimensions = parseRequestDimensions(options.size, request, options.model);
+        const baseOptions = { model: options.model, width: dimensions.width, height: dimensions.height };
+        const targetUrl = `${endpointRoot(endpoint)}/api/inference/images/generate`;
+        const hadOptionalFields = Boolean(
+            request.negativePrompt
+            || request.strength !== undefined
+            || (request.seeds?.length ?? 0) > 0
+            || request.referenceResolution,
+        );
+
+        let response = await postJson(targetUrl, buildNativeImagePayload(request, baseOptions));
+        if (!response.ok && hadOptionalFields && (response.status === 400 || response.status === 422)) {
+            // Capability-tolerant retry: drop the optional fields an older
+            // endpoint may not support; never fatal (R4).
+            response = await postJson(targetUrl, buildNativeImagePayload(request, baseOptions, new Set(NATIVE_OPTIONAL_FIELDS)));
+        }
+
+        const body = await readJson(response);
+        if (!response.ok) {
+            const suffix = response.status === 401 || response.status === 403 ? ' Check the API key and Authorization header.' : '';
+            throw new Error(`${errorMessage(body, `Image generation failed (${response.status}).`)}${suffix}`);
+        }
+
+        const parsedOutputs = parseNativeImageOutputs(body, endpoint);
+        cachedOutputs = request.initImage
+            ? await materializeNativeImageOutputs(parsedOutputs, options, fetcher)
+            : parsedOutputs;
+        if (cachedOutputs.length === 0) throw new Error('The image API returned no usable image URLs.');
     }
 
     return {
@@ -259,57 +210,48 @@ export function createOpenAIImageTarget(options: OpenAIImageTargetOptions): Exec
                     .filter((image) => image.trim().length > 0)
                     .map((image) => normalizeInputImage(image, fetcher)),
             ).then((images) => images.filter((image): image is string => Boolean(image)));
-            const hasInputImage = Boolean(initImage);
-            const hasImageConditions = hasInputImage || referenceImages.length > 0 || Boolean(request.maskImage);
-            const targetUrl = hasImageConditions
-                ? `${endpointRoot(endpoint)}/api/inference/images/generate`
-                : `${endpoint}/images/generations`;
-            const dimensions = normalizeNativeImageDimensions(
-                parseSize(options.size, request.width, request.height),
-                options.model,
-            );
-            const payload = hasImageConditions
-                ? {
-                    prompt: request.prompt,
-                    model: options.model,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                    batch_size: request.batchSize,
-                    ...(initImage ? { init_image: initImage } : {}),
-                    mask_image: request.maskImage,
-                    ...(referenceImages.length > 0 ? { reference_images: referenceImages } : {}),
-                    ...(request.referenceResolution ? { reference_resolution: request.referenceResolution } : {}),
-                    workflow: request.imageWorkflow ?? (referenceImages.length > 0 ? 'reference' : 'edit'),
-                    ...(request.negativePrompt ? { negative_prompt: request.negativePrompt } : {}),
-                    ...(request.seed !== undefined ? { seed: request.seed } : {}),
-                }
-                : {
+
+            // Rebind the normalized inputs so the native payload carries data URLs.
+            const nativeRequest: ProductWorkflowRequest = {
+                ...request,
+                ...(initImage ? { initImage } : {}),
+                ...(referenceImages.length > 0 ? { referenceImages } : {}),
+            };
+
+            cachedOutputs = [];
+            if (!initImage && referenceImages.length === 0 && !request.maskImage) {
+                // Plain OpenAI-compatible generation — no native conditions.
+                const response = await postJson(`${endpoint}/images/generations`, {
                     model: options.model,
                     prompt: request.prompt,
                     n: request.batchSize,
                     size: options.size ?? `${request.width}x${request.height}`,
-                };
-            const response = await fetcher(targetUrl, {
-                method: 'POST',
-                headers: headers(options, true),
-                body: JSON.stringify(payload),
-            });
-            const body = await readJson(response);
-            if (!response.ok) {
-                const suffix = response.status === 401 || response.status === 403 ? ' Check the API key and Authorization header.' : '';
-                throw new Error(`${errorMessage(body, `Image generation failed (${response.status}).`)}${suffix}`);
+                });
+                const body = await readJson(response);
+                if (!response.ok) {
+                    const suffix = response.status === 401 || response.status === 403 ? ' Check the API key and Authorization header.' : '';
+                    throw new Error(`${errorMessage(body, `Image generation failed (${response.status}).`)}${suffix}`);
+                }
+                cachedOutputs = parseImageOutputs(body);
+                if (cachedOutputs.length === 0) throw new Error('The image API returned no usable image URLs.');
+            } else {
+                progressState.inFlight = true;
+                progressPoller.start();
+                try {
+                    await submitNative(nativeRequest);
+                } finally {
+                    progressState.inFlight = false;
+                    progressPoller.stop();
+                }
             }
-            const parsedOutputs = hasImageConditions
-                ? parseNativeImageOutputs(body, endpoint)
-                : parseImageOutputs(body);
-            cachedOutputs = hasInputImage
-                ? await materializeNativeImageOutputs(parsedOutputs, options, fetcher)
-                : parsedOutputs;
-            if (cachedOutputs.length === 0) throw new Error('The image API returned no usable image URLs.');
+
             return { jobId: `image-api-${Date.now()}`, targetId: options.id };
         },
 
         async getStatus(jobId: string): Promise<NormalizedJobStatus> {
+            if (progressState.inFlight) {
+                return { jobId, status: 'running', progress: progressPoller.getProgress() };
+            }
             return { jobId, status: cachedOutputs.length > 0 ? 'completed' : 'failed', progress: cachedOutputs.length > 0 ? 100 : 0 };
         },
 
@@ -323,4 +265,4 @@ export function createOpenAIImageTarget(options: OpenAIImageTargetOptions): Exec
     };
 }
 
-export { normalizeNativeImageDimensions, parseModels, parseImageOutputs, parseNativeImageOutputs };
+export { normalizeNativeImageDimensions, parseModels, parseImageOutputs, parseNativeImageOutputs } from './openAIImagePayload';

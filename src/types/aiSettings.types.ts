@@ -1,11 +1,12 @@
 import type { ComputeSettings, ExecutionTargetKind, ExecutionTargetProtocol } from './executionTarget.types';
 
-export interface PersistedAISettings extends Omit<ComputeSettings, 'imageApiKey'> {
+// `benchmarkGateEnabled` is client-side only (feature 012 FR-021) and never persisted.
+export interface PersistedAISettings extends Omit<ComputeSettings, 'imageApiKey' | 'benchmarkGateEnabled'> {
     hasImageApiKey: boolean;
     updatedAt: string;
 }
 
-export interface AISettingsUpdate extends Partial<Omit<ComputeSettings, 'imageApiKey'>> {
+export interface AISettingsUpdate extends Partial<Omit<ComputeSettings, 'imageApiKey' | 'benchmarkGateEnabled'>> {
     imageApiKey?: string | null;
 }
 

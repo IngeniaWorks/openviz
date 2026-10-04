@@ -155,14 +155,13 @@ export interface TaskRecord {
 
 /**
  * State transitions (data-model.md §4):
- * queued → active (slot acquired) | cancelled (pre-run);
+ * queued → active (slot acquired) | cancelled (pre-run); a reload restores queued tasks as-is.
  * active → completed (all ok) | partial (some ok) | failed (all fail/timeout)
- *         | cancelled (mid-run, supported);
- * interrupted = reload with no live promise (terminal, retryable).
+ *         | cancelled (mid-run, supported) | interrupted (reload w/ no live promise — terminal, retryable).
  */
 export const RENDER_TASK_STATUS_TRANSITIONS: Record<RenderTaskStatus, readonly RenderTaskStatus[]> = {
     queued: ['active', 'cancelled'],
-    active: ['completed', 'partial', 'failed', 'cancelled'],
+    active: ['completed', 'partial', 'failed', 'cancelled', 'interrupted'],
     completed: [],
     partial: [],
     failed: [],
@@ -173,6 +172,17 @@ export const RENDER_TASK_STATUS_TRANSITIONS: Record<RenderTaskStatus, readonly R
 /** Terminal states have no outgoing transitions. */
 export function isRenderTaskStatusTerminal(status: RenderTaskStatus): boolean {
     return RENDER_TASK_STATUS_TRANSITIONS[status].length === 0;
+}
+
+/**
+ * Outcome of one provider run for a task (T005 coordinator input). A
+ * variation batch of N is one task with N outputs.
+ */
+export interface RenderTaskOutcome {
+    /** → GenerationResult rows; length ≤ requested variation count. */
+    outputIds: string[];
+    /** True only when every requested output succeeded. */
+    allOutputsSucceeded: boolean;
 }
 
 // ---------------------------------------------------------------------------

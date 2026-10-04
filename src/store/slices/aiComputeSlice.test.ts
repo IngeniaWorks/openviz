@@ -13,4 +13,14 @@ describe('aiComputeSlice', () => {
             targetKind: 'hybrid',
         });
     });
+
+    it('defaults the FR-021 benchmark launch gate to enabled and toggles it', () => {
+        expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(true);
+
+        useStore.getState().setBenchmarkGateEnabled(false);
+        expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(false);
+
+        useStore.getState().applyComputeSettings({ benchmarkGateEnabled: true });
+        expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(true);
+    });
 });

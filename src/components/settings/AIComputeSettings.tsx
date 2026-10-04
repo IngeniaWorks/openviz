@@ -23,6 +23,8 @@ export const AIComputeSettings: React.FC = () => {
         setImageApiSize,
         endpointConcurrency,
         setEndpointConcurrency,
+        benchmarkGateEnabled,
+        setBenchmarkGateEnabled,
         status,
         preference,
         setPreference,
@@ -185,6 +187,10 @@ export const AIComputeSettings: React.FC = () => {
                     <option value="high-quality">High quality / BF16</option>
                     <option value="hosted">Hosted GPU</option>
                 </select>
+                <label htmlFor="benchmark-gate" className="mt-4 flex items-start gap-2 text-xs text-zinc-400">
+                    <input id="benchmark-gate" type="checkbox" checked={benchmarkGateEnabled} onChange={(event) => setBenchmarkGateEnabled(event.target.checked)} className="mt-0.5 accent-violet-500" />
+                    <span>Benchmark launch gate — block render task kinds whose defaults are not yet validated on the benchmark set.</span>
+                </label>
             </section>
 
             <div className="flex items-center justify-end gap-3 border-t border-zinc-800 pt-5">

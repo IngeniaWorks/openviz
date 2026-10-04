@@ -40,6 +40,8 @@ export interface ComputeSettings {
     imageApiModel: string;
     imageApiSize: string;
     endpointConcurrency: number;
+    /** FR-021 launch gate (R8); client-side only, never persisted. `true` = block unvalidated task kinds. */
+    benchmarkGateEnabled: boolean;
 }
 
 export interface ExecutionTarget {

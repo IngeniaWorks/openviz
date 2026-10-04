@@ -36,6 +36,13 @@
       "when": 1790720272767,
       "tag": "0004_easy_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791084925847,
+      "tag": "0005_late_mandarin",
+      "breakpoints": true
     }
   ]
 }

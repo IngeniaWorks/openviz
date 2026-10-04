@@ -161,6 +161,10 @@ export interface ProductWorkflowRequest {
     modelFamily?: ProductModelFamily;
     modelTier?: ModelTier;
     seed?: number;
+    /** Per-output seeds for batched generation (one per output); single seed when absent. */
+    seeds?: number[];
+    /** Edit-workflow denoise strength (0–1); lower stays closer to the source image. */
+    strength?: number;
     parameters: Record<string, WorkflowValue>;
     /** Resolved data URL used by native Unsloth image-conditioned generation. */
     initImage?: string;
@@ -172,6 +176,12 @@ export interface ProductWorkflowRequest {
     imageWorkflow?: 'edit' | 'reference';
     /** Resolution used to encode native reference images. */
     referenceResolution?: 512 | 1024 | 2048;
+    /** Video only: resolved data URL the clip ends on (optional end frame, FR-017). */
+    endImage?: string;
+    /** Video only: frame count resolved from the duration choice (R1). */
+    numFrames?: number;
+    /** Video only: playback frame rate (R1). */
+    fps?: number;
 }
 
 export interface WorkflowValidationIssue {

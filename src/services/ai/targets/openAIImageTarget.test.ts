@@ -2,6 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOpenAIImageTarget, normalizeNativeImageDimensions, parseImageOutputs, parseModels } from './openAIImageTarget';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 
+// Runtime internals that must never leak into any outbound payload (FR-002).
+const RUNTIME_INTERNALS = ['guidance_2', 'quantization', 'offload', 'memory_mode', 'attention_backend', 'cache', 'caches'];
+
+function bodyOf(call: unknown[]): Record<string, unknown> {
+    const init = call[1] as RequestInit | undefined;
+    if (typeof init?.body !== 'string' || init.body.length === 0) return {};
+    return JSON.parse(init.body) as Record<string, unknown>;
+}
+
 const request: ProductWorkflowRequest = {
     workflowId: 'product_concept',
     prompt: 'A red desk lamp',
@@ -178,5 +187,106 @@ describe('openAIImageTarget', () => {
         const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'model', apiKey: 'secret', size: '1536x1024', fetcher });
         await target.submit(request);
         expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({ size: '1536x1024' });
+    });
+});
+
+describe('openAIImageTarget — feature 012 render task pass-through', () => {
+    const nativeOk = (fetcher: ReturnType<typeof vi.fn>) => {
+        fetcher
+            .mockResolvedValueOnce(new Response(JSON.stringify({ images: [{ url: '/api/inference/images/gallery/result/file' }] }), { status: 200 }))
+            .mockResolvedValueOnce(new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } }));
+    };
+
+    it('passes strength, seeds, negative_prompt and reference_resolution through on the native path', async () => {
+        const fetcher = vi.fn<typeof fetch>();
+        nativeOk(fetcher);
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', fetcher });
+
+        await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=', imageWorkflow: 'edit', strength: 0.35, seeds: [11, 22], batchSize: 2 });
+        expect(bodyOf(fetcher.mock.calls[0])).toMatchObject({ workflow: 'edit', strength: 0.35, seeds: [11, 22], batch_size: 2 });
+
+        nativeOk(fetcher);
+        await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=', imageWorkflow: 'reference', referenceImages: ['data:image/png;base64,aW5wdXQ='], negativePrompt: 'text, watermarks', referenceResolution: 1024 });
+        expect(bodyOf(fetcher.mock.calls[2])).toMatchObject({ workflow: 'reference', negative_prompt: 'text, watermarks', reference_resolution: 1024 });
+    });
+
+    it('drops capability-rejected fields and retries once (capability-tolerant)', async () => {
+        const fetcher = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ detail: 'unexpected field strength' }), { status: 400 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({ images: [{ url: '/api/inference/images/gallery/result/file' }] }), { status: 200 }))
+            .mockResolvedValueOnce(new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } }));
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', fetcher });
+
+        await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=', imageWorkflow: 'edit', strength: 0.35, negativePrompt: 'text' });
+        expect(fetcher).toHaveBeenCalledTimes(3);
+        const retried = bodyOf(fetcher.mock.calls[1]);
+        expect(retried).not.toHaveProperty('strength');
+        expect(retried).not.toHaveProperty('negative_prompt');
+        expect(retried).toHaveProperty('prompt', request.prompt);
+    });
+
+    it('surfaces the endpoint error when the retry also fails', async () => {
+        const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ detail: 'unexpected field strength' }), { status: 400 }));
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', fetcher });
+
+        await expect(target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=', strength: 0.35 })).rejects.toThrow('unexpected field strength');
+    });
+
+    it('never emits runtime internals on any payload (FR-002)', async () => {
+        const fetcher = vi.fn<typeof fetch>();
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', fetcher });
+
+        // Plain OpenAI-compatible path.
+        fetcher.mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ url: 'https://images.example/result.png' }] }), { status: 200 }));
+        await target.submit(request);
+        // Native edit path with every optional field set.
+        nativeOk(fetcher);
+        await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=', imageWorkflow: 'edit', strength: 0.35, seeds: [1], negativePrompt: 'text', referenceResolution: 512 });
+
+        for (const call of fetcher.mock.calls) {
+            const body = bodyOf(call);
+            for (const key of RUNTIME_INTERNALS) expect(body).not.toHaveProperty(key);
+        }
+    });
+
+    it('polls step-level progress while a generation is in flight when telemetry is probed', async () => {
+        let releaseSubmit!: () => void;
+        const submitResponse = new Promise<Response>((resolve) => {
+            releaseSubmit = () => resolve(new Response(JSON.stringify({ images: [{ url: '/api/inference/images/gallery/result/file' }] }), { status: 200 }));
+        });
+        const fetcher = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(JSON.stringify({ active: true, step: 6, total_steps: 30, fraction: 0.2 }), { status: 200 })) // call 0: immediate progress poll (poller starts before the POST)
+            .mockReturnValueOnce(submitResponse) // call 1: submit (held until releaseSubmit)
+            .mockResolvedValueOnce(new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } })); // call 2: materialize
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', progressTelemetry: true, fetcher });
+
+        const submitPromise = target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=' });
+        // Let the async input normalization finish so the job is in flight and the first poll has landed.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        await expect(target.getStatus('image-api-1')).resolves.toMatchObject({ status: 'running', progress: 20 });
+        expect(fetcher.mock.calls[0]?.[0]).toBe('http://localhost:8001/api/inference/images/generate-progress');
+
+        releaseSubmit();
+        await submitPromise;
+        await expect(target.getStatus('image-api-1')).resolves.toMatchObject({ status: 'completed', progress: 100 });
+    });
+
+    it('falls back to 0→100 on completion when telemetry is not probed', async () => {
+        let releaseSubmit!: () => void;
+        const submitResponse = new Promise<Response>((resolve) => {
+            releaseSubmit = () => resolve(new Response(JSON.stringify({ images: [{ url: '/api/inference/images/gallery/result/file' }] }), { status: 200 }));
+        });
+        const fetcher = vi.fn<typeof fetch>()
+            .mockReturnValueOnce(submitResponse) // call 0: submit (held until releaseSubmit)
+            .mockResolvedValueOnce(new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } })); // call 1: materialize
+        const target = createOpenAIImageTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'm', apiKey: 'secret', fetcher });
+
+        const submitPromise = target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=' });
+        await new Promise((resolve) => setTimeout(resolve, 10)); // let normalization finish so the job is in flight
+        await expect(target.getStatus('image-api-1')).resolves.toMatchObject({ status: 'running', progress: 0 });
+        releaseSubmit();
+        await submitPromise;
+        await expect(target.getStatus('image-api-1')).resolves.toMatchObject({ status: 'completed', progress: 100 });
+        expect(fetcher).toHaveBeenCalledTimes(2); // submit + materialize only — no progress route
     });
 });

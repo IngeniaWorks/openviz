@@ -1,7 +1,24 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { useStore } from '@/store/useStore';
 import { GenerationNodeMockup } from './GenerationNodeMockup';
 import { MODIFY_PROMPT_TEMPLATES } from './GenerationModifyMode';
+
+/**
+ * The mockup submits through the real render-task surface. In tests no image
+ * backend is configured, so image-workflow submissions fail at the capability
+ * check and video submissions (ComfyUI fallback) at the FR-021 benchmark gate —
+ * both before any network or persistence, proving the wiring without side effects.
+ */
+const NO_BACKEND_ERROR = /no image backend is configured/i;
+const GATE_ERROR = /benchmark gate/i;
+
+beforeEach(() => {
+    useStore.setState({
+        renderReferences: [], renderTaskStatus: 'idle', renderTaskQueuePosition: null, renderTaskError: null,
+        renderTaskOutputs: [], renderTaskExtraction: null, renderTaskId: null, renderRecordId: null, lastRenderRequest: null,
+    });
+});
 
 describe('GenerationNodeMockup', () => {
     it('uses the Workbench node shell and shows the specified base actions', () => {
@@ -154,7 +171,9 @@ describe('GenerationNodeMockup', () => {
         expect(generate).toBeEnabled();
         fireEvent.click(generate);
 
-        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Mock generation submitted · Modify'));
+        // Real wiring: the submission reaches the render-task surface and fails at the capability check (no backend in tests).
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(NO_BACKEND_ERROR));
+        expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
     });
 
     it('opens the Animate mode with its frames and settings body', async () => {
@@ -163,12 +182,18 @@ describe('GenerationNodeMockup', () => {
 
         expect(await screen.findByRole('heading', { name: 'Animate' })).toBeInTheDocument();
         expect(screen.getByText('Start')).toBeInTheDocument();
-        expect(screen.getByText('End · connect an image')).toBeInTheDocument();
+        expect(screen.getByText('End · optional')).toBeInTheDocument();
+
+        // A motion description is required before the real submit is enabled.
+        expect(screen.getByRole('button', { name: /^Animate$/i })).toBeDisabled();
+        fireEvent.change(screen.getByPlaceholderText(/describe the motion/i), { target: { value: 'slow 360 turntable' } });
+
         fireEvent.change(screen.getByLabelText('Style'), { target: { value: 'cinematic' } });
         fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '8s' } });
-        fireEvent.click(screen.getByRole('button', { name: 'Animate' }));
+        fireEvent.click(screen.getByRole('button', { name: /^Animate$/i }));
 
-        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Mock generation submitted · Animate'));
+        // Video passes the capability check via the ComfyUI fallback, then stops at the FR-021 benchmark gate.
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(GATE_ERROR));
     });
 
     it('opens the minimal Instant Render form with its connected reference and animated generate action', async () => {
@@ -176,16 +201,18 @@ describe('GenerationNodeMockup', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Instant Render' }));
 
         expect(await screen.findByRole('heading', { name: 'Instant Render' })).toBeInTheDocument();
-        expect(screen.getByLabelText('Reference image')).toHaveValue('Arc lamp · connected');
+        // The connected reference name is displayed from the render-task references.
+        expect(screen.getByText('Arc Lamp')).toBeInTheDocument();
         const prompt = screen.getByPlaceholderText('Describe your changes');
         expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled();
         fireEvent.change(prompt, { target: { value: 'Warm brushed aluminum' } });
         const generate = screen.getByRole('button', { name: 'Generate' });
         expect(generate).toBeEnabled();
-        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+        // FR-013: the seven aspect-ratio presets are offered.
+        expect(screen.getByRole('combobox', { name: /aspect ratio/i })).toBeInTheDocument();
         fireEvent.click(generate);
 
-        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Mock generation submitted · Instant Render'));
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(NO_BACKEND_ERROR));
     });
 
     it('preserves Variation form settings across base-state transitions', async () => {
@@ -237,20 +264,23 @@ describe('GenerationNodeMockup', () => {
         expect(generate).toBeEnabled();
 
         fireEvent.click(generate);
-        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Mock generation submitted · New view'));
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(NO_BACKEND_ERROR));
     });
 
-    it('updates Extract type and requires an attached source to run', async () => {
+    it('runs Extract against the connected reference with type and sampling controls', async () => {
         render(<GenerationNodeMockup />);
         fireEvent.click(screen.getByRole('button', { name: 'Extract' }));
 
         expect(await screen.findByRole('heading', { name: 'Extract' })).toBeInTheDocument();
-        const action = screen.getByRole('button', { name: 'Update colors' });
-        expect(action).toBeDisabled();
+        // The demo reference is connected, so extraction is immediately runnable.
+        expect(screen.getByRole('button', { name: 'Update colors' })).toBeEnabled();
         fireEvent.click(screen.getByRole('button', { name: 'Material' }));
-        expect(screen.getByRole('button', { name: 'Extract material' })).toBeDisabled();
-        fireEvent.click(screen.getByRole('button', { name: 'Attach an image to sample' }));
-        expect(screen.getByRole('button', { name: 'Extract material' })).toBeEnabled();
+        const action = screen.getByRole('button', { name: 'Extract material' });
+        expect(action).toBeEnabled();
+        fireEvent.change(screen.getByLabelText(/sample by/i), { target: { value: 'Region' } });
+        fireEvent.click(action);
+
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(NO_BACKEND_ERROR));
     });
 
     it('reveals a plain-language mode description from the info control', async () => {

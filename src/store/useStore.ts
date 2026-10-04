@@ -11,6 +11,7 @@ import { createWorkbenchSlice } from './slices/workbenchSlice';
 import { createHistorySlice } from './slices/historySlice';
 import { createWorkbenchCollaborationSlice } from './slices/workbenchCollaborationSlice';
 import { createAIComputeSlice } from './slices/aiComputeSlice';
+import { createRenderTaskSlice } from './slices/renderTaskSlice';
 import { createProductDesignSlice } from './slices/productDesignSlice';
 
 // Custom storage object for IndexedDB with debouncing
@@ -41,6 +42,7 @@ export const useStore = create<AppState>()(
             ...createWorkbenchSlice(...a),
             ...createWorkbenchCollaborationSlice(...a),
             ...createAIComputeSlice(...a),
+            ...createRenderTaskSlice(...a),
             ...createProductDesignSlice(...a),
             ...createHistorySlice(...a),
         }),

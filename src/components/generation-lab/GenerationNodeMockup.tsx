@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     Circle,
@@ -16,20 +16,28 @@ import {
     ZoomOut,
 } from 'lucide-react';
 import { cn, mediaNodeFrameClass, mediaNodeTitleClass, nodeCardClass } from '@/components/nodes/nodeUi';
+import { useStore } from '@/store/useStore';
 import { ProductArtwork } from './ProductArtwork';
 import { GenerationModePanel } from './GenerationModePanel';
+import { useRenderTask } from './useRenderTask';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
+
+/** Demo source image for the mockup (SVG data URL so <img> references render). */
+const DEMO_REFERENCE_DATA_URL = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#1f2937"/><path d="M22 52h20l-3-8H25z" fill="#a1a1aa"/><rect x="30" y="18" width="4" height="28" fill="#d1d5db"/><path d="M20 18a12 12 0 0 1 24 0z" fill="#fbbf24"/></svg>');
 
 const INITIAL_STATE: GenerationPlaygroundState = {
     mode: 'base',
     prompt: '',
-    modify: { aspectRatio: '1:1' },
+    instantRatio: '1:1',
+    advanced: { open: false, steps: 30, guidance: 4, referenceResolution: 1024 },
+    modify: { aspectRatio: '1:1', fidelity: 0.9 },
     animate: { styleId: 'standard_video', duration: '4s' },
     variation: {
         kind: 'form',
         axisLabels: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' },
         position: 'center',
         preset: 'Balanced',
+        magnitude: 0.5,
         paletteName: 'Untitled palette',
         swatches: ['stone', 'moss', 'sea', 'ember'],
         colorCount: 4,
@@ -45,8 +53,17 @@ const TOOL_CLASS = 'flex h-8 w-8 items-center justify-center rounded-lg text-viz
 
 export function GenerationNodeMockup() {
     const [state, setState] = useState(INITIAL_STATE);
-    const [status, setStatus] = useState('');
     const updateState = (patch: GenerationStatePatch) => setState((current) => ({ ...current, ...patch }));
+    const references = useStore((store) => store.renderReferences);
+    const addRenderReference = useStore((store) => store.addRenderReference);
+    const task = useRenderTask();
+
+    // The mockup ships with one connected demo reference so every mode is usable.
+    useEffect(() => {
+        if (useStore.getState().renderReferences.length === 0) {
+            addRenderReference('Arc Lamp', DEMO_REFERENCE_DATA_URL);
+        }
+    }, [addRenderReference]);
 
     return (
         <main className="relative min-h-[100dvh] overflow-x-hidden bg-white text-white" aria-label="Workbench mockup">
@@ -63,11 +80,9 @@ export function GenerationNodeMockup() {
                     <button type="button" aria-label="Connected source image input" className="nodrag absolute -left-[14px] top-1/2 z-20 flex h-[26px] w-[26px] -translate-y-1/2 items-center justify-center rounded-full border-2 border-viz-bg bg-viz-accent text-white shadow-viz">
                         <Plus size={15} strokeWidth={3} aria-hidden="true" />
                     </button>
-                    <GenerationModePanel state={state} referenceCount={1} onUpdate={updateState} onGenerate={(action) => setStatus(`Mock generation submitted · ${action}. No API request was sent.`)} />
+                    <GenerationModePanel state={state} referenceCount={references.length} references={references} task={task} onUpdate={updateState} onGenerate={task.submit} />
                 </motion.section>
             </section>
-
-            <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{status}</p>
         </main>
     );
 }
@@ -105,11 +120,13 @@ function WorkbenchMockChrome() {
 }
 
 function ReferenceImageNode() {
+    const references = useStore((store) => store.renderReferences);
+    const reference = references[0];
     return (
         <div className="relative z-10 w-[256px]">
-            <span className={mediaNodeTitleClass()}>Arc lamp · reference</span>
+            <span className={mediaNodeTitleClass()}>{reference?.name ?? 'Reference'} · reference</span>
             <div className={cn(mediaNodeFrameClass(false), 'aspect-square')}>
-                <ProductArtwork className="h-full w-full" />
+                {reference ? <img src={reference.dataUrl} alt="" className="h-full w-full object-cover" /> : <ProductArtwork className="h-full w-full" />}
             </div>
         </div>
     );

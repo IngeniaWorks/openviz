@@ -24,6 +24,13 @@ import {
 import type { CollabPresencePeer, CollabRemoteAwarenessEntry, CollabRemoteCursorState } from '@/types/collab.types';
 import type { ComputeSettings } from '@/types/executionTarget.types';
 import type { GenerationJob } from '@/types/generationJob.types';
+import type {
+    RenderTaskOutputState,
+    RenderTaskReference,
+    RenderTaskUiStatus,
+} from './slices/renderTaskSlice';
+import type { ExtractionOutput } from '@/services/ai/extractionService';
+import type { RenderTaskRequest } from '@/types/renderTask.types';
 import type { SceneDocCommands } from '@/services/collab/sceneDocCommands';
 
 export interface WorkbenchHistorySnapshot {
@@ -44,6 +51,15 @@ export interface AppState {
     resultsPanelOpen: boolean;
     activeLayerId: string | null;
     computeSettings: ComputeSettings;
+    renderReferences: RenderTaskReference[];
+    renderTaskStatus: RenderTaskUiStatus;
+    renderTaskQueuePosition: number | null;
+    renderTaskError: string | null;
+    renderTaskOutputs: RenderTaskOutputState[];
+    renderTaskExtraction: ExtractionOutput | null;
+    renderTaskId: string | null;
+    renderRecordId: string | null;
+    lastRenderRequest: RenderTaskRequest | null;
     productJobs: Record<string, GenerationJob>;
     productReferences: Record<string, ProductReference>;
     productVariantSets: Record<string, ProductVariantSet>;
@@ -139,6 +155,18 @@ export interface AppState {
     setEndpointConcurrency: (concurrency: number) => void;
     setBenchmarkGateEnabled: (enabled: boolean) => void;
     applyComputeSettings: (settings: Partial<ComputeSettings>) => void;
+    addRenderReference: (name: string, dataUrl: string) => void;
+    removeRenderReference: (id: string) => void;
+    setLastRenderRequest: (request: RenderTaskRequest | null) => void;
+    setRenderTaskActive: (taskId: string, recordId: string) => void;
+    setRenderTaskProgress: (patch: {
+        status?: RenderTaskUiStatus;
+        queuePosition?: number | null;
+        error?: string | null;
+        outputs?: RenderTaskOutputState[];
+        extraction?: ExtractionOutput | null;
+    }) => void;
+    resetRenderTask: () => void;
     upsertProductJob: (job: GenerationJob) => void;
     updateProductJob: (jobId: string, updates: Partial<GenerationJob>) => void;
     removeProductJob: (jobId: string) => void;

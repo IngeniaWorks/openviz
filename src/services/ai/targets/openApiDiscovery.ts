@@ -12,6 +12,10 @@ export interface EndpointCapabilityProbe {
     loadProgress: boolean;
     /** Optional generation cancellation endpoint. */
     cancellation: boolean;
+    /** Native Unsloth video route (R1): POST /api/inference/video/generate. */
+    videoGenerateNative: boolean;
+    /** OpenAI-compatible video jobs route (R1): POST .../videos. */
+    videoJobs: boolean;
 }
 
 export interface EndpointProbeOptions {
@@ -53,7 +57,8 @@ export async function probeEndpointCapabilities(
 ): Promise<EndpointCapabilityProbe> {
     const fetcher = options.fetcher ?? fetch;
     const url = resolveOpenApiUrl(endpoint);
-    if (!url) return { schemaAvailable: false, outcome: 'unavailable', progressTelemetry: false, loadProgress: false, cancellation: false };
+    const none = { progressTelemetry: false, loadProgress: false, cancellation: false, videoGenerateNative: false, videoJobs: false };
+    if (!url) return { schemaAvailable: false, outcome: 'unavailable', ...none };
 
     let response: Response;
     try {
@@ -63,27 +68,27 @@ export async function probeEndpointCapabilities(
         });
     } catch {
         // CORS block or network failure — the endpoint may still work.
-        return { schemaAvailable: false, outcome: 'network', progressTelemetry: false, loadProgress: false, cancellation: false };
+        return { schemaAvailable: false, outcome: 'network', ...none };
     }
 
     if (response.status === 401 || response.status === 403) {
-        return { schemaAvailable: false, outcome: 'unauthorized', progressTelemetry: false, loadProgress: false, cancellation: false };
+        return { schemaAvailable: false, outcome: 'unauthorized', ...none };
     }
     if (!response.ok) {
-        return { schemaAvailable: false, outcome: 'unavailable', progressTelemetry: false, loadProgress: false, cancellation: false };
+        return { schemaAvailable: false, outcome: 'unavailable', ...none };
     }
 
     let schema: unknown;
     try {
         schema = await response.json();
     } catch {
-        return { schemaAvailable: false, outcome: 'malformed', progressTelemetry: false, loadProgress: false, cancellation: false };
+        return { schemaAvailable: false, outcome: 'malformed', ...none };
     }
 
     const root = (typeof schema === 'object' && schema !== null ? schema : {}) as Record<string, unknown>;
     const paths = (typeof root.paths === 'object' && root.paths !== null ? root.paths : {}) as Record<string, unknown>;
     if (Object.keys(paths).length === 0) {
-        return { schemaAvailable: false, outcome: 'malformed', progressTelemetry: false, loadProgress: false, cancellation: false };
+        return { schemaAvailable: false, outcome: 'malformed', ...none };
     }
 
     return {
@@ -92,5 +97,7 @@ export async function probeEndpointCapabilities(
         progressTelemetry: isPathPresent(paths, 'get', /generate-progress|progress/i),
         loadProgress: isPathPresent(paths, 'get', /load-progress/i),
         cancellation: isPathPresent(paths, 'post', /cancel/i),
+        videoGenerateNative: isPathPresent(paths, 'post', /\/api\/inference\/video\/generate$/),
+        videoJobs: isPathPresent(paths, 'post', /\/videos$/),
     };
 }

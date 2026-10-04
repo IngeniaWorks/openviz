@@ -27,6 +27,9 @@ export type RenderTaskKind =
 /** Aspect-ratio presets (FR-013); the resolver maps each to multiple-of-16 dims. */
 export type RenderTaskAspectRatio = '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3';
 
+/** Animate clip durations (FR-024). */
+export type RenderTaskDuration = '2s' | '4s' | '8s';
+
 /** 32-bit unsigned seed value (0..4294967295). */
 export type RenderTaskSeed = number;
 
@@ -72,7 +75,7 @@ export interface RenderTaskRequest {
     formDirection?: FormDirection;
     palette?: RenderTaskPalette;
     targetView?: ViewName;
-    duration?: '2s' | '4s' | '8s';
+    duration?: RenderTaskDuration;
     extractKind?: 'color' | 'material' | 'parts';
     sampleBy?: 'hierarchy' | 'region';
     /** Locked seed for exact regeneration (SC-008); implies single output. */

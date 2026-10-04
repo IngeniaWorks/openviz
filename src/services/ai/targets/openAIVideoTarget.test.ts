@@ -24,7 +24,7 @@ const request: ProductWorkflowRequest = {
     fps: 24,
 };
 
-const VIDEO_BYTES_B64 = 'dmVkaW8tYnl0ZXM='; // base64 of "video-bytes"
+const VIDEO_BYTES_B64 = 'dmlkZW8tYnl0ZXM='; // base64 of "video-bytes"
 
 describe('openAIVideoTarget — native route (R1)', () => {
     it('emits first/last frame, num_frames, fps and seed on the native video payload', async () => {
@@ -93,14 +93,13 @@ describe('openAIVideoTarget — native route (R1)', () => {
     it('cancels through the native cancel route without throwing when unsupported', async () => {
         const fetcher = vi.fn<typeof fetch>()
             .mockResolvedValueOnce(new Response(JSON.stringify({ status: 'started', video: null }), { status: 200 }))
-            .mockResolvedValueOnce(new Response('not found', { status: 404 })) // seeded progress poll — best effort, ignored
-            .mockResolvedValueOnce(new Response('{}', { status: 200 })); // cancel acknowledgement
+            .mockResolvedValueOnce(new Response('not found', { status: 404 })); // cancel route unsupported — best effort, ignored
         const target = createOpenAIVideoTarget({ id: 'unsloth', endpoint: 'http://localhost:8001/v1', model: 'wan-2.2', apiKey: 'secret', nativeVideoRoute: true, fetcher });
 
         await target.submit(request);
         await expect(target.cancel('job-1')).resolves.toBeUndefined();
-        expect(fetcher.mock.calls[2]?.[0]).toBe('http://localhost:8001/api/inference/video/generate/cancel');
-        expect(fetcher.mock.calls[2]?.[1]?.method).toBe('POST');
+        expect(fetcher.mock.calls[1]?.[0]).toBe('http://localhost:8001/api/inference/video/generate/cancel');
+        expect(fetcher.mock.calls[1]?.[1]?.method).toBe('POST');
         await expect(target.getStatus('job-1')).resolves.toMatchObject({ status: 'cancelled' });
     });
 });

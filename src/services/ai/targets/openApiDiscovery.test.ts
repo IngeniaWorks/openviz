@@ -15,6 +15,15 @@ const fullSchema = {
     },
 };
 
+const videoSchema = {
+    openapi: '3.0.0',
+    info: { title: 'Unsloth', version: '1' },
+    paths: {
+        '/api/inference/video/generate': { post: { operationId: 'videoGenerate' } },
+        '/v1/videos': { post: { operationId: 'createVideoJob' } },
+    },
+};
+
 describe('resolveOpenApiUrl', () => {
     it('derives the schema from the server root for versioned endpoints', () => {
         expect(resolveOpenApiUrl('http://localhost:8001/v1')).toBe('http://localhost:8001/openapi.json');
@@ -43,18 +52,40 @@ describe('probeEndpointCapabilities', () => {
             progressTelemetry: true,
             loadProgress: true,
             cancellation: true,
+            videoGenerateNative: false,
+            videoJobs: false,
         });
     });
 
     it('reports supported with no optional capabilities for a plain OpenAI-compatible schema', async () => {
         const fetcher = vi.fn(async () => jsonResponse(200, { openapi: '3.0.0', paths: { '/v1/models': { get: {} } } }));
 
-        await expect(probeEndpointCapabilities('http://localhost:8001/v1', { fetcher })).resolves.toEqual({
+        await expect(probeEndpointCapabilities('http://localhost:8001/v1', { fetcher })).resolves.toMatchObject({
             schemaAvailable: true,
             outcome: 'supported',
             progressTelemetry: false,
             loadProgress: false,
             cancellation: false,
+        });
+    });
+
+    it('reports the Unsloth video routes when the schema exposes them (R1)', async () => {
+        const fetcher = vi.fn(async () => jsonResponse(200, videoSchema));
+
+        await expect(probeEndpointCapabilities('http://localhost:8001/v1', { fetcher })).resolves.toMatchObject({
+            schemaAvailable: true,
+            outcome: 'supported',
+            videoGenerateNative: true,
+            videoJobs: true,
+        });
+    });
+
+    it('does not confuse the image generate route with the native video route', async () => {
+        const fetcher = vi.fn(async () => jsonResponse(200, { openapi: '3.0.0', paths: { '/api/inference/images/generate': { post: {} } } }));
+
+        await expect(probeEndpointCapabilities('http://localhost:8001/v1', { fetcher })).resolves.toMatchObject({
+            videoGenerateNative: false,
+            videoJobs: false,
         });
     });
 

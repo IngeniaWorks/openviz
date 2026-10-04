@@ -1,7 +1,10 @@
 'use client';
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { GenerationMode, GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
+import type { RenderTaskRequest } from '@/types/renderTask.types';
+import type { GenerationTaskApi } from './useRenderTask';
 import { GenerationBaseMode } from './GenerationBaseMode';
 import { GenerationModifyMode } from './GenerationModifyMode';
 import { GenerationAnimateMode } from './GenerationAnimateMode';
@@ -13,11 +16,13 @@ import { GenerationVariationMode } from './GenerationVariationMode';
 interface GenerationModePanelProps {
     state: GenerationPlaygroundState;
     referenceCount: number;
+    references: RenderTaskReference[];
+    task: GenerationTaskApi;
     onUpdate: (patch: GenerationStatePatch) => void;
-    onGenerate: (label: string) => void;
+    onGenerate: (request: RenderTaskRequest) => void;
 }
 
-export function GenerationModePanel({ state, referenceCount, onUpdate, onGenerate }: GenerationModePanelProps) {
+export function GenerationModePanel({ state, referenceCount, references, task, onUpdate, onGenerate }: GenerationModePanelProps) {
     const reduceMotion = useReducedMotion();
     const setMode = (mode: GenerationMode) => onUpdate({ mode });
     const backToBase = () => setMode('base');
@@ -34,12 +39,12 @@ export function GenerationModePanel({ state, referenceCount, onUpdate, onGenerat
                 data-mode={state.mode}
             >
                 {state.mode === 'base' && <GenerationBaseMode onSelect={setMode} />}
-                {state.mode === 'modify' && <GenerationModifyMode state={state} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
-                {state.mode === 'animate' && <GenerationAnimateMode state={state} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
-                {state.mode === 'instant-render' && <GenerationInstantRenderMode state={state} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
-                {state.mode === 'variation' && <GenerationVariationMode state={state} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
-                {state.mode === 'new-view' && <GenerationNewViewMode state={state} referenceCount={referenceCount} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
-                {state.mode === 'extract' && <GenerationExtractMode state={state} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'modify' && <GenerationModifyMode state={state} onUpdate={onUpdate} references={references} task={task} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'animate' && <GenerationAnimateMode state={state} onUpdate={onUpdate} references={references} task={task} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'instant-render' && <GenerationInstantRenderMode state={state} onUpdate={onUpdate} references={references} task={task} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'variation' && <GenerationVariationMode state={state} onUpdate={onUpdate} references={references} task={task} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'new-view' && <GenerationNewViewMode state={state} referenceCount={referenceCount} references={references} task={task} onUpdate={onUpdate} onGenerate={onGenerate} onBack={backToBase} />}
+                {state.mode === 'extract' && <GenerationExtractMode state={state} onUpdate={onUpdate} references={references} task={task} onGenerate={onGenerate} onBack={backToBase} />}
             </motion.div>
         </AnimatePresence>
     );

@@ -1,12 +1,21 @@
+'use client';
+
 import { ImagePlus, Scissors } from 'lucide-react';
 import { nodeCardBodyClass } from '@/components/nodes/nodeUi';
+import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { ExtractKind, GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
+import type { RenderTaskRequest } from '@/types/renderTask.types';
+import type { GenerationTaskApi } from './useRenderTask';
+import type { ExtractionOutput } from '@/services/ai/extractionService';
 import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, SectionLabel } from './GenerationModeControls';
+import { GenerationTaskStatus } from './GenerationTaskStatus';
 
 interface GenerationExtractModeProps {
     state: GenerationPlaygroundState;
     onUpdate: (patch: GenerationStatePatch) => void;
-    onGenerate: (label: string) => void;
+    references: RenderTaskReference[];
+    task: GenerationTaskApi;
+    onGenerate: (request: RenderTaskRequest) => void;
     onBack: () => void;
 }
 
@@ -16,8 +25,21 @@ const EXTRACT_OPTIONS: Array<{ kind: ExtractKind; label: string }> = [
     { kind: 'parts', label: 'Parts' },
 ];
 
-export function GenerationExtractMode({ state, onUpdate, onGenerate, onBack }: GenerationExtractModeProps) {
+export function GenerationExtractMode({ state, onUpdate, references, task, onGenerate, onBack }: GenerationExtractModeProps) {
     const actionLabel = state.extractKind === 'color' ? 'Update colors' : state.extractKind === 'material' ? 'Extract material' : 'Extract parts';
+    const reference = references[0];
+    const canRun = Boolean(reference) && (task.status === 'idle' || task.status === 'completed' || task.status === 'partial' || task.status === 'failed');
+
+    const run = () => {
+        if (!canRun || !reference) return;
+        onGenerate({
+            kind: 'extract',
+            referenceImageId: reference.id,
+            extractKind: state.extractKind,
+            sampleBy: state.sampleBy === 'Hierarchy' ? 'hierarchy' : 'region',
+        });
+    };
+
     return (
         <>
             <ModeHeader mode="extract" title="Extract" icon={Scissors} onBack={onBack} />
@@ -33,15 +55,56 @@ export function GenerationExtractMode({ state, onUpdate, onGenerate, onBack }: G
                         <option>Hierarchy</option><option>Region</option>
                     </select>
                 </label>
-                <button type="button" aria-label={state.extractAttached ? 'Reference image attached' : 'Attach an image to sample'} aria-pressed={state.extractAttached} onClick={() => onUpdate({ extractAttached: !state.extractAttached })} className="nodrag flex min-h-20 w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-viz-border bg-viz-surface/40 px-3 py-3 text-center transition-colors hover:border-viz-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-viz-accent">
-                    <ImagePlus size={17} className="text-viz-muted" aria-hidden="true" />
-                    <span className="text-xs text-white">{state.extractAttached ? 'Reference image attached' : 'Attach an image to sample'}</span>
-                    <span className="text-[10px] text-viz-muted">{state.extractAttached ? 'Arc lamp · reference 1' : 'Drop an image or browse files'}</span>
-                </button>
-                <button type="button" disabled={!state.extractAttached} onClick={() => onGenerate('Extract')} className={`${NODE_BUTTON_CLASS} flex w-full items-center justify-center gap-1.5`}>
+                {reference ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-viz-border bg-viz-surface p-1.5">
+                        <img src={reference.dataUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                        <span className="min-w-0 flex-1 truncate text-xs text-white/90">{reference.name}</span>
+                        <span className="shrink-0 rounded bg-viz-panel px-1.5 py-1 text-[9px] text-viz-muted">source</span>
+                    </div>
+                ) : (
+                    <p role="note" className="rounded-lg border border-dashed border-viz-border bg-viz-surface/40 px-3 py-3 text-center text-xs text-viz-muted">
+                        <ImagePlus size={15} className="mx-auto mb-1 text-viz-muted" aria-hidden="true" />
+                        Connect an image to sample.
+                    </p>
+                )}
+                <button type="button" disabled={!canRun} onClick={run} className={`${NODE_BUTTON_CLASS} flex w-full items-center justify-center gap-1.5`}>
                     <Scissors size={13} aria-hidden="true" />{actionLabel}
                 </button>
+
+                {task.status === 'active' && (
+                    <p role="status" className="mt-2 text-center text-[10px] text-viz-muted">Analyzing {reference?.name ?? 'image'}…</p>
+                )}
+                <GenerationTaskStatus task={task} />
+                {task.extraction && <ExtractionResults extraction={task.extraction} />}
             </div>
         </>
+    );
+}
+
+function ExtractionResults({ extraction }: { extraction: ExtractionOutput }) {
+    return (
+        <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+                <SectionLabel>Result · {extraction.sampleBy}</SectionLabel>
+                <span className="rounded bg-viz-panel px-1.5 py-0.5 text-[9px] text-viz-muted">{Math.round(extraction.confidence * 100)}% confidence</span>
+            </div>
+            <ul className="max-h-36 space-y-1 overflow-y-auto">
+                {extraction.components.map((component) => (
+                    <li key={component.name} className="flex items-center gap-2 rounded-lg border border-viz-border bg-viz-surface px-2 py-1.5 text-[10px]">
+                        {component.color?.hex ? (
+                            <span role="img" aria-label={`${component.name} color ${component.color.hex}`} className="shrink-0 rounded border border-viz-border bg-viz-panel px-1 font-mono text-[9px] text-white/80">{component.color.hex}</span>
+                        ) : (
+                            <span className="h-4 w-4 shrink-0 rounded border border-dashed border-viz-border" aria-hidden="true" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate text-white/90">
+                            {component.name}
+                            {component.role ? ` · ${component.role}` : ''}
+                            {component.material?.category ? ` · ${component.material.category}` : ''}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+            <p role="status" className="text-center text-[9px] text-viz-muted">Saved as a reusable project asset.</p>
+        </div>
     );
 }

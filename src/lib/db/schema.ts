@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, integer, real, jsonb, customType, primaryKey, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, integer, bigint, real, jsonb, customType, primaryKey, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 /** Postgres `bytea` column type (removed from drizzle pg-core in 0.4x). */
@@ -252,8 +252,9 @@ export const taskRecords = pgTable('task_records', {
     error: text('error'),
     /** → GenerationResult rows; a batch shares one task. */
     outputIds: jsonb('output_ids').notNull(),
-    createdAt: integer('created_at').notNull(),
-    updatedAt: integer('updated_at').notNull(),
+    // Epoch milliseconds need bigint; int4 overflows at 2001-09-09.
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
 }, (table) => ({
     projectIdIdx: index('task_records_project_id_idx').on(table.projectId),
     statusIdx: index('task_records_status_idx').on(table.status),
@@ -270,7 +271,7 @@ export const extractionRecords = pgTable('extraction_records', {
     components: jsonb('components').notNull(),
     /** Overall record confidence, 0–1. */
     confidence: real('confidence').notNull(),
-    createdAt: integer('created_at').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
 }, (table) => ({
     taskIdIdx: index('extraction_records_task_id_idx').on(table.taskId),
 }));
@@ -283,7 +284,7 @@ export const projectAssets = pgTable('project_assets', {
     /** Provenance → ExtractionRecord.id. */
     extractionRecordId: text('extraction_record_id').references(() => extractionRecords.id, { onDelete: 'cascade' }).notNull(),
     payload: jsonb('payload').notNull(),
-    createdAt: integer('created_at').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
 }, (table) => ({
     projectIdIdx: index('project_assets_project_id_idx').on(table.projectId),
 }));

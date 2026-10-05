@@ -19,11 +19,13 @@ This repository contains **OpenViz**, a React-based design application powered b
 - **Single Test**: `pnpm exec vitest path/to/file.test.ts`
 
 ## Spec-Driven Development (Spec Kit)
-Governing doc: [.specify/memory/constitution.md](.specify/memory/constitution.md) — supersedes all other practices.
+Governing doc: [docs/development/constitution.md](docs/development/constitution.md) — supersedes all other practices.
+
+> Note: Spec Kit tooling (`.specify/`, `.github/skills/`) is intentionally not committed. Initialize it locally (spec-kit init + extensions) to use the `/speckit.*` commands below.
 - **New idea** → `/speckit.assess.intake "..." slug=<slug>` → `research` → `define` → `shape` → `decide`. Only a **go** verdict proceeds to spec. Reports: `.specify/assessments/<slug>/`.
 - **Feature** → create branch `NNN-slug` via `/speckit.git.feature <name>`, then `/speckit.specify` → `clarify` → `plan` → `tasks` → `analyze` → `implement` → `converge` (repeat until Converged). Specs: `specs/NNN-feature/`.
 - **TDD layering**: logic (services/hooks/stores/utils) = strict red-green, test file first; components = behavior tests from spec acceptance criteria before implementation. Coverage floor may never regress.
-- Auto-commit after speckit commands is enabled (conventional style) — config: `.specify/extensions/git/git-config.yml`.
+- Auto-commit after speckit commands is enabled (conventional style) — config: local `.specify/extensions/git/git-config.yml`.
 
 ## Critical Rules
 **Type Safety**: No `any`. No `@ts-ignore`. Run `tsc` to verify.

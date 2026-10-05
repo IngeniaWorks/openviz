@@ -7,6 +7,7 @@ import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { useProjects } from "@/hooks/useProjects";
+import { useRememberBrowserView } from "@/hooks/useRememberBrowserView";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Plus, LayoutGrid, List } from "lucide-react";
 import { NewProjectModal } from "@/components/dashboard/NewProjectModal";
@@ -36,6 +37,7 @@ export default function RecentsPage() {
     const [viewMode, setViewMode] = useState<ViewMode>("grid");
     const setViewModeStore = useStore((state) => state.setViewMode);
     const router = useRouter();
+    useRememberBrowserView("recents");
 
     const filteredProjects = useMemo(() => {
         const sorted = [...projects];

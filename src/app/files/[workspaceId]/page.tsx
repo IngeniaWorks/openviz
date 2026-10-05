@@ -7,6 +7,7 @@ import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { useProjects } from "@/hooks/useProjects";
+import { useRememberBrowserView } from "@/hooks/useRememberBrowserView";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Plus, LayoutGrid, List, FolderPlus } from "lucide-react";
 import { NewProjectModal } from "@/components/dashboard/NewProjectModal";
@@ -41,6 +42,7 @@ export default function FilesPage({ params }: { params: Promise<{ workspaceId: s
     const [folders, setFolders] = useState<Folder[]>([]);
     const setViewModeStore = useStore((state) => state.setViewMode);
     const router = useRouter();
+    useRememberBrowserView("files");
 
     const workspaceId = resolvedParams?.workspaceId;
 

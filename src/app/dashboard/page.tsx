@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { getPreferredBrowserView } from "@/lib/browserLanding";
 import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
@@ -17,7 +18,14 @@ export default function DashboardPage() {
         }
 
         if (currentWorkspace?.id) {
-            router.replace(`/files/${currentWorkspace.id}`);
+            // Land where the user last was in the browser: My Files only when
+            // they were there; Recents is the default otherwise.
+            const view = getPreferredBrowserView();
+            router.replace(
+                view === "files"
+                    ? `/files/${currentWorkspace.id}`
+                    : `/files/${currentWorkspace.id}/recents`,
+            );
         }
     }, [currentWorkspace?.id, router, sessionStatus]);
 

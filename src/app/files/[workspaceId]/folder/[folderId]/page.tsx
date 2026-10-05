@@ -7,6 +7,7 @@ import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { useProjects } from "@/hooks/useProjects";
+import { useRememberBrowserView } from "@/hooks/useRememberBrowserView";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Plus, LayoutGrid, List, FolderPlus, ChevronRight, Home } from "lucide-react";
 import { NewProjectModal } from "@/components/dashboard/NewProjectModal";
@@ -52,6 +53,9 @@ export default function FolderPage({ params }: { params: Promise<{ workspaceId: 
     const [folders, setFolders] = useState<FolderItem[]>([]);
     const setViewModeStore = useStore((state) => state.setViewMode);
     const router = useRouter();
+    // Folders live inside the My Files browser, so being in one counts as
+    // having been in Files for the next dashboard landing.
+    useRememberBrowserView("files");
 
     const workspaceId = resolvedParams?.workspaceId;
     const folderId = resolvedParams?.folderId;

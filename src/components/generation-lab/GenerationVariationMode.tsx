@@ -2,12 +2,14 @@ import { useRef } from 'react';
 import { ArrowDownRight, ChevronDown, CopyPlus, Plus, RotateCcw } from 'lucide-react';
 import { nodeCardBodyClass } from '@/components/nodes/nodeUi';
 import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
-import type { FormDirection, RenderTaskRequest } from '@/types/renderTask.types';
+import type { FormDirection, PaletteAssetPayload, ProjectAsset, RenderTaskRequest } from '@/types/renderTask.types';
 import type { FormPosition, GenerationPlaygroundState, GenerationStatePatch, VariationAxis, VariationCount, VariationPreset } from './generationNodeMockup.types';
 import type { GenerationTaskApi } from './useRenderTask';
 import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, SectionLabel } from './GenerationModeControls';
 import { GenerationAdvancedPanel } from './GenerationAdvancedPanel';
 import { GenerationTaskStatus } from './GenerationTaskStatus';
+import { useExtractionAssets } from './useExtractionAssets';
+import { SavedPalettePicker, type SavedPalette } from './SavedPalettePicker';
 
 interface GenerationVariationModeProps {
     state: GenerationPlaygroundState;
@@ -38,6 +40,19 @@ const SWATCH_HEX: Record<string, string> = {
     sand: '#fde68a',
 };
 const SWATCH_CYCLE = ['stone', 'moss', 'sea', 'ember', 'sand'];
+
+/** Named swatch or raw hex (saved palettes, T030) → request hex. */
+function swatchToHex(swatch: string): string {
+    const named = SWATCH_HEX[swatch];
+    if (named) return named;
+    return /^#[0-9a-f]{6}$/i.test(swatch) ? swatch : '#808080';
+}
+
+function toSavedPalette(asset: ProjectAsset): SavedPalette | null {
+    if (asset.kind !== 'palette') return null;
+    const payload = asset.payload as PaletteAssetPayload;
+    return { id: asset.id, name: payload.name, swatches: payload.swatches };
+}
 const SWATCH_CLASSES: Record<string, string> = {
     stone: 'bg-zinc-400',
     moss: 'bg-emerald-700',
@@ -64,6 +79,9 @@ export function GenerationVariationMode({ state, onUpdate, references, task, onG
     const count = config.kind === 'form' ? config.formCount : config.colorCount;
     const hasReference = references.length > 0;
     const canGenerate = hasReference && (task.status === 'idle' || task.status === 'completed' || task.status === 'partial' || task.status === 'failed');
+    // T030 (FR-023): saved palettes are only needed by the color sub-mode.
+    const { assets } = useExtractionAssets({ enabled: config.kind === 'color' });
+    const savedPalettes = assets.map(toSavedPalette).filter((palette): palette is SavedPalette => palette !== null);
 
     const generate = () => {
         if (!canGenerate) return;
@@ -82,7 +100,7 @@ export function GenerationVariationMode({ state, onUpdate, references, task, onG
             onGenerate({
                 ...base,
                 kind: 'color-variate',
-                palette: { name: config.paletteName || undefined, swatches: config.swatches.map((swatch) => SWATCH_HEX[swatch] ?? '#808080') },
+                palette: { name: config.paletteName || undefined, swatches: config.swatches.map(swatchToHex) },
             });
         }
     };
@@ -101,7 +119,9 @@ export function GenerationVariationMode({ state, onUpdate, references, task, onG
                         </button>
                     ))}
                 </div>
-                {config.kind === 'form' ? <FormVariation config={config} onUpdate={(variation) => onUpdate({ variation })} /> : <ColorVariation config={config} onUpdate={(variation) => onUpdate({ variation })} />}
+                {config.kind === 'form'
+                    ? <FormVariation config={config} onUpdate={(variation) => onUpdate({ variation })} />
+                    : <ColorVariation config={config} savedPalettes={savedPalettes} onSelectPalette={(palette) => onUpdate({ variation: { ...config, swatches: [...palette.swatches], paletteName: palette.name ?? 'Saved palette' } })} onUpdate={(variation) => onUpdate({ variation })} />}
                 <button type="button" disabled={!canGenerate} onClick={generate} className={`${NODE_BUTTON_CLASS} w-full`}>
                     Generate {count} variations
                 </button>
@@ -209,7 +229,7 @@ function AxisInput({ axis, value, onChange, className }: { axis: VariationAxis; 
     return <input aria-label={`${axis} axis label`} value={value} onChange={(event) => onChange(event.target.value)} className={`${AXIS_INPUT_CLASS} ${className}`} />;
 }
 
-function ColorVariation({ config, onUpdate }: { config: GenerationPlaygroundState['variation']; onUpdate: (config: GenerationPlaygroundState['variation']) => void }) {
+function ColorVariation({ config, savedPalettes, onSelectPalette, onUpdate }: { config: GenerationPlaygroundState['variation']; savedPalettes: SavedPalette[]; onSelectPalette: (palette: SavedPalette) => void; onUpdate: (config: GenerationPlaygroundState['variation']) => void }) {
     const addSwatch = () => {
         const next = SWATCH_CYCLE.find((swatch) => !config.swatches.includes(swatch)) ?? SWATCH_CYCLE[config.swatches.length % SWATCH_CYCLE.length];
         onUpdate({ ...config, swatches: [...config.swatches, next] });
@@ -218,13 +238,20 @@ function ColorVariation({ config, onUpdate }: { config: GenerationPlaygroundStat
         <div className="space-y-2">
             <SectionLabel>Color palette</SectionLabel>
             <div className="flex items-center gap-1.5" role="group" aria-label="Palette swatches">
-                {config.swatches.map((swatch, index) => <span key={`${swatch}-${index}`} role="img" aria-label={`${swatch} swatch`} className={`h-8 min-w-0 flex-1 rounded-md border border-viz-border ${SWATCH_CLASSES[swatch] ?? 'bg-viz-surface'}`} />)}
+                {config.swatches.map((swatch, index) => {
+                    const namedClass = SWATCH_HEX[swatch] ? (SWATCH_CLASSES[swatch] ?? 'bg-viz-surface') : undefined;
+                    return <span key={`${swatch}-${index}`} role="img" aria-label={`${swatch} swatch`} className={`h-8 min-w-0 flex-1 rounded-md border border-viz-border ${namedClass ?? ''}`.trim()} style={namedClass ? undefined : { backgroundColor: swatchToHex(swatch) }} />;
+                })}
                 <button type="button" aria-label="Add swatch" onClick={addSwatch} className="nodrag flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-dashed border-viz-border text-viz-muted hover:border-viz-accent hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-viz-accent"><Plus size={14} aria-hidden="true" /></button>
             </div>
             <label htmlFor="palette-name" className="block space-y-1 text-[10px] font-bold uppercase tracking-wider text-viz-muted">Palette name
                 <input id="palette-name" value={config.paletteName} onChange={(event) => onUpdate({ ...config, paletteName: event.target.value })} className={NODE_CONTROL_CLASS} />
             </label>
             <CountSelector id="color-count" label="Colorways" value={config.colorCount} onChange={(colorCount) => onUpdate({ ...config, colorCount })} />
+            <div className="space-y-1">
+                <SectionLabel>Saved palettes</SectionLabel>
+                <SavedPalettePicker palettes={savedPalettes} onSelect={onSelectPalette} />
+            </div>
         </div>
     );
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { useState, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GenerationVariationMode } from '@/components/generation-lab/GenerationVariationMode';
 import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
@@ -32,6 +33,14 @@ const INITIAL_STATE: GenerationPlaygroundState = {
     extractAttached: false,
 };
 
+/** react-query wrapper — the mode queries saved assets (T030) on mount. */
+function makeWrapper() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return ({ children }: { children?: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
+const harnessClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 function makeTaskApi() {
     return {
         status: 'idle' as const,
@@ -57,6 +66,7 @@ function renderVariation(props: { references?: RenderTaskReference[] } = {}) {
             onGenerate={onGenerate}
             onBack={vi.fn()}
         />,
+        { wrapper: makeWrapper() },
     );
     return { onGenerate };
 }
@@ -65,14 +75,16 @@ function renderVariation(props: { references?: RenderTaskReference[] } = {}) {
 function Harness({ onGenerate }: { onGenerate: (request: RenderTaskRequest) => void }) {
     const [state, setState] = useState(INITIAL_STATE);
     return (
-        <GenerationVariationMode
-            state={state}
-            onUpdate={(patch) => setState((current) => ({ ...current, ...patch }))}
-            references={[REFERENCE]}
-            task={makeTaskApi()}
-            onGenerate={onGenerate}
-            onBack={vi.fn()}
-        />
+        <QueryClientProvider client={harnessClient}>
+            <GenerationVariationMode
+                state={state}
+                onUpdate={(patch) => setState((current) => ({ ...current, ...patch }))}
+                references={[REFERENCE]}
+                task={makeTaskApi()}
+                onGenerate={onGenerate}
+                onBack={vi.fn()}
+            />
+        </QueryClientProvider>
     );
 }
 
@@ -101,6 +113,7 @@ describe('GenerationVariationMode — US3 behavior (T014)', () => {
                 onGenerate={onGenerate}
                 onBack={vi.fn()}
             />,
+            { wrapper: makeWrapper() },
         );
         fireEvent.click(screen.getByRole('button', { name: /generate 4 variations/i }));
 
@@ -136,5 +149,76 @@ describe('GenerationVariationMode — US3 behavior (T014)', () => {
         expect(generate).toBeDisabled();
         fireEvent.click(generate);
         expect(onGenerate).not.toHaveBeenCalled();
+    });
+});
+
+describe('GenerationVariationMode — saved project assets (T030, FR-023)', () => {
+    const SAVED_PALETTE_ASSET = {
+        id: 'asset-1',
+        projectId: 'default',
+        kind: 'palette',
+        extractionRecordId: 'rec-1',
+        payload: { name: 'Lamp palette', swatches: ['#a1a1aa', '#047857'] },
+        createdAt: 1_700_000_000_000,
+    };
+
+    const COLOR_STATE: GenerationPlaygroundState = { ...INITIAL_STATE, variation: { ...INITIAL_STATE.variation, kind: 'color' } };
+
+    function ColorHarness({ onGenerate }: { onGenerate: (request: RenderTaskRequest) => void }) {
+        const [state, setState] = useState(COLOR_STATE);
+        return (
+            <GenerationVariationMode
+                state={state}
+                onUpdate={(patch) => setState((current) => ({ ...current, ...patch }))}
+                references={[REFERENCE]}
+                task={makeTaskApi()}
+                onGenerate={onGenerate}
+                onBack={vi.fn()}
+            />
+        );
+    }
+
+    function renderColorMode() {
+        const onGenerate = vi.fn();
+        render(<ColorHarness onGenerate={onGenerate} />, { wrapper: makeWrapper() });
+        return { onGenerate };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('lists saved palettes and loads one into the swatches for generation', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([SAVED_PALETTE_ASSET]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const { onGenerate } = renderColorMode();
+        const loadButton = await screen.findByRole('button', { name: /load palette "lamp palette"/i });
+        fireEvent.click(loadButton);
+
+        // The saved palette is now the active swatch set: generate and assert its hexes flow through.
+        fireEvent.click(screen.getByRole('button', { name: /generate 4 variations/i }));
+        const request = onGenerate.mock.calls[0][0] as RenderTaskRequest;
+        expect(request.kind).toBe('color-variate');
+        expect(request.palette?.swatches).toEqual(['#a1a1aa', '#047857']);
+    });
+
+    it('passes raw hex swatches through to the request unchanged (saved-palette support)', () => {
+        const onGenerate = vi.fn();
+        render(
+            <GenerationVariationMode
+                state={{ ...INITIAL_STATE, variation: { ...INITIAL_STATE.variation, kind: 'color', swatches: ['#ff0000', '#00ff00'] } }}
+                onUpdate={vi.fn()}
+                references={[REFERENCE]}
+                task={makeTaskApi()}
+                onGenerate={onGenerate}
+                onBack={vi.fn()}
+            />,
+            { wrapper: makeWrapper() },
+        );
+        fireEvent.click(screen.getByRole('button', { name: /generate 4 variations/i }));
+
+        const request = onGenerate.mock.calls[0][0] as RenderTaskRequest;
+        expect(request.palette?.swatches).toEqual(['#ff0000', '#00ff00']);
     });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ComputeSettings } from '@/types/executionTarget.types';
 import {
     fetchComfyQueueInfo,
+    isImageBackendReady,
     normalizeImageApiEndpoint,
     resolveComputeEndpoint,
 } from './computeStatusService';
@@ -29,6 +30,23 @@ describe('normalizeImageApiEndpoint', () => {
     it('trims whitespace and strips trailing slashes', () => {
         expect(normalizeImageApiEndpoint('  http://localhost:8001/v1///  ')).toBe('http://localhost:8001/v1');
         expect(normalizeImageApiEndpoint('')).toBe('');
+    });
+});
+
+describe('isImageBackendReady (T031, spec edge case: model/backend unavailable)', () => {
+    it('is not ready when the openai-image protocol has no endpoint configured', () => {
+        const readiness = isImageBackendReady(makeSettings({ protocol: 'openai-image', imageApiEndpoint: '' }));
+        expect(readiness.ready).toBe(false);
+        expect(readiness.reason).toBe('No image API configured');
+    });
+
+    it('is ready when the openai-image endpoint is configured (whitespace-tolerant)', () => {
+        const readiness = isImageBackendReady(makeSettings({ protocol: 'openai-image', imageApiEndpoint: ' http://localhost:8001/v1/ ' }));
+        expect(readiness).toEqual({ ready: true });
+    });
+
+    it('is ready for the ComfyUI protocol (default local endpoint)', () => {
+        expect(isImageBackendReady(makeSettings())).toEqual({ ready: true });
     });
 });
 

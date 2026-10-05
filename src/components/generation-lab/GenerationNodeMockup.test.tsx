@@ -94,6 +94,31 @@ describe('GenerationNodeMockup', () => {
         expect(screen.queryByRole('listbox', { name: 'Reference suggestions' })).not.toBeInTheDocument();
     });
 
+    it('ships the demo reference as a real base64 PNG data URL (raster sources only)', async () => {
+        render(<GenerationNodeMockup />);
+
+        const reference = await waitFor(() => {
+            const current = useStore.getState().renderReferences[0];
+            expect(current).toBeDefined();
+            return current;
+        });
+        expect(reference.dataUrl).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/);
+    });
+
+    it('attaches an uploaded photo as the primary reference', async () => {
+        render(<GenerationNodeMockup />);
+        await screen.findByText('Replace with photo');
+
+        const file = new File(['png-bytes'], 'product.png', { type: 'image/png' });
+        fireEvent.change(screen.getByLabelText(/replace with photo/i), { target: { files: [file] } });
+
+        await waitFor(() => {
+            const references = useStore.getState().renderReferences;
+            expect(references[0].name).toBe('product.png');
+            expect(references[0].dataUrl).toMatch(/^data:image\/png;base64,/);
+        });
+    });
+
     it('renders inserted references as blue blocks in the prompt and removes the whole token on backspace', async () => {
         render(<GenerationNodeMockup />);
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));

@@ -156,6 +156,7 @@ export interface AppState {
     setBenchmarkGateEnabled: (enabled: boolean) => void;
     applyComputeSettings: (settings: Partial<ComputeSettings>) => void;
     addRenderReference: (name: string, dataUrl: string) => void;
+    prependRenderReference: (name: string, dataUrl: string) => void;
     removeRenderReference: (id: string) => void;
     setLastRenderRequest: (request: RenderTaskRequest | null) => void;
     setRenderTaskActive: (taskId: string, recordId: string) => void;

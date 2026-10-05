@@ -36,8 +36,11 @@ export interface RenderTaskHandle {
 }
 
 export interface RenderTaskCoordinatorOptions {
-    /** FR-021 launch gate; default `true` (R8). */
-    benchmarkGateEnabled?: boolean;
+    /**
+     * FR-021 launch gate; default `true` (R8). Accepts a getter so live
+     * settings changes take effect without recreating the coordinator.
+     */
+    benchmarkGateEnabled?: boolean | (() => boolean);
     /**
      * Cancel capability probe (FR-022, R3): returns whether the active backend
      * exposes a cancel route for a running task. Injected from capability
@@ -80,7 +83,10 @@ interface CoordinatorTask {
 const EMPTY_OUTCOME: RenderTaskOutcome = { outputIds: [], allOutputsSucceeded: false };
 
 export function createRenderTaskCoordinator(options: RenderTaskCoordinatorOptions = {}) {
-    const benchmarkGateEnabled = options.benchmarkGateEnabled ?? true;
+    const isBenchmarkGateEnabled = (): boolean => {
+        const gate = options.benchmarkGateEnabled ?? true;
+        return typeof gate === 'function' ? gate() : gate;
+    };
     const getSupportsCancel = options.getSupportsCancel ?? (() => true);
     // One active task per user (FR-022): the queue is the FIFO scheduler.
     const queue = createGenerationQueue(1);
@@ -94,7 +100,7 @@ export function createRenderTaskCoordinator(options: RenderTaskCoordinatorOption
     }
 
     function submit(submission: RenderTaskSubmission, runner: RenderTaskRunner): Promise<RenderTaskHandle> {
-        if (benchmarkGateEnabled && submission.benchmarkStatus !== 'validated') {
+        if (isBenchmarkGateEnabled() && submission.benchmarkStatus !== 'validated') {
             return Promise.reject(new BenchmarkGateError(submission.request.kind));
         }
 

@@ -216,6 +216,29 @@ describe('renderTaskService.submit — validation & persistence (T007, FR-019)',
         await expect(service.submit({ kind: 'modify', prompt: 'x', referenceImageId: 'img-1' })).rejects.toBeInstanceOf(BenchmarkGateError);
         expect(repo.create).not.toHaveBeenCalled();
     });
+
+    it('re-reads the gate from live settings at submit time (singleton service, FR-021)', async () => {
+        const fetcher = makeFetcher();
+        const repo = makeRepo();
+        const settings: ComputeSettings = { ...SETTINGS };
+        const service = createRenderTaskService({
+            getSettings: () => settings,
+            resolveReferenceImage: async () => 'data:image/png;base64,aW1n',
+            repository: repo,
+            fetcher,
+            pollIntervalMs: 1,
+            // default benchmarkStatusFor → 'starting'
+        });
+
+        await expect(service.submit({ kind: 'modify', prompt: 'x', referenceImageId: 'img-1' })).rejects.toBeInstanceOf(BenchmarkGateError);
+
+        // User disables the gate in settings after the service (and its coordinator) already exists.
+        settings.benchmarkGateEnabled = false;
+        const submitted = await service.submit({ kind: 'modify', prompt: 'x', referenceImageId: 'img-1' });
+        const outcome = await submitted.promise;
+
+        expect(outcome.allOutputsSucceeded).toBe(true);
+    });
 });
 
 describe('renderTaskService.submit — video routing (T007, R1)', () => {

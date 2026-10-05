@@ -36,6 +36,8 @@ export interface RenderTaskSlice {
     lastRenderRequest: RenderTaskRequest | null;
 
     addRenderReference: (name: string, dataUrl: string) => void;
+    /** Inserts at index 0 so the newest image is the primary source (`references[0]`). */
+    prependRenderReference: (name: string, dataUrl: string) => void;
     removeRenderReference: (id: string) => void;
     setLastRenderRequest: (request: RenderTaskRequest | null) => void;
     /** Called when a submission is accepted by the coordinator. */
@@ -64,6 +66,10 @@ export const createRenderTaskSlice: StateCreator<AppState, [], [], RenderTaskSli
 
     addRenderReference: (name, dataUrl) => set((state) => ({
         renderReferences: [...state.renderReferences, { id: generateUUID(), name, dataUrl }],
+    })),
+
+    prependRenderReference: (name, dataUrl) => set((state) => ({
+        renderReferences: [{ id: generateUUID(), name, dataUrl }, ...state.renderReferences],
     })),
 
     removeRenderReference: (id) => set((state) => ({

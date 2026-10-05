@@ -75,7 +75,9 @@ export interface RenderTaskService {
 export function createRenderTaskService(deps: RenderTaskServiceDeps): RenderTaskService {
     const repository = deps.repository ?? createApiTaskRecordRepository();
     const assetRepository = deps.assetRepository ?? createApiExtractionAssetRepository();
-    const coordinator = deps.coordinator ?? createRenderTaskCoordinator({ benchmarkGateEnabled: deps.getSettings().benchmarkGateEnabled });
+    // Getter (not a snapshot): the service is a session singleton, so the gate
+    // must reflect live settings when a submission arrives, not at creation.
+    const coordinator = deps.coordinator ?? createRenderTaskCoordinator({ benchmarkGateEnabled: () => deps.getSettings().benchmarkGateEnabled });
     const runners = createRenderTaskRunners({
         getSettings: deps.getSettings,
         resolveReferenceImage: deps.resolveReferenceImage,

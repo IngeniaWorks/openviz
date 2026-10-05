@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createRenderTaskCoordinator } from './renderTaskCoordinator';
+import { BenchmarkGateError, createRenderTaskCoordinator } from './renderTaskCoordinator';
 import type { RenderTaskRequest } from '@/types/renderTask.types';
 
 function request(overrides: Partial<RenderTaskRequest> = {}): RenderTaskRequest {
@@ -49,6 +49,28 @@ describe('createRenderTaskCoordinator — FR-021 benchmark launch gate', () => {
         }));
         await handle.promise;
         expect(coordinator.getStatus(handle.id)).toBe('completed');
+    });
+
+    it('re-reads a getter gate at submit time, so live settings changes take effect without recreating the coordinator', async () => {
+        let gateEnabled = true;
+        const coordinator = createRenderTaskCoordinator({ benchmarkGateEnabled: () => gateEnabled });
+
+        await expect(
+            coordinator.submit({ request: request() }, async () => ({ outputIds: ['out-1'], allOutputsSucceeded: true })),
+        ).rejects.toThrow(BenchmarkGateError);
+
+        gateEnabled = false;
+        const handle = await coordinator.submit(
+            { request: request() },
+            async () => ({ outputIds: ['out-1'], allOutputsSucceeded: true }),
+        );
+        await handle.promise;
+        expect(coordinator.getStatus(handle.id)).toBe('completed');
+
+        gateEnabled = true;
+        await expect(
+            coordinator.submit({ request: request() }, async () => ({ outputIds: ['out-2'], allOutputsSucceeded: true })),
+        ).rejects.toThrow(BenchmarkGateError);
     });
 
     it('names the unvalidated task kind in the gate error', async () => {

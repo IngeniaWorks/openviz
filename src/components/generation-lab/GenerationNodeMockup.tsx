@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import {
+    Camera,
     Circle,
     Eraser,
     Image as ImageIcon,
@@ -22,8 +23,7 @@ import { GenerationModePanel } from './GenerationModePanel';
 import { useRenderTask } from './useRenderTask';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
 
-/** Demo source image for the mockup (SVG data URL so <img> references render). */
-const DEMO_REFERENCE_DATA_URL = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#1f2937"/><path d="M22 52h20l-3-8H25z" fill="#a1a1aa"/><rect x="30" y="18" width="4" height="28" fill="#d1d5db"/><path d="M20 18a12 12 0 0 1 24 0z" fill="#fbbf24"/></svg>');
+import { DEMO_REFERENCE_DATA_URL } from './demoReference';
 
 const INITIAL_STATE: GenerationPlaygroundState = {
     mode: 'base',
@@ -121,12 +121,34 @@ function WorkbenchMockChrome() {
 
 function ReferenceImageNode() {
     const references = useStore((store) => store.renderReferences);
+    const prependRenderReference = useStore((store) => store.prependRenderReference);
     const reference = references[0];
+
+    // A user photo becomes the primary source (references[0]) for every mode.
+    const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === 'string') prependRenderReference(file.name, reader.result);
+        };
+        reader.readAsDataURL(file);
+    };
+
     return (
         <div className="relative z-10 w-[256px]">
             <span className={mediaNodeTitleClass()}>{reference?.name ?? 'Reference'} · reference</span>
             <div className={cn(mediaNodeFrameClass(false), 'aspect-square')}>
                 {reference ? <img src={reference.dataUrl} alt="" className="h-full w-full object-cover" /> : <ProductArtwork className="h-full w-full" />}
+                <label
+                    htmlFor="reference-image-upload"
+                    className="absolute bottom-2 left-1/2 flex -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-lg border border-viz-border bg-viz-panel/95 px-2.5 py-1 text-xs font-medium text-white shadow-viz transition-colors hover:bg-viz-selected focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-viz-accent"
+                >
+                    <Camera size={13} aria-hidden="true" />
+                    {reference ? 'Replace with photo' : 'Add photo'}
+                </label>
+                <input id="reference-image-upload" type="file" accept="image/*" className="sr-only" onChange={handleUpload} />
             </div>
         </div>
     );

@@ -33,6 +33,7 @@ export const AIComputeSettings: React.FC = () => {
         testConnection,
         saveSettings,
         syncStatus,
+        hasStoredImageApiKey,
     } = useAIComputeSettings();
 
     return (
@@ -79,7 +80,8 @@ export const AIComputeSettings: React.FC = () => {
                     </div>
                     <div className="mb-3">
                         <label htmlFor="image-api-key" className="mb-2 block text-xs font-medium text-zinc-400">API key</label>
-                        <input id="image-api-key" type="password" value={imageApiKey} onChange={(event) => setImageApiKey(event.target.value)} disabled={imageApiKeyless} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500" />
+                        <input id="image-api-key" type="password" value={imageApiKey} onChange={(event) => setImageApiKey(event.target.value)} disabled={imageApiKeyless} className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500" placeholder={hasStoredImageApiKey ? 'Stored key in use — type to replace' : undefined} />
+                        {hasStoredImageApiKey && !imageApiKey && <p className="mt-1 text-xs text-zinc-600">Stored on your account — used automatically on every device you sign in from.</p>}
                     </div>
                     <label className="mb-3 flex items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={imageApiKeyless} onChange={(event) => setImageApiKeyless(event.target.checked)} /> Keyless API access is explicitly enabled on the server</label>
                     <div className="mb-3 grid gap-3 sm:grid-cols-2">

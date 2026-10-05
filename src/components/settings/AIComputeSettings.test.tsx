@@ -63,6 +63,30 @@ describe('AIComputeSettings', () => {
         expect(screen.getAllByText('Connected', { exact: true }).length).toBeGreaterThan(0);
     });
 
+    it('shows that the API key is stored on the account when settings report hasImageApiKey', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.includes('/api/ai/settings')) {
+                return jsonResponse(200, { settings: {
+                    targetKind: 'local',
+                    protocol: 'openai-image',
+                    preference: 'automatic',
+                    localEndpoint: '/comfy-api',
+                    hostedEndpoint: '',
+                    imageApiEndpoint: 'https://img.example.com/v1',
+                    imageApiKeyless: false,
+                    imageApiModel: 'flux-1',
+                    imageApiSize: '1024x1024',
+                    endpointConcurrency: 2,
+                    hasImageApiKey: true,
+                } });
+            }
+            return jsonResponse(404, {});
+        }));
+        render(<AIComputeSettings />);
+        expect(await screen.findByText(/stored on your account/i)).toBeInTheDocument();
+    });
+
     it('renders safely when older persisted settings omit image API models', async () => {
         const { useStore } = await import('@/store/useStore');
         useStore.setState((state) => ({

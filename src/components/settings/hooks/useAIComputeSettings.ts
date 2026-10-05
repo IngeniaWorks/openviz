@@ -39,6 +39,7 @@ export function useAIComputeSettings() {
     const [status, setStatus] = useState<ConnectionStatus>('idle');
     const [capabilities, setCapabilities] = useState<TargetCapabilities | null>(null);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle');
+    const [hasStoredImageApiKey, setHasStoredImageApiKey] = useState(false);
     const hydratedFromServer = useRef(false);
 
     useEffect(() => {
@@ -53,6 +54,7 @@ export function useAIComputeSettings() {
                 if (cancelled) return;
                 if (payload.settings) {
                     applyComputeSettings(payload.settings);
+                    setHasStoredImageApiKey(Boolean(payload.settings.hasImageApiKey));
                     if (!payload.settings.hasImageApiKey) setImageApiKey('');
                 }
                 hydratedFromServer.current = true;
@@ -85,6 +87,8 @@ export function useAIComputeSettings() {
                 }),
             });
             if (!response.ok) throw new Error('Unable to save AI settings.');
+            const payload = await response.json() as { settings: { hasImageApiKey?: boolean } | null };
+            setHasStoredImageApiKey(Boolean(payload.settings?.hasImageApiKey));
             setSyncStatus('saved');
         } catch {
             setSyncStatus('error');
@@ -181,5 +185,6 @@ export function useAIComputeSettings() {
         testConnection,
         saveSettings,
         syncStatus,
+        hasStoredImageApiKey,
     };
 }

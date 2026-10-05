@@ -11,6 +11,7 @@ import type { ComputeSettings, ExecutionTargetAdapter } from '@/types/executionT
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 import type { RenderTaskOutcome, ResolvedRenderParameters, RenderTaskRequest } from '@/types/renderTask.types';
 import { RenderTaskCancelledError, type RenderTaskRunner } from './ai/renderTaskCoordinator';
+import { PROXY_API_KEY } from './ai/proxyFetcher';
 import { probeEndpointCapabilities } from './ai/targets/openApiDiscovery';
 import { createOpenAIImageTarget } from './ai/targets/openAIImageTarget';
 import { createOpenAIVideoTarget } from './ai/targets/openAIVideoTarget';
@@ -135,7 +136,7 @@ export function createRenderTaskRunners(ctx: RenderTaskRunnerContext): RenderTas
             id: 'render-task-image',
             endpoint: settings.imageApiEndpoint,
             model: settings.imageApiModel ?? '',
-            apiKey: settings.imageApiKey ?? '',
+            apiKey: settings.imageApiKey || PROXY_API_KEY,
             keyless: settings.imageApiKeyless ?? false,
             size: `${resolved.width ?? 1024}x${resolved.height ?? 1024}`,
             ...(fetcher ? { fetcher } : {}),
@@ -154,7 +155,7 @@ export function createRenderTaskRunners(ctx: RenderTaskRunnerContext): RenderTas
     async function runVideoOpenAI(resolved: ResolvedRenderParameters, signal: AbortSignal, firstFrame?: string, endFrame?: string): Promise<RenderTaskResult> {
         const settings = getSettings();
         const probe = await probeEndpointCapabilities(settings.imageApiEndpoint as string, {
-            apiKey: settings.imageApiKey ?? '',
+            apiKey: settings.imageApiKey || PROXY_API_KEY,
             keyless: settings.imageApiKeyless ?? false,
             ...(fetcher ? { fetcher } : {}),
         });
@@ -163,7 +164,7 @@ export function createRenderTaskRunners(ctx: RenderTaskRunnerContext): RenderTas
             id: 'render-task-video',
             endpoint: settings.imageApiEndpoint as string,
             model: settings.imageApiModel ?? '',
-            apiKey: settings.imageApiKey ?? '',
+            apiKey: settings.imageApiKey || PROXY_API_KEY,
             keyless: settings.imageApiKeyless ?? false,
             nativeVideoRoute: probe.videoGenerateNative,
             ...(fetcher ? { fetcher } : {}),
@@ -236,7 +237,7 @@ export function createRenderTaskRunners(ctx: RenderTaskRunnerContext): RenderTas
         const runner = createExtractionRunner({
             endpoint: settings.imageApiEndpoint,
             model: settings.imageApiModel ?? '',
-            apiKey: settings.imageApiKey ?? '',
+            apiKey: settings.imageApiKey || PROXY_API_KEY,
             keyless: settings.imageApiKeyless ?? false,
             ...(fetcher ? { fetcher } : {}),
         });

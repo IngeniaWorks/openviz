@@ -1,4 +1,5 @@
 import { RenderOperation, RenderService, GenerateRequest, GenerateResponse, NewViewRequest } from './types';
+import { imageApiProxyFetcher, PROXY_API_KEY } from './ai/proxyFetcher';
 import { createOpenAIImageTarget } from './ai/targets/openAIImageTarget';
 import { useStore } from '@/store/useStore';
 import { createGenerationQueue, type GenerationQueueSnapshot } from '@/services/ai/generationQueue';
@@ -52,9 +53,10 @@ export const openAIImageRenderService: RenderService = {
                 id: 'image-api',
                 endpoint,
                 model: settings.imageApiModel ?? '',
-                apiKey: settings.imageApiKey ?? '',
+                apiKey: settings.imageApiKey || PROXY_API_KEY,
                 keyless: settings.imageApiKeyless ?? false,
                 size,
+                fetcher: imageApiProxyFetcher,
             });
 
             try {
@@ -97,9 +99,10 @@ export const openAIImageRenderService: RenderService = {
                 id: 'image-api',
                 endpoint,
                 model: settings.imageApiModel ?? '',
-                apiKey: settings.imageApiKey ?? '',
+                apiKey: settings.imageApiKey || PROXY_API_KEY,
                 keyless: settings.imageApiKeyless ?? false,
                 size,
+                fetcher: imageApiProxyFetcher,
             });
 
             try {
@@ -141,8 +144,9 @@ export const openAIImageRenderService: RenderService = {
             id: 'image-api',
             endpoint: settings.imageApiEndpoint ?? '',
             model: settings.imageApiModel ?? '',
-            apiKey: settings.imageApiKey ?? '',
+            apiKey: settings.imageApiKey || PROXY_API_KEY,
             keyless: settings.imageApiKeyless ?? false,
+            fetcher: imageApiProxyFetcher,
         });
         const health = await target.health();
         return health.status === 'ready';

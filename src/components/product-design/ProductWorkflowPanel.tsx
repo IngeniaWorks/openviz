@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import { createLocalComfyTarget } from '@/services/ai/targets/localComfyTarget';
+import { imageApiProxyFetcher, PROXY_API_KEY } from '@/services/ai/proxyFetcher';
 import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import type { AspectRatio } from '@/types';
 import { generateUUID } from '@/utils/uuid';
@@ -47,9 +48,10 @@ export const ProductWorkflowPanel: React.FC<ProductWorkflowPanelProps> = ({ coll
                 id: 'image-api',
                 endpoint: settings.imageApiEndpoint,
                 model: settings.imageApiModel,
-                apiKey: settings.imageApiKey,
+                apiKey: settings.imageApiKey || PROXY_API_KEY,
                 keyless: settings.imageApiKeyless,
                 size: settings.imageApiSize,
+                fetcher: imageApiProxyFetcher,
             });
         }
         return settings.targetKind === 'local' && settings.localEndpoint

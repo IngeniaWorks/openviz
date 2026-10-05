@@ -4,6 +4,7 @@ import {
     comfyConnectionManager,
     type ComfyEndpointState,
 } from '@/services/ai/comfyConnectionManager';
+import { imageApiProxyFetcher, PROXY_API_KEY } from '@/services/ai/proxyFetcher';
 import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import { imageApiQueue } from '@/services/renderService';
 import {
@@ -116,8 +117,9 @@ export function useAIComputeStatus(open: boolean) {
                     id: 'image-api',
                     endpoint: resolved.endpoint,
                     model: computeSettings.imageApiModel ?? '',
-                    apiKey: computeSettings.imageApiKey ?? '',
+                    apiKey: computeSettings.imageApiKey || PROXY_API_KEY,
                     keyless: computeSettings.imageApiKeyless ?? false,
+                    fetcher: imageApiProxyFetcher,
                 });
                 const health = await target.health();
 
@@ -125,8 +127,9 @@ export function useAIComputeStatus(open: boolean) {
                 let probe = probeCacheRef.current.get(resolved.endpoint) ?? null;
                 if (!probe) {
                     probe = await probeEndpointCapabilities(resolved.endpoint, {
-                        apiKey: computeSettings.imageApiKey || undefined,
+                        apiKey: computeSettings.imageApiKey || PROXY_API_KEY,
                         keyless: computeSettings.imageApiKeyless ?? false,
+                        fetcher: imageApiProxyFetcher,
                     });
                     probeCacheRef.current.set(resolved.endpoint, probe);
                 }

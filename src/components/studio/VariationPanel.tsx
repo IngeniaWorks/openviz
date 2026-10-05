@@ -6,6 +6,7 @@ import { renderService } from '../../services/renderService';
 import { ColorPicker } from './ColorPicker';
 import { normalizeHex } from '../../utils/colorUtils';
 import { createLocalComfyTarget } from '../../services/ai/targets/localComfyTarget';
+import { imageApiProxyFetcher, PROXY_API_KEY } from '@/services/ai/proxyFetcher';
 import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import { useProductGeneration } from '../product-design/hooks/useProductGeneration';
 import { generateUUID } from '../../utils/uuid';
@@ -63,9 +64,10 @@ export const VariationPanel: React.FC<VariationPanelProps> = ({ collapsed, onCol
                 id: 'image-api',
                 endpoint: computeSettings.imageApiEndpoint,
                 model: computeSettings.imageApiModel,
-                apiKey: computeSettings.imageApiKey,
+                apiKey: computeSettings.imageApiKey || PROXY_API_KEY,
                 keyless: computeSettings.imageApiKeyless,
                 size: computeSettings.imageApiSize,
+                fetcher: imageApiProxyFetcher,
             });
         }
         return computeSettings.targetKind === 'local' && computeSettings.localEndpoint

@@ -24,11 +24,15 @@ const { storeState, notifyStore, subscribeStore, queueState } = vi.hoisted(() =>
 });
 
 vi.mock('@/store/useStore', () => ({
-    useStore: (selector?: (state: typeof storeState) => unknown) =>
-        useSyncExternalStore(
-            subscribeStore,
-            () => (selector ? selector(storeState) : storeState),
-        ),
+    // The proxy fetcher resolves the active endpoint via useStore.getState() at call time.
+    useStore: Object.assign(
+        (selector?: (state: typeof storeState) => unknown) =>
+            useSyncExternalStore(
+                subscribeStore,
+                () => (selector ? selector(storeState) : storeState),
+            ),
+        { getState: () => storeState },
+    ),
 }));
 
 vi.mock('@/services/renderService', () => ({

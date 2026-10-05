@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ComputeSettings, TargetCapabilities } from '@/types/executionTarget.types';
 import { comfyConnectionManager } from '@/services/ai/comfyConnectionManager';
+import { imageApiProxyFetcher, PROXY_API_KEY } from '@/services/ai/proxyFetcher';
 import { createOpenAIImageTarget } from '@/services/ai/targets/openAIImageTarget';
 import { useStore } from '@/store/useStore';
 
@@ -109,13 +110,16 @@ export function useAIComputeSettings() {
         setStatus('checking');
         try {
             if (protocol === 'openai-image') {
+                // Persist first: the proxy route authenticates against what the
+                // server stores, so a freshly typed endpoint/key is tested as-is.
+                await saveSettings();
                 const target = createOpenAIImageTarget({
                     id: 'image-api',
                     endpoint: imageApiEndpoint,
                     model: imageApiModel,
-                    apiKey: imageApiKey,
+                    apiKey: imageApiKey || PROXY_API_KEY,
                     keyless: imageApiKeyless,
-                    fetcher: fetch,
+                    fetcher: imageApiProxyFetcher,
                 });
                 const health = await target.health();
                 setImageApiModels(health.capabilities?.availableModels ?? []);
@@ -127,7 +131,7 @@ export function useAIComputeSettings() {
         } catch {
             setStatus('unavailable');
         }
-    }, [endpoint, imageApiEndpoint, imageApiKey, imageApiKeyless, imageApiModel, protocol, setImageApiModels]);
+    }, [endpoint, imageApiEndpoint, imageApiKey, imageApiKeyless, imageApiModel, protocol, saveSettings, setImageApiModels]);
 
     // Live ComfyUI status via the shared connection manager: one probe per
     // failure TTL while down (the old 10s retry loop), and background refresh

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
+import { imageApiProxyFetcher } from '@/services/ai/proxyFetcher';
 import { createRenderTaskService, type RenderTaskService } from '@/services/renderTaskService';
 import type { RenderTaskRequest } from '@/types/renderTask.types';
 
@@ -15,6 +16,9 @@ function getRenderTaskService(): RenderTaskService {
         sharedService = createRenderTaskService({
             getSettings: () => useStore.getState().computeSettings,
             resolveReferenceImage: (imageId) => Promise.resolve(useStore.getState().renderReferences.find((reference) => reference.id === imageId)?.dataUrl),
+            // OpenAI-compatible traffic is relayed through /api/ai/proxy so the
+            // stored server-side key is used on every signed-in device.
+            fetcher: imageApiProxyFetcher,
         });
     }
     return sharedService;

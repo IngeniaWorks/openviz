@@ -21,6 +21,7 @@ import { useStore } from '@/store/useStore';
 import { ProductArtwork } from './ProductArtwork';
 import { GenerationModePanel } from './GenerationModePanel';
 import { useRenderTask } from './useRenderTask';
+import { useAIReadiness } from './useAIReadiness';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
 
 import { DEMO_REFERENCE_DATA_URL } from './demoReference';
@@ -88,6 +89,8 @@ export function GenerationNodeMockup() {
 }
 
 function WorkbenchMockChrome() {
+    // T031: the readiness indicator is derived from compute settings, not hardcoded.
+    const readiness = useAIReadiness();
     return (
         <>
             <div className="absolute left-4 top-4 z-30 flex h-9 items-center gap-2 rounded-lg border border-viz-border bg-viz-panel/95 px-3 shadow-viz">
@@ -107,8 +110,8 @@ function WorkbenchMockChrome() {
                 <button type="button" aria-label="Redo" className={TOOL_CLASS}><Redo2 size={16} aria-hidden="true" /></button>
             </nav>
             <div className="absolute right-4 top-4 z-30 flex h-9 items-center gap-2 rounded-lg border border-viz-border bg-viz-panel/95 px-3 shadow-viz">
-                <Circle size={8} fill="currentColor" className="text-viz-accent" aria-hidden="true" />
-                <span className="text-xs text-white/80">AI ready</span>
+                <Circle size={8} fill="currentColor" className={readiness.ready ? 'text-viz-accent' : 'text-amber-400'} aria-hidden="true" />
+                <span className="text-xs text-white/80">{readiness.ready ? 'AI ready' : 'AI not ready'}</span>
             </div>
             <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1 rounded-xl2 border border-viz-border bg-viz-panel px-1.5 py-1 shadow-viz">
                 <button type="button" aria-label="Zoom out" className={TOOL_CLASS}><ZoomOut size={15} aria-hidden="true" /></button>

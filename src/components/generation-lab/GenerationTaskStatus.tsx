@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Lock, RefreshCw, XCircle } from 'lucide-react';
 import type { GenerationTaskApi } from './useRenderTask';
+import { useAIReadiness } from './useAIReadiness';
 
 const STATUS_BUTTON_CLASS = 'nodrag flex items-center gap-1 rounded-lg border border-viz-border bg-viz-surface px-2 py-1 text-[10px] font-medium text-white transition-colors hover:border-viz-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-viz-accent';
 
@@ -11,6 +12,18 @@ const STATUS_BUTTON_CLASS = 'nodrag flex items-center gap-1 rounded-lg border bo
  * result grid with per-output seed lock (SC-008).
  */
 export function GenerationTaskStatus({ task }: { task: GenerationTaskApi }) {
+    const readiness = useAIReadiness();
+
+    // T031 (spec edge case): idle with no backend configured → readiness note.
+    if (task.status === 'idle' && !readiness.ready) {
+        return (
+            <p role="note" className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-400/40 bg-amber-950/30 px-2.5 py-2 text-[11px] text-amber-200">
+                <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                AI not ready — {readiness.reason ?? 'no image backend configured'}. Configure a backend in Settings; your last request is kept for retry.
+            </p>
+        );
+    }
+
     if (task.status === 'queued' || task.status === 'active') {
         return (
             <div role="status" aria-live="polite" className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-viz-border bg-viz-panel/60 px-2.5 py-2">

@@ -57,6 +57,25 @@ describe('useRenderTask (T009, Constitution III)', () => {
         expect(useStore.getState().renderTaskError).toContain('A reference image is required');
     });
 
+    it('blocks submission when no image backend is configured and keeps the request for retry (T031, spec edge case)', async () => {
+        const previousSettings = useStore.getState().computeSettings;
+        useStore.setState((state) => ({ computeSettings: { ...state.computeSettings, protocol: 'openai-image', imageApiEndpoint: '' } }));
+        try {
+            const service = makeService({ outputIds: [], allOutputsSucceeded: true, outputs: [] });
+            const { result: api } = renderHook(() => useRenderTask(service));
+
+            act(() => api.current.submit(REQUEST));
+
+            await waitFor(() => expect(useStore.getState().renderTaskStatus).toBe('failed'));
+            expect(service.submit).not.toHaveBeenCalled();
+            expect(useStore.getState().renderTaskError).toContain('AI not ready');
+            // Queued user input is preserved for retry once a backend is configured.
+            expect(useStore.getState().lastRenderRequest).toEqual(REQUEST);
+        } finally {
+            useStore.setState({ computeSettings: previousSettings });
+        }
+    });
+
     it('cancels the active task through the service', async () => {
         let resolveResult: (result: RenderTaskResult) => void = () => undefined;
         const pending = new Promise<RenderTaskResult>((resolve) => {

@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useStore } from '@/store/useStore';
 import { GenerationNodeMockup } from './GenerationNodeMockup';
@@ -13,6 +15,13 @@ import { MODIFY_PROMPT_TEMPLATES } from './GenerationModifyMode';
 const NO_BACKEND_ERROR = /no image backend is configured/i;
 const GATE_ERROR = /benchmark gate/i;
 
+// The mockup's saved-palette query (T030) needs a QueryClient; the app root
+// provides one, so tests supply their own.
+const mockupQueryClient = new QueryClient();
+function MockupWrapper({ children }: { children?: ReactNode }) {
+    return <QueryClientProvider client={mockupQueryClient}>{children}</QueryClientProvider>;
+}
+
 beforeEach(() => {
     useStore.setState({
         renderReferences: [], renderTaskStatus: 'idle', renderTaskQueuePosition: null, renderTaskError: null,
@@ -22,7 +31,7 @@ beforeEach(() => {
 
 describe('GenerationNodeMockup', () => {
     it('uses the Workbench node shell and shows the specified base actions', () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 
         const node = screen.getByRole('region', { name: 'Shared generation node' });
         expect(node).toHaveClass('w-[280px]', 'bg-viz-panel', 'border-viz-accent', 'ring-viz-accent');
@@ -36,8 +45,25 @@ describe('GenerationNodeMockup', () => {
         expect(screen.getByRole('button', { name: 'Extract' })).toBeEnabled();
     });
 
+    it('derives the AI readiness indicator from compute settings (T031, spec edge case)', async () => {
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
+        expect(screen.getByText('AI ready')).toBeInTheDocument();
+
+        const previousSettings = useStore.getState().computeSettings;
+        act(() => {
+            useStore.setState((state) => ({ computeSettings: { ...state.computeSettings, protocol: 'openai-image', imageApiEndpoint: '' } }));
+        });
+        try {
+            expect(await screen.findByText('AI not ready')).toBeInTheDocument();
+        } finally {
+            act(() => {
+                useStore.setState({ computeSettings: previousSettings });
+            });
+        }
+    });
+
     it('opens the Modify node from the prompt field button, keeps its label after going back, and still lets other actions transition', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 
         fireEvent.click(screen.getByRole('button', { name: 'Describe your changes' }));
         expect(await screen.findByRole('button', { name: /Aspect ratio 1:1/ })).toBeInTheDocument();
@@ -57,7 +83,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('morphs into the Modify edit panel as soon as the prompt field button is clicked, keeping focus on the prompt', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 
         fireEvent.click(screen.getByRole('button', { name: 'Describe your changes' }));
 
@@ -69,7 +95,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('numbers the reference chip and resolves @ mentions in the prompt to the numbered token', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));
         await screen.findByRole('button', { name: /Aspect ratio 1:1/ });
 
@@ -95,7 +121,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('ships the demo reference as a real base64 PNG data URL (raster sources only)', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 
         const reference = await waitFor(() => {
             const current = useStore.getState().renderReferences[0];
@@ -106,7 +132,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('attaches an uploaded photo as the primary reference', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         await screen.findByText('Replace with photo');
 
         const file = new File(['png-bytes'], 'product.png', { type: 'image/png' });
@@ -120,7 +146,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('renders inserted references as blue blocks in the prompt and removes the whole token on backspace', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));
         await screen.findByRole('button', { name: /Aspect ratio 1:1/ });
 
@@ -142,7 +168,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('shows Make/Change/Insert template chips that append a sentence starter and place the cursor at the end', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));
         await screen.findByRole('button', { name: /Aspect ratio 1:1/ });
 
@@ -159,7 +185,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('lists Modify and Animate actions with Animate below Modify, preserving the spec\'d base preset list', () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 
         const actions = screen.getByLabelText('Generation actions');
         const labels = within(actions).getAllByRole('button').map((button) => button.getAttribute('aria-label'));
@@ -167,7 +193,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('keeps the aspect ratio dropdown hidden until clicked, updates the chip, and survives a round trip to base', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));
 
         await screen.findByRole('button', { name: /Aspect ratio 1:1/ });
@@ -185,7 +211,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('enables Generate once the modify prompt has text and submits the mock action', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Modify' }));
 
         await screen.findByRole('button', { name: /Aspect ratio 1:1/ });
@@ -202,7 +228,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('opens the Animate mode with its frames and settings body', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Animate' }));
 
         expect(await screen.findByRole('heading', { name: 'Animate' })).toBeInTheDocument();
@@ -222,7 +248,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('opens the minimal Instant Render form with its connected reference and animated generate action', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Instant Render' }));
 
         expect(await screen.findByRole('heading', { name: 'Instant Render' })).toBeInTheDocument();
@@ -241,7 +267,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('preserves Variation form settings across base-state transitions', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Variate form and color' }));
 
         expect(await screen.findByRole('heading', { name: 'Variation' })).toBeInTheDocument();
@@ -261,7 +287,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('preserves Variation color palette changes when switching to and from the base state', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Variate form and color' }));
         fireEvent.click(await screen.findByRole('button', { name: 'Color' }));
         fireEvent.change(screen.getByLabelText('Palette name'), { target: { value: 'Night garden' } });
@@ -277,7 +303,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('requires a selected view before allowing New view generation', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'New view' }));
 
         expect(await screen.findByRole('heading', { name: 'New view' })).toBeInTheDocument();
@@ -293,7 +319,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('runs Extract against the connected reference with type and sampling controls', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Extract' }));
 
         expect(await screen.findByRole('heading', { name: 'Extract' })).toBeInTheDocument();
@@ -309,7 +335,7 @@ describe('GenerationNodeMockup', () => {
     });
 
     it('reveals a plain-language mode description from the info control', async () => {
-        render(<GenerationNodeMockup />);
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
         fireEvent.click(screen.getByRole('button', { name: 'Extract' }));
         await screen.findByRole('heading', { name: 'Extract' });
         fireEvent.click(screen.getByRole('button', { name: 'About Extract' }));

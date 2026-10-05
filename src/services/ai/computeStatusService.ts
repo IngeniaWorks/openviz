@@ -15,6 +15,23 @@ export interface ComfyQueueInfo {
     queued: number;
 }
 
+/** T031 (spec edge case: model/backend unavailable): whether an image backend is configured. */
+export interface ImageBackendReadiness {
+    ready: boolean;
+    reason?: string;
+}
+
+/** Derive readiness from persisted compute settings (no network probe). */
+export function isImageBackendReady(settings: ComputeSettings): ImageBackendReadiness {
+    if (settings.protocol === 'openai-image') {
+        const endpoint = normalizeImageApiEndpoint(settings.imageApiEndpoint ?? '');
+        if (!endpoint) return { ready: false, reason: 'No image API configured' };
+        return { ready: true };
+    }
+    // ComfyUI always has a default local endpoint; live connection health is handled separately.
+    return { ready: true };
+}
+
 /** Strip whitespace and trailing slashes so queue keys and URLs stay consistent. */
 export function normalizeImageApiEndpoint(endpoint: string): string {
     return endpoint.trim().replace(/\/+$/, '');

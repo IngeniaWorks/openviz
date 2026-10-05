@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
+import { isImageBackendReady } from '@/services/ai/computeStatusService';
 import { useStore } from '@/store/useStore';
 import { imageApiProxyFetcher } from '@/services/ai/proxyFetcher';
 import { createRenderTaskService, type RenderTaskService } from '@/services/renderTaskService';
@@ -70,6 +71,13 @@ export function useRenderTask(service?: RenderTaskService): GenerationTaskApi {
     const submit = useCallback((request: RenderTaskRequest) => {
         const store = useStore.getState();
         store.setLastRenderRequest(request);
+        // T031 (spec edge case): no image backend configured → fail fast with a
+        // readiness error; the queued request above is preserved for retry.
+        const readiness = isImageBackendReady(store.computeSettings);
+        if (!readiness.ready) {
+            store.setRenderTaskProgress({ status: 'failed', queuePosition: null, error: `AI not ready — ${readiness.reason ?? 'no image backend configured'}.` });
+            return;
+        }
         activeService
             .submit(request)
             .then(({ id, recordId, promise }) => {

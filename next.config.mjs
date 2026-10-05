@@ -4,11 +4,17 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const comfyUiUrl = process.env.COMFYUI_URL || 'http://localhost:8188';
 
+// Extra origins for remote dev access (comma-separated), e.g. your LAN IP.
+const extraDevOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    // Allow remote dev access (e.g. Tailscale IP) so HMR websocket and
-    // cross-origin dev resource requests from that host are not blocked.
-    allowedDevOrigins: ['100.77.89.74'],
+    // Allow remote dev access (e.g. Tailscale IP, LAN IP) so HMR websocket and
+    // cross-origin dev resource requests from those hosts are not blocked.
+    allowedDevOrigins: ['100.77.89.74', ...extraDevOrigins],
     // Force Next/Turbopack to treat this folder as the project root.
     // Prevents dependency resolution from drifting to parent directories
     // when multiple lockfiles exist on the machine.

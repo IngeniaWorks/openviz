@@ -90,6 +90,10 @@ fi
 echo "[dev] Starting Next.js and the collaboration WebSocket server..."
 
 APP_PORT="${PORT:-3000}"
+# Bind every interface by default so the dev server (app, HMR websocket, and
+# the /comfy-api WebSocket proxy) is reachable via localhost, Tailscale, and
+# the local network. Set OPENVIZ_HOST=localhost to restrict to loopback only.
+APP_HOST="${OPENVIZ_HOST:-0.0.0.0}"
 COLLAB_PORT="${COLLAB_PORT:-1234}"
 REPO_ROOT="$PWD"
 
@@ -223,7 +227,7 @@ fi
 if port_belongs_to_openviz "$APP_PORT"; then
   :
 else
-  NODE_OPTIONS='--max-old-space-size=8192' pnpm exec next dev -p "$APP_PORT" &
+  NODE_OPTIONS='--max-old-space-size=8192' pnpm exec next dev -H "$APP_HOST" -p "$APP_PORT" &
   NEXT_PID=$!
 fi
 

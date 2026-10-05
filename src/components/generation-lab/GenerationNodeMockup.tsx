@@ -20,6 +20,7 @@ import { cn, mediaNodeFrameClass, mediaNodeTitleClass, nodeCardClass } from '@/c
 import { useStore } from '@/store/useStore';
 import { ProductArtwork } from './ProductArtwork';
 import { GenerationModePanel } from './GenerationModePanel';
+import { GenerationResultNode } from './GenerationResultNode';
 import { useRenderTask } from './useRenderTask';
 import { useAIReadiness } from './useAIReadiness';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
@@ -83,6 +84,13 @@ export function GenerationNodeMockup() {
                     </button>
                     <GenerationModePanel state={state} referenceCount={references.length} references={references} task={task} onUpdate={updateState} onGenerate={task.submit} />
                 </motion.section>
+                {/* T032: results land as separate nodes connected to the generation node. */}
+                {task.outputs.length > 0 && (
+                    <>
+                        <div className="hidden w-16 items-center lg:flex" aria-hidden="true"><span className="h-px w-full border-t border-dashed border-viz-accent/70" /></div>
+                        <GenerationResultNode outputs={task.outputs} onRegenerateWithSeed={task.regenerateWithSeed} />
+                    </>
+                )}
             </section>
         </main>
     );

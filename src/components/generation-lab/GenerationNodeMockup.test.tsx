@@ -62,6 +62,15 @@ describe('GenerationNodeMockup', () => {
         }
     });
 
+    it('renders result outputs as separate nodes connected to the generation node (T032)', () => {
+        useStore.setState({ renderTaskStatus: 'completed', renderTaskOutputs: [{ id: 'o1', url: 'data:image/png;base64,eA==', seed: 7 }, { id: 'o2', url: 'data:image/png;base64,eQ==' }] });
+        render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
+
+        expect(screen.getAllByRole('group', { name: /generation result/i })).toHaveLength(2);
+        // SC-008: the per-output seed lock is reachable from its node.
+        expect(screen.getByRole('button', { name: 'Lock seed 7 and regenerate' })).toBeInTheDocument();
+    });
+
     it('opens the Modify node from the prompt field button, keeps its label after going back, and still lets other actions transition', async () => {
         render(<GenerationNodeMockup />, { wrapper: MockupWrapper });
 

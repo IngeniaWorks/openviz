@@ -36,7 +36,10 @@ const INITIAL_STATE: GenerationPlaygroundState = {
 /** react-query wrapper — the mode queries saved assets (T030) on mount. */
 function makeWrapper() {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    return ({ children }: { children?: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    function Wrapper({ children }: { children?: ReactNode }) {
+        return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    }
+    return Wrapper;
 }
 
 const harnessClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

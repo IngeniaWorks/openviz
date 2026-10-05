@@ -19,7 +19,7 @@ This repository contains **OpenViz**, a React-based design application powered b
 - **Single Test**: `pnpm exec vitest path/to/file.test.ts`
 
 ## Spec-Driven Development (Spec Kit)
-Governing doc: [docs/development/constitution.md](docs/development/constitution.md) — supersedes all other practices.
+Governing doc: [.specify/memory/constitution.md](.specify/memory/constitution.md) — supersedes all other practices.
 
 > Note: Spec Kit tooling (`.specify/`, `.github/skills/`) is intentionally not committed. Initialize it locally (spec-kit init + extensions) to use the `/speckit.*` commands below.
 - **New idea** → `/speckit.assess.intake "..." slug=<slug>` → `research` → `define` → `shape` → `decide`. Only a **go** verdict proceeds to spec. Reports: `.specify/assessments/<slug>/`.

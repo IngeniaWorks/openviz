@@ -106,6 +106,10 @@ describe('NewViewNode (spec 008 FR-005)', () => {
         ]) {
             expect(screen.getByRole('option', { name })).toBeInTheDocument();
         }
+        // The ten cube-visible views come first; the four dropdown-only views sit below the separator.
+        expect(screen.getByText('Hidden views')).toBeInTheDocument();
+        const options = screen.getAllByRole('option').map((option) => option.textContent);
+        expect(options.slice(10)).toEqual(['Rear', 'Right', 'Bottom', 'Bottom Rear Right 3/4 view']);
     });
 
     it('selecting a view persists it through onDataChange and closes the list', () => {

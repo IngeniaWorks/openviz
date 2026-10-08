@@ -5,7 +5,7 @@ import type { NewViewWorkbenchNode, ViewName } from '@/types';
 import { VIEW_NAMES } from '@/types';
 import { useNewViewNodeActions } from './hooks/useNewViewNodeActions';
 import { cn, NodeCardHeader, nodeCardBodyClass, nodeCardClass, NodeTargetHandle } from './nodeUi';
-import { ViewCubePicker } from './ViewCubePicker';
+import { CUBE_VISIBLE_VIEWS, ViewCubePicker } from './ViewCubePicker';
 
 interface NewViewNodeData extends NewViewWorkbenchNode {
     onResize?: (nodeId: string, width: number, height: number, x?: number, y?: number) => void;
@@ -31,10 +31,33 @@ export const NewViewNode = React.memo(({ id, data, selected }: NewViewNodeProps)
     const [hoveredView, setHoveredView] = useState<ViewName | null>(null);
     const { view, isGenerating, isHoverConnectable, setIsHovered, referenceCount, handleGenerate } = useNewViewNodeActions(id, data);
 
-    const prompt = data.data?.prompt ?? '';
-    const canGenerate = view !== null && referenceCount > 0 && !isGenerating;
+        const prompt = data.data?.prompt ?? '';
+        const canGenerate = view !== null && referenceCount > 0 && !isGenerating;
+        // The cube only shows ten of the fourteen views; the rest are dropdown-only.
+        const cubeViews = VIEW_NAMES.filter((name) => CUBE_VISIBLE_VIEWS.includes(name));
+        const hiddenViews = VIEW_NAMES.filter((name) => !CUBE_VISIBLE_VIEWS.includes(name));
 
-    return (
+        const renderViewOption = (name: ViewName) => (
+            <button
+                key={name}
+                type="button"
+                role="option"
+                aria-selected={view === name}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    data.onDataChange?.(id, { view: name });
+                    setShowViews(false);
+                }}
+                className={cn(
+                    'nodrag w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/10',
+                    view === name ? 'text-viz-accent' : 'text-white/85',
+                )}
+            >
+                {name}
+            </button>
+        );
+
+        return (
         <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -71,25 +94,11 @@ export const NewViewNode = React.memo(({ id, data, selected }: NewViewNodeProps)
                             aria-label="View"
                             className="absolute bottom-full left-0 right-0 z-50 mb-1 overflow-hidden rounded-lg border border-viz-border bg-viz-surface shadow-xl"
                         >
-                            {VIEW_NAMES.map((name) => (
-                                <button
-                                    key={name}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={view === name}
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        data.onDataChange?.(id, { view: name });
-                                        setShowViews(false);
-                                    }}
-                                    className={cn(
-                                        'nodrag w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/10',
-                                        view === name ? 'text-viz-accent' : 'text-white/85',
-                                    )}
-                                >
-                                    {name}
-                                </button>
-                            ))}
+                            {cubeViews.map(renderViewOption)}
+                            <div className="mx-3 mt-1 border-t border-viz-border pt-1.5" role="presentation">
+                                <span className="text-[9px] font-semibold uppercase tracking-wider text-viz-muted">Hidden views</span>
+                            </div>
+                            {hiddenViews.map(renderViewOption)}
                         </div>
                     )}
                 </div>

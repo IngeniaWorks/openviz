@@ -75,6 +75,15 @@ const CORNER_VIEWS: Array<{ view: ViewName; corner: CornerName }> = [
     { view: 'Bottom Front Left 3/4 view', corner: 'bottomFront' },
 ];
 
+/**
+ * The ten views that have a cube element (3 faces + 7 corners). The remaining
+ * ViewNames face away from the isometric corner and are dropdown-only.
+ */
+export const CUBE_VISIBLE_VIEWS: readonly ViewName[] = [
+    ...FACES.map((face) => face.view),
+    ...CORNER_VIEWS.map(({ view }) => view),
+];
+
 function centroid(points: Point[]): Point {
     let sx = 0;
     let sy = 0;

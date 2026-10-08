@@ -30,11 +30,12 @@ export function useWorkbenchMediaUpload({ flowWrapperRef, screenToFlowPosition, 
 
     const addImageFile = useCallback(async (file: File | undefined) => {
         if (!file || !isImageFile(file)) return;
-        // Upload to the asset store and store a short ref URL in node state
-        // (falls back to base64 when the asset store is unavailable).
-        const src = await uploadBlobToAsset(file, file.name);
+        // Upload to the asset store and store short ref URLs in node state
+        // (falls back to base64 when the asset store is unavailable). The
+        // thumbnail variant drives canvas/dashboard display (Sprint 3).
+        const { url, thumbnailUrl } = await uploadBlobToAsset(file, file.name);
         const centerPoint = resolveCenterFlowPoint(flowWrapperRef.current?.getBoundingClientRect(), screenToFlowPosition);
-        makeOneShotNode(buildImageNode({ src, fileName: file.name, mimeType: file.type, centerPoint }));
+        makeOneShotNode(buildImageNode({ src: url, thumbnail: thumbnailUrl, fileName: file.name, mimeType: file.type, centerPoint }));
     }, [flowWrapperRef, makeOneShotNode, screenToFlowPosition]);
 
     const closePhoneUploadModal = useCallback(() => {

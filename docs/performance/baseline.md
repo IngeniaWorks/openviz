@@ -105,6 +105,28 @@ Notes:
   room-seeding semantics — deferred, not done blind.
 - Coverage gate: 169 files / 1120 tests green, 72.84% statements (floor held).
 
+## Results — Sprint 3 (image delivery) · this commit
+
+Verified end-to-end against local MinIO (real upload → thumbnail → cached delivery):
+
+| Item | Result |
+|---|---|
+| Uploaded objects | `Cache-Control: public, max-age=31536000, immutable` **signed into the presigned PUT** and stored as object metadata — browsers fetch each asset's bytes from S3 exactly once and stop re-hitting `/api/assets/<token>` (no more per-image auth + presign minting) |
+| Thumbnail pipeline | `POST /api/assets/thumbnail` → sharp WebP ≤512px: 1600×900 PNG (21KB) → **512×288 WebP**, immutable headers, deterministic key (`thumbnails/<…>.webp`) — progressive enhancement: any failure yields `thumbnailUrl: null`, uploads never break |
+| Canvas/dashboard display | `project.thumbnail` now carries the small variant for S3 uploads; full resolution stays on `layer.image` (studio editing) — zero rendering changes needed (`ImageNode` already renders `project.thumbnail`) |
+| Resolve route | 307 redirect cached `private, max-age=3600` per user (presign target valid 24h; objects immutable) |
+| Backfill | `scripts/backfill-thumbnails.mjs` — idempotent, dry-run by default (`--apply` to write); verified: skips existing thumbnails, reports undecodable objects without crashing |
+
+Scope decisions (documented per plan constraints):
+- **Redis presign caching skipped**: with immutable object headers + cached redirects, the
+  presign-mint cost is paid once per asset per browser. A Redis layer would cache a value
+  that is effectively never re-requested — no measurable win, new failure mode. (The plan
+  marked this item optional; docker-compose Redis remains available for future use.)
+- **Render-path thumbnails out of scope**: ComfyUI render outputs are remote URLs in their
+  own cache domain; thumbnail variants cover the S3 upload path (workbench media uploads).
+- Mock mode unchanged: data-URL fallback still applies; Sprint 2's `?lite=1` + SWR already
+  address mock-mode payload bloat.
+
 ## Note: mock-mode payload sizes are not representative
 
 Without S3/MinIO, `assetUpload` falls back to inlining base64 data URLs into

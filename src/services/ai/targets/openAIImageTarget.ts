@@ -104,8 +104,10 @@ async function materializeNativeImageOutputs(
         }
         const blob = await response.blob();
         // Store a short asset ref (S3) instead of inlining base64; falls back to
-        // a data URL when the asset store is unavailable.
-        return { ...output, url: await uploadBlobToAsset(blob, `render-${output.assetId ?? output.index}.png`) };
+        // a data URL when the asset store is unavailable. (Render outputs flow
+        // through the render pipeline — thumbnail variants are an upload-path feature.)
+        const { url } = await uploadBlobToAsset(blob, `render-${output.assetId ?? output.index}.png`);
+        return { ...output, url };
     }));
 }
 

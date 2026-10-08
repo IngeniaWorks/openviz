@@ -35,5 +35,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     }
 
     // Redirect (not proxy) so the browser fetches bytes straight from S3/R2.
-    return new Response(null, { status: 307, headers: { Location: downloadUrl } });
+    // Cache the redirect itself per-user for an hour: the presigned target is
+    // valid 24h and uploaded objects carry immutable cache headers, so repeat
+    // loads skip the auth + presign-mint round-trip. `private` keeps it out of
+    // shared caches (the credential is user-scoped).
+    return new Response(null, {
+        status: 307,
+        headers: { Location: downloadUrl, 'Cache-Control': 'private, max-age=3600' },
+    });
 }

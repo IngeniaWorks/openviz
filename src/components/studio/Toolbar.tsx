@@ -188,7 +188,8 @@ export const Toolbar: React.FC = () => {
             const x = (canvasWidth - width) / 2;
             const y = (canvasHeight - height) / 2;
 
-            const image = await uploadBlobToAsset(file, file.name);
+            // Studio edits at full resolution — the thumbnail variant is for canvas previews.
+            const { url: image } = await uploadBlobToAsset(file, file.name);
 
             addLayer("image");
             const updatedState = useStore.getState();

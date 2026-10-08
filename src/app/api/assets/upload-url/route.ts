@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { getUploadUrl, s3Paths } from "@/lib/services/s3";
+import { getUploadUrl, IMMUTABLE_CACHE_CONTROL, s3Paths } from "@/lib/services/s3";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -10,7 +10,9 @@ export async function POST(req: Request) {
     if (!filename || !contentType) return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
 
     const key = s3Paths.uploads(session.user.id, `${Date.now()}-${filename}`);
-    const uploadUrl = await getUploadUrl(key, contentType);
+    // Signed into the presigned PUT: objects are content-unique and never
+    // mutated, so browsers may cache them forever (Sprint 3 — image delivery).
+    const uploadUrl = await getUploadUrl(key, contentType, IMMUTABLE_CACHE_CONTROL);
 
     return NextResponse.json({ uploadUrl, key });
 }

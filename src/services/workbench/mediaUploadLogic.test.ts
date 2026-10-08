@@ -49,6 +49,33 @@ describe('buildImageNode (uploaded image node)', () => {
         });
         expect(node.name).toBe('Uploaded image');
     });
+
+    it('stores a thumbnail variant on project.thumbnail while the layer keeps full resolution (Sprint 3)', async () => {
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
+            src: '/api/assets/full-token',
+            thumbnail: '/api/assets/thumb-token',
+            fileName: 'pic.png',
+            mimeType: 'image/png',
+            centerPoint: { x: 500, y: 300 },
+        });
+
+        expect(node.project.thumbnail).toBe('/api/assets/thumb-token');
+        expect(node.project.layers[0].image).toBe('/api/assets/full-token');
+    });
+
+    it('falls back to src for the display thumbnail when none is provided', async () => {
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
+            src: '/api/assets/full-token',
+            thumbnail: null,
+            fileName: 'pic.png',
+            mimeType: 'image/png',
+            centerPoint: { x: 500, y: 300 },
+        });
+
+        expect(node.project.thumbnail).toBe('/api/assets/full-token');
+    });
 });
 
 describe('resolveCenterFlowPoint (viewport-center placement)', () => {

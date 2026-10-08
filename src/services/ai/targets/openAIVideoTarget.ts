@@ -151,7 +151,7 @@ export function createOpenAIVideoTarget(options: OpenAIVideoTargetOptions): Exec
         const contentType = response.headers.get('content-type')?.split(';')[0] ?? 'video/mp4';
         // Store a short asset ref (S3) instead of inlining base64; falls back to
         // a data URL when the asset store is unavailable.
-        const assetUrl = await uploadBlobToAsset(await response.blob(), `render-video.mp4`);
+        const { url: assetUrl } = await uploadBlobToAsset(await response.blob(), `render-video.mp4`);
         return { url: assetUrl, index: 0, contentType };
     }
 

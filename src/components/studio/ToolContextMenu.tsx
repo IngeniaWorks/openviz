@@ -28,7 +28,8 @@ export const ToolContextMenu: React.FC<ToolContextMenuProps> = ({ x, y, tool, on
     const handlePasteImage = async () => {
         const file = await readClipboardImage();
         if (!file) return;
-        const image = await uploadBlobToAsset(file, file.name);
+        // Studio edits at full resolution — the thumbnail variant is for canvas previews.
+        const { url: image } = await uploadBlobToAsset(file, file.name);
         addImageLayer(image, file.name);
         onClose();
     };

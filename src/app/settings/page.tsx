@@ -57,10 +57,13 @@ export default function SettingsPage() {
         }
     ];
 
+    // Mobile tab bar only offers live views; the desktop sidebar keeps the full list.
+    const mobileNavItems = navItems.flatMap((group) => group.items).filter((item) => !item.disabled);
+
     return (
-        <div className="flex h-screen w-full bg-[#0A0A0A] text-zinc-400">
-            {/* Sidebar */}
-            <div className="w-64 border-r border-[#1A1A1A] flex flex-col p-4 bg-[#0A0A0A]">
+        <div className="flex h-dvh w-full bg-[#0A0A0A] text-zinc-400">
+            {/* Sidebar — desktop only */}
+            <div className="hidden w-64 shrink-0 flex-col border-r border-[#1A1A1A] bg-[#0A0A0A] p-4 md:flex">
                 <div className="mb-6">
                     <button
                         onClick={() => router.back()}
@@ -105,13 +108,53 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto bg-[#0A0A0A]">
-                <div className="py-12 px-12">
-                    {activeView === "general" && <GeneralSettings workspace={currentWorkspace} />}
-                    {activeView === "ai-compute" && <AIComputeSettings />}
-                    {activeView === "profile" && <ProfileSettings user={session?.user} />}
-                </div>
+            {/* Content column */}
+            <div className="flex min-w-0 flex-1 flex-col">
+                {/* Mobile header + tab bar */}
+                <header className="border-b border-[#1A1A1A] bg-[#0A0A0A] md:hidden">
+                    <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+                        <button
+                            onClick={() => router.back()}
+                            aria-label="Go back"
+                            className="-ml-1 rounded-lg p-1 text-zinc-400 transition-colors hover:bg-[#1A1A1A] hover:text-white"
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                        <h1 className="text-lg font-bold text-white">Settings</h1>
+                    </div>
+                    <nav
+                        aria-label="Settings sections"
+                        className="flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                        {mobileNavItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveView(item.id as View)}
+                                    aria-current={activeView === item.id ? "page" : undefined}
+                                    className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        activeView === item.id
+                                            ? "border-violet-500/40 bg-[#1A1A1A] text-white"
+                                            : "border-[#2A2A2A] text-zinc-400 hover:text-white"
+                                    }`}
+                                >
+                                    <Icon size={13} />
+                                    {item.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </header>
+
+                {/* Content Area */}
+                <main className="flex-1 overflow-y-auto bg-[#0A0A0A]">
+                    <div className="px-4 py-6 sm:px-8 md:px-12 md:py-12">
+                        {activeView === "general" && <GeneralSettings workspace={currentWorkspace} />}
+                        {activeView === "ai-compute" && <AIComputeSettings />}
+                        {activeView === "profile" && <ProfileSettings user={session?.user} />}
+                    </div>
+                </main>
             </div>
         </div>
     );

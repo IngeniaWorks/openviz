@@ -15,6 +15,7 @@ export type { WorkbenchSlice } from './workbenchSlice.types';
 export const createWorkbenchSlice: StateCreator<AppState, [], [], WorkbenchSlice> = (set, get) => ({
     viewMode: 'STUDIO',
     currentProjectId: null,
+    lastOpenedProjectId: null,
     workbenchNodes: [],
     projectNodes: {},
     connections: [],

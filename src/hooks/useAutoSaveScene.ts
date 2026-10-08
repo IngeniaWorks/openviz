@@ -43,6 +43,10 @@ export function useAutoSaveScene(projectId: string | null) {
     );
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedRef = useRef<string>("");
+    // The payload exactly as hydration applied it. While this matches the
+    // current snapshot, no save is needed — the mount-time debounce must not
+    // re-upload an unchanged scene (multi-MB in mock mode).
+    const hydratedJsonRef = useRef<string | null>(null);
     const versionRef = useRef<number | null>(null);
     const isSavingRef = useRef(false);
     const retryQueueRef = useRef<Array<() => void>>([]);
@@ -121,6 +125,13 @@ export function useAutoSaveScene(projectId: string | null) {
                 return;
             }
 
+            // Redundant-save guard: identical to what hydration applied.
+            // Cleared after the first real save so a later revert is still pushed.
+            if (hydratedJsonRef.current !== null && snapshot.json === hydratedJsonRef.current) {
+                processQueue();
+                return;
+            }
+
             try {
                 const response = await fetch(`/api/projects/${currentProjectId}/scenes`, {
                     method: "PATCH",
@@ -137,6 +148,7 @@ export function useAutoSaveScene(projectId: string | null) {
                         applySavedVersion(updatedScene.version);
                     }
                     lastSavedRef.current = snapshot.json;
+                    hydratedJsonRef.current = null;
                     void clearPendingScene(currentProjectId);
                     processQueue();
                     return;
@@ -230,6 +242,9 @@ export function useAutoSaveScene(projectId: string | null) {
             if (snapshot.json === lastSavedRef.current) {
                 return;
             }
+            if (hydratedJsonRef.current !== null && snapshot.json === hydratedJsonRef.current) {
+                return;
+            }
 
             const body = JSON.stringify({
                 data: snapshot.data,
@@ -304,6 +319,14 @@ export function useAutoSaveScene(projectId: string | null) {
             versionRef.current = currentSceneVersion;
         }
     }, [currentSceneVersion]);
+
+    // Capture the hydrated payload so the mount-time debounce can tell
+    // "nothing changed since hydration" from a real edit.
+    useEffect(() => {
+        if (!sceneHydrated) return;
+        const { workbenchNodes: nodes, connections: currentConnections } = useStore.getState();
+        hydratedJsonRef.current = JSON.stringify({ nodes, connections: currentConnections });
+    }, [sceneHydrated]);
 
     // Re-apply a save that was interrupted by a reload/navigation. Armed when the
     // pending record is found on mount; fired exactly once, after the project page

@@ -40,7 +40,9 @@ export async function GET(req: Request) {
             .where(eq(workspaceMemberships.userId, userId))
             .orderBy(desc(projects.lastViewedAt));
 
-        return NextResponse.json(userProjects.map(p => p.projects));
+        return NextResponse.json(userProjects.map(p => p.projects), {
+            headers: { "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },
+        });
     }
 
     // Verify membership in the requested workspace
@@ -55,7 +57,9 @@ export async function GET(req: Request) {
         .where(eq(projects.workspaceId, workspaceId))
         .orderBy(desc(projects.lastViewedAt));
 
-    return NextResponse.json(workspaceProjects);
+    return NextResponse.json(workspaceProjects, {
+        headers: { "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },
+    });
 }
 
 /**

@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { RenameProjectModal } from "./RenameProjectModal";
 import { MoveProjectModal } from "./MoveProjectModal";
 import { useProjects } from "@/hooks/useProjects";
-import { useProjectPreview } from "@/hooks/useProjectPreview";
+import type { PreviewsByProject, ProjectPreview } from "@/hooks/useWorkspacePreviews";
 
 interface FolderPath {
     id: string;
@@ -23,6 +23,8 @@ interface ProjectListProps {
     onCreateFolder?: () => void;
     folderPath?: FolderPath[];
     onBreadcrumbClick?: (folderId: string | null) => void;
+    /** Batched previews for all visible rows (one API call, see useWorkspacePreviews). */
+    previewsByProject?: PreviewsByProject;
 }
 
 export function ProjectList({ 
@@ -30,7 +32,8 @@ export function ProjectList({
     isLoading, 
     showFolders = false, 
     workspaces = [], 
-    onFolderClick
+    onFolderClick,
+    previewsByProject = {},
 }: ProjectListProps) {
     if (isLoading) {
         return (
@@ -89,7 +92,11 @@ export function ProjectList({
                         </div>
                     ) : (
                         projects.map((project) => (
-                            <ProjectRow key={project.id} project={project} />
+                            <ProjectRow
+                                key={project.id}
+                                project={project}
+                                previews={previewsByProject[project.id] ?? []}
+                            />
                         ))
                     )}
                 </div>
@@ -98,10 +105,9 @@ export function ProjectList({
     );
 }
 
-function ProjectRow({ project }: { project: Project }) {
+function ProjectRow({ project, previews }: { project: Project; previews: ProjectPreview[] }) {
     const router = useRouter();
     const { updateProject, deleteProject } = useProjects();
-    const { thumbnails: allThumbnails } = useProjectPreview(project.id);
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
@@ -139,10 +145,8 @@ function ProjectRow({ project }: { project: Project }) {
         setIsMenuOpen(false);
     };
 
-    // Get thumbnail URL
-    const thumbnailUrls = (allThumbnails as any[])
-        .map(n => n.project?.thumbnail)
-        .filter(Boolean);
+    // Thumbnail URLs come from the batched previews request (one call per dashboard).
+    const thumbnailUrls = previews.map((p) => p.thumbnail).filter(Boolean);
     const thumbnail = project.thumbnailUrl || thumbnailUrls[0];
 
     return (

@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 import { SceneData, WorkbenchNode, Connection } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { studioModule, workbenchModule } from "@/lib/viewImports";
+import { prefetchRoomToken } from "@/services/collab/roomTokenPrefetch";
+import { shouldHydrateFromServer, shouldPaintFromCache } from "./projectReadiness";
 
 // Built from the shared import promises (see viewImports.ts) so the idle
 // preloader and this page load exactly the same chunks.
@@ -28,8 +30,62 @@ type ProjectApiResponse = {
 export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "STUDIO" | "WORKBENCH" }) {
     const [isProjectReady, setIsProjectReady] = useState(() => {
         const state = useStore.getState();
-        return state.currentProjectId === id && state.sceneHydrated;
+        if (state.currentProjectId === id && state.sceneHydrated) return true;
+        // Stale-while-revalidate: persisted nodes for this project paint on
+        // first render; the server fetch reconciles when it arrives.
+        return shouldPaintFromCache(
+            {
+                lastOpenedProjectId: state.lastOpenedProjectId,
+                persistHydrated: useStore.persist.hasHydrated(),
+                workbenchNodeCount: state.workbenchNodes.length,
+                collabSessionActive: state.collabSessionActive,
+            },
+            id
+        );
     });
+    // True once we painted (or will keep painting) from the local cache before
+    // the server response arrived — suppresses the node-clearing path and the
+    // version downgrade in the hydration effect below.
+    const [paintedFromCache] = useState(() => {
+        const state = useStore.getState();
+        return shouldPaintFromCache(
+            {
+                lastOpenedProjectId: state.lastOpenedProjectId,
+                persistHydrated: useStore.persist.hasHydrated(),
+                workbenchNodeCount: state.workbenchNodes.length,
+                collabSessionActive: state.collabSessionActive,
+            },
+            id
+        );
+    });
+    // zustand persist rehydrates from IndexedDB asynchronously; until it
+    // finishes we cannot know whether a cache exists for this project.
+    const [persistHydrated, setPersistHydrated] = useState(() => useStore.persist.hasHydrated());
+    useEffect(() => {
+        if (useStore.persist.hasHydrated()) {
+            setPersistHydrated(true);
+            return;
+        }
+        const unsubscribe = useStore.persist.onFinishHydration(() => setPersistHydrated(true));
+        return unsubscribe;
+    }, []);
+    useEffect(() => {
+        if (!persistHydrated || isProjectReady) return;
+        const state = useStore.getState();
+        if (
+            shouldPaintFromCache(
+                {
+                    lastOpenedProjectId: state.lastOpenedProjectId,
+                    persistHydrated: true,
+                    workbenchNodeCount: state.workbenchNodes.length,
+                    collabSessionActive: state.collabSessionActive,
+                },
+                id
+            )
+        ) {
+            setIsProjectReady(true);
+        }
+    }, [persistHydrated, id, isProjectReady]);
     const {
         setNodes,
         setConnections,
@@ -49,9 +105,7 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             setViewMode: state.setViewMode,
         }))
     );
-    const sceneHydrated = useStore((state) => state.sceneHydrated);
-
-    const { data: projectData, isLoading, error } = useQuery<ProjectApiResponse>({
+    const { data: projectData, error } = useQuery<ProjectApiResponse>({
         queryKey: ["projects", id],
         queryFn: async () => {
             const res = await fetch(`/api/projects/${id}`);
@@ -71,6 +125,13 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
         // Set the current project ID in the store. This effect belongs to the
         // project-scoped layout and therefore does not run on view switches.
         setCurrentProjectId(id);
+        // lastOpenedProjectId is intentionally NOT cleared on unmount: it tells
+        // a future re-open which project the persisted workbenchNodes belong to
+        // (stale-while-revalidate first paint, see projectReadiness.ts).
+        useStore.setState({ lastOpenedProjectId: id });
+        // T2.4: mint the collab room token in parallel with the scene fetch so
+        // the later Workbench join doesn't pay a serial round-trip.
+        prefetchRoomToken(id);
 
         return () => {
             // Clear the project ID when leaving the page
@@ -88,17 +149,30 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
         // would clobber live remote edits and flush them back. If the session
         // never joins (server down), this stays false and the single-user path
         // below runs unchanged.
-        const collabOwnsScene = useStore.getState().collabSessionActive;
+        const state = useStore.getState();
+        const collabOwnsScene = state.collabSessionActive;
 
-        if (!collabOwnsScene) {
-            // Clear workbench nodes and connections first to avoid showing data from previous project
+        if (!collabOwnsScene && !paintedFromCache) {
+            // Clear workbench nodes and connections first to avoid showing data from previous project.
+            // Skipped when we already painted this project's cached nodes —
+            // the server response below reconciles them instead.
             setNodes([]);
             setConnections([]);
         }
 
-        if (projectData?.scene && !collabOwnsScene) {
+        const scene = projectData?.scene ?? null;
+        const hydrateFromServer =
+            !!scene &&
+            !!projectData &&
+            shouldHydrateFromServer({
+                paintedFromCache,
+                collabOwnsScene,
+                localVersion: state.currentSceneVersion ?? null,
+                serverVersion: projectData.sceneVersion ?? null,
+            });
+
+        if (hydrateFromServer && scene) {
             // Hydrate the store with the project's scene data
-            const scene = projectData.scene;
             // Tag nodes with projectId so dashboard can filter them properly
             const nodesWithProjectId = scene.nodes?.map((node: WorkbenchNode) => ({
                 ...node,
@@ -106,7 +180,7 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             })) || [];
             if (nodesWithProjectId.length > 0) setNodes(nodesWithProjectId);
             if (scene.connections) setConnections(scene.connections as Connection[]);
-        } else if (projectData && !collabOwnsScene) {
+        } else if (projectData && !collabOwnsScene && !paintedFromCache) {
             // Older projects may predate the database-backed scene record. Restore
             // their locally cached Workbench nodes so the first autosave can migrate
             // them into the current main-scene persistence path instead of dropping
@@ -118,15 +192,23 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
         }
 
         if (projectData) {
-            setCurrentSceneVersion(projectData.sceneVersion ?? 0);
+            const serverVersion = projectData.sceneVersion ?? 0;
+            // Never downgrade: when we painted from cache with a strictly newer
+            // local version, keep it so autosave continues from the right base.
+            const localVersion = state.currentSceneVersion ?? 0;
+            setCurrentSceneVersion(paintedFromCache && localVersion > serverVersion ? localVersion : serverVersion);
             // Signals useAutoSaveScene that local state now reflects this fetch, so any
             // interrupted save restored from IndexedDB can be applied on top of it.
             setSceneHydrated(true);
             setIsProjectReady(true);
-        }
-    }, [projectData, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id]);
 
-    if ((isLoading && !sceneHydrated) || !isProjectReady) {
+            // Fire-and-forget view tracking: kept out of the GET (which is now
+            // cacheable) — a failed ping must not affect the workspace.
+            fetch(`/api/projects/${id}/viewed`, { method: "POST" }).catch(() => undefined);
+        }
+    }, [projectData, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id, paintedFromCache]);
+
+    if (!isProjectReady && !error) {
         return (
             <div className="h-screen w-screen bg-[#0F0F0F] flex items-center justify-center text-white">
                 <div className="flex flex-col items-center gap-4">

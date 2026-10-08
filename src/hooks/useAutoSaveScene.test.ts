@@ -103,4 +103,32 @@ describe('useAutoSaveScene single-writer rule (FR-012)', () => {
         await sleep(50);
         expect(patchCalls()).toHaveLength(0);
     });
+
+    it('does not re-save an unchanged scene right after hydration', async () => {
+        renderHook(() => useAutoSaveScene(PROJECT_ID));
+
+        // No edits at all — the mount-time debounce must stay silent.
+        await sleep(AUTOSAVE_DELAY_MS + 400);
+        expect(patchCalls()).toHaveLength(0);
+
+        // A real edit still saves exactly once.
+        useStore.setState({ workbenchNodes: [textNode('n1', 42, 42)] });
+        await sleep(AUTOSAVE_DELAY_MS);
+        expect(patchCalls()).toHaveLength(1);
+    });
+
+    it('still pushes a revert back to the hydrated state after an intervening save', async () => {
+        renderHook(() => useAutoSaveScene(PROJECT_ID));
+
+        // Edit and let it save.
+        useStore.setState({ workbenchNodes: [textNode('n1', 42, 42)] });
+        await sleep(AUTOSAVE_DELAY_MS);
+        expect(patchCalls()).toHaveLength(1);
+
+        // Revert to the exact hydrated payload — this IS a change relative to
+        // the server (which now holds the edit), so it must be saved.
+        useStore.setState({ workbenchNodes: [textNode('n1', 0, 0)] });
+        await sleep(AUTOSAVE_DELAY_MS);
+        expect(patchCalls()).toHaveLength(2);
+    });
 });

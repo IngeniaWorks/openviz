@@ -7,6 +7,7 @@ import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { useProjects } from "@/hooks/useProjects";
+import { useWorkspacePreviews } from "@/hooks/useWorkspacePreviews";
 import { useRememberBrowserView } from "@/hooks/useRememberBrowserView";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Plus, LayoutGrid, List } from "lucide-react";
@@ -59,6 +60,9 @@ export default function RecentsPage() {
 
         return sorted;
     }, [projects, sortBy]);
+
+    // One batched previews request for every visible card (replaces the per-card N+1).
+    const previewsByProject = useWorkspacePreviews(filteredProjects.map((p) => p.id));
 
     const handleCreateProject = () => {
         setIsModalOpen(true);
@@ -154,6 +158,7 @@ export default function RecentsPage() {
                             showFolders={false}
                             folders={[]}
                             onFolderClick={() => {}}
+                            previewsByProject={previewsByProject}
                         />
                     ) : (
                         <ProjectList
@@ -164,6 +169,7 @@ export default function RecentsPage() {
                             onFolderClick={() => {}}
                             folderPath={[]}
                             onBreadcrumbClick={() => {}}
+                            previewsByProject={previewsByProject}
                         />
                     )}
                 </div>

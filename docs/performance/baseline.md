@@ -63,6 +63,58 @@ Chunks downloaded *after* the click (what Sprint 1 preloading must eliminate):
 - **Sprint 3 (image delivery)**: mock-mode thumbnails are inline base64 (32MB on the dashboard page!); S3 mode pays auth + 307 + fresh presign per image with no HTTP caching. Goal: thumbnail variants, lazy node images, cached presigns, immutable cache headers.
 - **Sprint 4 (bundle/runtime)**: workbench TBT 1253ms / bootup 2.4s from evaluating both views' full component trees at once. Goal: defer heavy studio panels out of the initial chunk.
 
+## Results — Sprint 1 (preload & cache headers) · commit `de08af6`
+
+| Metric | Before | After |
+|---|---|---|
+| JS chunks downloaded after project click | 17 | **1** (only the route's own layout chunk) |
+| Dashboard → open → canvas (small project) | 457ms | **280ms** |
+| Lighthouse recents score / FCP | 58 / 2715ms | **69 / 1206ms** |
+| Lighthouse workbench score / TBT | 28 / 1253ms | **42 / 489ms** |
+
+Changes: shared view-chunk import promises + idle `AppAssetPreloader` (root layout),
+dashboard card hover/focus `router.prefetch` + keyboard open, `/projects/[id]/loading.tsx`
+skeleton (unlocks route prefetching), font `<link rel="preload">` hoisted to `<head>`,
+font cache headers fixed (`max-age=0` → `public, max-age=86400, stale-while-revalidate=604800`).
+
+## Results — Sprint 2 (fast project open) · this commit
+
+Verified in production build via CDP (in-app navigation, warm dashboard):
+
+| Metric | Before | After |
+|---|---|---|
+| Open → first node, small project (cold) | ~457ms (harness) | **511ms** (CDP dblclick; harness flow re-run pending) |
+| Re-open same project (SWR from IndexedDB) | = cold open | **104ms** (5× faster) |
+| Open → first node, heavy 40MB project (cold) | 3611ms | **3554ms** (scene fetch now overlaps; render-bound — Sprint 4 target) |
+| Re-open heavy project (SWR) | = cold open | **358ms** (10× faster) |
+| Dashboard preview requests | N+1 (one per card) | **1** batched `/api/projects/previews` (22 thumbs / 4 projects in one query) |
+| `GET /api/projects/:id` revalidation | full body every time | **ETag + 304**; `Cache-Control: private, max-age=5, swr=60` |
+| `lastViewedAt` side effect on GET | mutated per read | stable; explicit `POST …/viewed` (fire-and-forget) |
+| Heavy scene payload (`?lite=1`) | 39.0MB | **44KB** (880×, inline data URLs stripped) |
+| Collab room token | fetched after scene fetch (Workbench mounts only when ready) | **prefetched in parallel** with the scene fetch (`roomTokenPrefetch.ts`) |
+| Redundant autosave on open | full-scene re-save + version bump every open | skipped client-side (hydrated-payload guard) and server-side (idempotent PATCH, no version bump) |
+
+Notes:
+- SWR first paint uses the persisted `workbenchNodes` when `lastOpenedProjectId === id`
+  (new store field — deliberately not cleared on unmount; `currentProjectId` still is).
+  Server data reconciles via `shouldHydrateFromServer`; collab-active sessions are never
+  clobbered. Full-page loads remain chunk-load-bound (~2.4s locally) — SWR pays off in
+  in-app navigation, which is the real user flow.
+- Collab *join* (WebSocket) still starts when Workbench mounts; only the token round-trip
+  was parallelized. Moving the mount earlier requires a live collab server to validate
+  room-seeding semantics — deferred, not done blind.
+- Coverage gate: 169 files / 1120 tests green, 72.84% statements (floor held).
+
+## Note: mock-mode payload sizes are not representative
+
+Without S3/MinIO, `assetUpload` falls back to inlining base64 data URLs into
+node data (`src/services/assetUpload.ts`). The "Test" project above carries a
+**40.9MB scene JSONB** purely from that bloat; production (S3 mode) scenes are
+URL references and typically KB-sized. Treat heavy-project numbers here as an
+upper bound. `GET /api/projects/:id?lite=1` returns the same scene with inline
+data URLs stripped for lighter fetches, and dev-mode logs record each scene's
+payload size on project GET (`[perf] scene payload ...`).
+
 ## How to re-run
 
 ```bash

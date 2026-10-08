@@ -11,8 +11,13 @@ import { emitBrowserCollaborationMetric, installBrowserCollabBenchControl } from
 import { waitForLocalDocumentReadiness } from '@/services/collab/localStoreReadiness';
 import { useWorkbenchGraphProjection } from './useWorkbenchGraphProjection';
 import { createCollabUndoManager, type CollabUndoManager } from '@/services/collab/undoOrigin';
+import { consumePrefetchedRoomToken } from '@/services/collab/roomTokenPrefetch';
 
 async function fetchRoomToken(projectId: string): Promise<CollabTokenResponse> {
+    // T2.4: ProjectWorkspace prefetched this token in parallel with the scene
+    // fetch; reuse it to keep the token round-trip off the join critical path.
+    const prefetched = await consumePrefetchedRoomToken(projectId);
+    if (prefetched) return prefetched;
     const response = await fetch(`/api/projects/${projectId}/scenes/collab-token`, { method: 'POST' });
     if (!response.ok) {
         throw new Error(`Failed to fetch collaboration token (HTTP ${response.status})`);

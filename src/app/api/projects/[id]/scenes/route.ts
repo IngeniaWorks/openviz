@@ -126,6 +126,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             );
         }
 
+        // Idempotent saves: re-uploading identical content (e.g. a client
+        // debounce firing with unchanged data) must not bump the version —
+        // the version is the content generation, and bumping it would
+        // invalidate ETags and desynchronize optimistic-concurrency bases.
+        if (JSON.stringify(existingMain.data) === JSON.stringify(data)) {
+            return NextResponse.json({ scene: existingMain.data, version: existingMain.version });
+        }
+
         const [updated] = await db
             .update(scenes)
             .set({

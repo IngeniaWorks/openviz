@@ -7,6 +7,7 @@ import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { useProjects } from "@/hooks/useProjects";
+import { useWorkspacePreviews } from "@/hooks/useWorkspacePreviews";
 import { useRememberBrowserView } from "@/hooks/useRememberBrowserView";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Plus, LayoutGrid, List, FolderPlus, ChevronRight, Home } from "lucide-react";
@@ -101,6 +102,9 @@ export default function FolderPage({ params }: { params: Promise<{ workspaceId: 
 
         return sorted;
     }, [projects, sortBy, folderId]);
+
+    // One batched previews request for every visible card (replaces the per-card N+1).
+    const previewsByProject = useWorkspacePreviews(filteredProjects.map((p) => p.id));
 
     const subFolders = folders.filter(f => f.parentId === currentParentId);
 
@@ -269,6 +273,7 @@ export default function FolderPage({ params }: { params: Promise<{ workspaceId: 
                             showFolders={true}
                             folders={subFolders}
                             onFolderClick={handleFolderClick}
+                            previewsByProject={previewsByProject}
                         />
                     ) : (
                         <ProjectList
@@ -279,6 +284,7 @@ export default function FolderPage({ params }: { params: Promise<{ workspaceId: 
                             onFolderClick={handleFolderClick}
                             folderPath={folderPath}
                             onBreadcrumbClick={handleBreadcrumbClick}
+                            previewsByProject={previewsByProject}
                         />
                     )}
                 </div>

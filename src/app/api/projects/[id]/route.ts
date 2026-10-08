@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/auth";
 import { projects, scenes, workspaceMemberships } from "@/lib/db/schema";
@@ -28,7 +29,27 @@ async function canAccessProject(projectId: string, userId: string) {
     return { project, allowed: membership.length > 0 };
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+/**
+ * Recursively replace inline data URLs (mock-mode uploads store base64
+ * directly on nodes, bloating scenes to tens of MB) with a small marker.
+ * Used by the ?lite=1 response variant — see docs/performance/baseline.md.
+ */
+export function stripInlineData(value: unknown): unknown {
+    if (typeof value === "string") {
+        return value.startsWith("data:") && value.length > 64 ? "[stripped-inline-data]" : value;
+    }
+    if (Array.isArray(value)) return value.map(stripInlineData);
+    if (value !== null && typeof value === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+            out[key] = stripInlineData(entry);
+        }
+        return out;
+    }
+    return value;
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -44,17 +65,52 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .where(and(eq(scenes.projectId, id), eq(scenes.isMain, true)))
         .limit(1);
 
-    // Update lastViewedAt when project is accessed
-    await db
-        .update(projects)
-        .set({ lastViewedAt: new Date() })
-        .where(eq(projects.id, id));
+    // Make mock-mode payload bloat visible in dev (mock uploads inline base64
+    // into node data; production S3 mode stores URLs instead — see docs/performance).
+    if (process.env.NODE_ENV !== "production" && scene) {
+        const megabytes = JSON.stringify(scene.data).length / 1024 / 1024;
+        console.info(`[perf] scene payload for project ${id}: ${megabytes.toFixed(2)} MB`);
+    }
 
-    return NextResponse.json({
+    // Reads stay side-effect free: lastViewedAt is updated by an explicit
+    // POST /api/projects/:id/viewed so this response is cacheable.
+    const lite = new URL(req.url).searchParams.get("lite") === "1";
+    let sceneData: unknown = scene ? scene.data : null;
+    if (lite && sceneData !== null) {
+        sceneData = stripInlineData(sceneData);
+    }
+
+    let body = {
         ...project,
-        lastViewedAt: new Date(),
-        scene: scene ? scene.data : null,
+        scene: sceneData,
         sceneVersion: scene?.version ?? 0,
+    };
+    // Lite mode strips every inline data URL in the response — the scene
+    // nodes AND project-level fields like thumbnailUrl (mock-mode uploads
+    // store base64 on both).
+    if (lite) {
+        body = stripInlineData(body) as typeof body;
+    }
+
+    // Deterministic, cheap ETag: scene content changes always bump the scene
+    // version; project metadata (rename/move) bumps updatedAt. Hashing the
+    // full body would be wasteful for multi-MB mock-mode scenes.
+    const fingerprint = JSON.stringify({
+        v: body.sceneVersion,
+        u: project.updatedAt instanceof Date ? project.updatedAt.toISOString() : String(project.updatedAt ?? ""),
+        n: project.name,
+    });
+    const etag = `"${createHash("sha1").update(fingerprint).digest("hex")}"`;
+
+    if (req.headers.get("if-none-match") === etag) {
+        return new NextResponse(null, {
+            status: 304,
+            headers: { ETag: etag, "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },
+        });
+    }
+
+    return NextResponse.json(body, {
+        headers: { ETag: etag, "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },
     });
 }
 

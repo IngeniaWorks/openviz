@@ -68,6 +68,8 @@ export interface AppState {
     // Workbench State
     viewMode: ViewMode;
     currentProjectId: string | null;
+    /** Last project whose nodes are in workbenchNodes — never cleared on unmount, so a re-open can paint from IndexedDB (stale-while-revalidate). */
+    lastOpenedProjectId: string | null;
     workbenchNodes: WorkbenchNode[];
     projectNodes: Record<string, WorkbenchNode[] | undefined>;
     connections: Connection[];

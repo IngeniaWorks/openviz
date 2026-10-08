@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { RenameProjectModal } from "./RenameProjectModal";
 import { MoveProjectModal } from "./MoveProjectModal";
 import { useProjects } from "@/hooks/useProjects";
-import { useProjectPreview } from "@/hooks/useProjectPreview";
+import type { PreviewsByProject, ProjectPreview } from "@/hooks/useWorkspacePreviews";
 
 interface FolderItem {
     id: string;
@@ -20,6 +20,8 @@ interface ProjectGridProps {
     showFolders?: boolean;
     folders?: FolderItem[];
     onFolderClick?: (folderId: string) => void;
+    /** Batched previews for all visible cards (one API call, see useWorkspacePreviews). */
+    previewsByProject?: PreviewsByProject;
 }
 
 export function ProjectGrid({ 
@@ -27,7 +29,8 @@ export function ProjectGrid({
     isLoading, 
     showFolders = false, 
     folders = [], 
-    onFolderClick 
+    onFolderClick,
+    previewsByProject = {},
 }: ProjectGridProps) {
     if (isLoading) {
         return (
@@ -69,7 +72,11 @@ export function ProjectGrid({
                         </div>
                     ) : (
                         projects.map((project) => (
-                            <ProjectCard key={project.id} project={project} />
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                previews={previewsByProject[project.id] ?? []}
+                            />
                         ))
                     )}
                 </div>
@@ -173,11 +180,10 @@ function FolderCard({ folder, onClick }: { folder: FolderItem; onClick: () => vo
     );
 }
 
-function ProjectCard({ project }: { project: Project }) {
+function ProjectCard({ project, previews }: { project: Project; previews: ProjectPreview[] }) {
     const router = useRouter();
     const projectHref = `/projects/${project.id}`;
     const { updateProject, deleteProject } = useProjects();
-    const { thumbnails: allThumbnails, triggerFetch } = useProjectPreview(project.id);
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
@@ -185,23 +191,6 @@ function ProjectCard({ project }: { project: Project }) {
     const [hoverIndex, setHoverIndex] = useState<number | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const thumbnailRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // Intersection Observer for lazy loading
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                triggerFetch(entry.isIntersecting);
-            },
-            { threshold: 0.1 }
-        );
-
-        if (containerRef.current) {
-            observer.observe(containerRef.current);
-        }
-
-        return () => observer.disconnect();
-    }, [triggerFetch]);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -229,10 +218,8 @@ function ProjectCard({ project }: { project: Project }) {
         updateProject({ id: project.id, data: { workspaceId } });
     };
 
-    // Get thumbnail URLs from the hook's returned nodes
-    const thumbnailUrls = (allThumbnails as any[])
-        .map(n => n.project?.thumbnail)
-        .filter(Boolean);
+    // Thumbnail URLs come from the batched previews request (one call per dashboard).
+    const thumbnailUrls = previews.map((p) => p.thumbnail).filter(Boolean);
 
     // Fallback logic: 1. DB Thumbnail -> 2. Last Edited Workbench Image -> 3. Placeholder
     const thumbnail = project.thumbnailUrl || thumbnailUrls[0];
@@ -263,7 +250,6 @@ function ProjectCard({ project }: { project: Project }) {
     return (
         <>
             <div
-                ref={containerRef}
                 role="link"
                 tabIndex={0}
                 aria-label={`Open project ${project.name}`}

@@ -86,6 +86,7 @@ export const useStore = create<AppState>()(
                 renderSettings: state.renderSettings,
                 viewMode: state.viewMode,
                 currentProjectId: state.currentProjectId,
+                lastOpenedProjectId: state.lastOpenedProjectId,
                 workbenchNodes: state.workbenchNodes,
                 projectNodes: state.projectNodes,
                 connections: state.connections,

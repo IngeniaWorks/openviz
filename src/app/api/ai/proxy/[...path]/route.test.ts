@@ -20,7 +20,7 @@ import { GET, POST } from './route';
 
 type Context = { params: Promise<{ path: string[] }> };
 
-function call(handler: (request: Request, context: Context) => Promise<Response>, url: string, init?: RequestInit, path: string[] = ['models']) {
+function call(handler: (request: Request, context: Context) => Promise<Response>, url: string, init?: RequestInit, path: string[] = ['v1', 'models']) {
     return handler(new Request(url, init), { params: Promise.resolve({ path }) });
 }
 
@@ -74,12 +74,20 @@ describe('GET /api/ai/proxy/[...path]', () => {
     });
 
     it('forwards to the configured endpoint and injects the stored key', async () => {
-        const res = await call(GET, 'http://localhost/api/ai/proxy/models');
+        const res = await call(GET, 'http://localhost/api/ai/proxy/v1/models');
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ data: [] });
         expect(upstreamFetch).toHaveBeenCalledTimes(1);
         const [url, init] = upstreamFetch.mock.calls[0] as [string, RequestInit];
+        // The proxy path is relative to the endpoint's HOST root (trailing /vN stripped).
         expect(url).toBe('https://img.example.com/v1/models');
+        expect(new Headers(init.headers).get('authorization')).toBe('Bearer sk-stored-key');
+    });
+
+    it('forwards host-root-level native routes below the /vN prefix', async () => {
+        await call(GET, 'http://localhost/api/ai/proxy/api/inference/images/generate', undefined, ['api', 'inference', 'images', 'generate']);
+        const [url, init] = upstreamFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://img.example.com/api/inference/images/generate');
         expect(new Headers(init.headers).get('authorization')).toBe('Bearer sk-stored-key');
     });
 
@@ -91,20 +99,20 @@ describe('GET /api/ai/proxy/[...path]', () => {
     });
 
     it('strips a client-provided Authorization header', async () => {
-        await call(GET, 'http://localhost/api/ai/proxy/models', { headers: { authorization: 'Bearer client-secret' } });
+        await call(GET, 'http://localhost/api/ai/proxy/v1/models', { headers: { authorization: 'Bearer client-secret' } });
         const [url, init] = upstreamFetch.mock.calls[0] as [string, RequestInit];
         expect(url).toBe('https://img.example.com/v1/models');
         expect(new Headers(init.headers).get('authorization')).toBe('Bearer sk-stored-key');
     });
 
     it('appends the query string to the upstream URL', async () => {
-        await call(GET, 'http://localhost/api/ai/proxy/models?limit=5');
+        await call(GET, 'http://localhost/api/ai/proxy/v1/models?limit=5');
         expect(upstreamFetch.mock.calls[0][0]).toBe('https://img.example.com/v1/models?limit=5');
     });
 
     it('passes upstream errors through unchanged', async () => {
         upstreamFetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'invalid api key' }), { status: 401, headers: { 'content-type': 'application/json' } }));
-        const res = await call(GET, 'http://localhost/api/ai/proxy/models');
+        const res = await call(GET, 'http://localhost/api/ai/proxy/v1/models');
         expect(res.status).toBe(401);
         expect(await res.json()).toEqual({ error: 'invalid api key' });
     });
@@ -115,9 +123,9 @@ describe('POST /api/ai/proxy/[...path]', () => {
         const body = JSON.stringify({ prompt: 'a cat' });
         const res = await call(
             POST,
-            'http://localhost/api/ai/proxy/images/generations',
+            'http://localhost/api/ai/proxy/v1/images/generations',
             { method: 'POST', headers: { 'content-type': 'application/json' }, body },
-            ['images', 'generations'],
+            ['v1', 'images', 'generations'],
         );
         expect(res.status).toBe(200);
         const [url, init] = upstreamFetch.mock.calls[0] as [string, RequestInit];

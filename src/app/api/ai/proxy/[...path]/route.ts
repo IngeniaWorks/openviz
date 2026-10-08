@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth';
 import { createDatabaseAISettingsRepository } from '@/services/ai/databaseAISettingsRepository';
+import { endpointRoot } from '@/services/ai/targets/openAIImagePayload';
 import { NextResponse } from 'next/server';
 
 /**
@@ -13,6 +14,11 @@ import { NextResponse } from 'next/server';
  * The upstream host is always the configured imageApiEndpoint — callers can
  * only control the path, so this route can never be used as an open relay or
  * to leak the key to another host.
+ *
+ * Proxy paths are relative to the endpoint's HOST root (the trailing /vN
+ * version prefix is stripped before joining), so both the OpenAI-compatible
+ * API (`/v1/...`) and host-root-level native routes (`/api/inference/...`)
+ * can be reached.
  */
 
 // Hop-by-hop headers plus anything that must not be forwarded verbatim.
@@ -47,7 +53,9 @@ async function forward(request: Request, context: Context): Promise<Response> {
 
     const { path } = await context.params;
     const search = new URL(request.url).search;
-    const targetUrl = `${root}/${path.join('/')}${search}`;
+    // Join against the host root so paths like /v1/models keep their version
+    // prefix while native routes like /api/inference/... stay at the root.
+    const targetUrl = `${endpointRoot(root)}/${path.join('/')}${search}`;
 
     const headers = new Headers();
     request.headers.forEach((value, key) => {

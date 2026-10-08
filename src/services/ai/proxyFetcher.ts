@@ -1,4 +1,5 @@
 import { useStore } from '@/store/useStore';
+import { endpointRoot } from './targets/openAIImagePayload';
 
 /**
  * Client-side fetch wrapper that routes OpenAI-compatible endpoint traffic
@@ -24,9 +25,15 @@ export function createProxyFetcher(resolveEndpoint: () => string): ProxyFetcher 
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
         if (!/^https?:\/\//i.test(url)) return fetch(input, init);
         const root = normalizeEndpoint(resolveEndpoint());
-        const isEndpointUrl = Boolean(root) && (url === root || url.startsWith(`${root}/`));
+        if (!root) return fetch(input, init);
+        // Native inference routes live at the host root (below any /vN prefix),
+        // so match both the full endpoint and its host root.
+        const hostRoot = endpointRoot(root);
+        const isEndpointUrl = url === root || url.startsWith(`${root}/`) || url === hostRoot || url.startsWith(`${hostRoot}/`);
         if (!isEndpointUrl) return fetch(input, init);
-        const rest = url.slice(root.length); // '' or '/models?limit=5'
+        // Proxy paths are relative to the HOST root (the server strips /vN from
+        // the configured endpoint before joining), so '/v1/...' stays in the path.
+        const rest = url.slice(hostRoot.length); // '' or '/v1/models?limit=5'
         const sourceHeaders = init?.headers ?? (input instanceof Request ? input.headers : undefined);
         const headers = new Headers(sourceHeaders);
         headers.delete('Authorization');

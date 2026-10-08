@@ -23,21 +23,29 @@ describe('createProxyFetcher', () => {
         await proxyFetch(`${endpoint}/models`, { headers: { Authorization: `Bearer ${PROXY_API_KEY}` } });
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-        // root already includes /v1; the proxy path is relative to it.
-        expect(url).toBe('/api/ai/proxy/models');
+        // The proxy path is relative to the endpoint's HOST root, so /v1 stays in the path.
+        expect(url).toBe('/api/ai/proxy/v1/models');
+        expect(new Headers(init.headers).get('authorization')).toBeNull();
+    });
+
+    it('proxies host-root-level native routes (no /vN prefix) with the key', async () => {
+        const proxyFetch = createProxyFetcher(() => endpoint);
+        await proxyFetch('https://img.example.com/api/inference/images/generate', { method: 'POST', headers: { Authorization: `Bearer ${PROXY_API_KEY}` } });
+        const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('/api/ai/proxy/api/inference/images/generate');
         expect(new Headers(init.headers).get('authorization')).toBeNull();
     });
 
     it('preserves query strings when proxying', async () => {
         const proxyFetch = createProxyFetcher(() => endpoint);
         await proxyFetch(`${endpoint}/models?limit=5`);
-        expect(fetchMock.mock.calls[0][0]).toBe('/api/ai/proxy/models?limit=5');
+        expect(fetchMock.mock.calls[0][0]).toBe('/api/ai/proxy/v1/models?limit=5');
     });
 
     it('normalizes trailing slashes on the configured endpoint', async () => {
         const proxyFetch = createProxyFetcher(() => 'https://img.example.com/v1/');
         await proxyFetch(`${endpoint}/models`);
-        expect(fetchMock.mock.calls[0][0]).toBe('/api/ai/proxy/models');
+        expect(fetchMock.mock.calls[0][0]).toBe('/api/ai/proxy/v1/models');
     });
 
     it('fetches foreign hosts directly', async () => {

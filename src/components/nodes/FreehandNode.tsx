@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { NodeResizer } from '@xyflow/react';
 
 import { FreehandNode as FreehandNodeType } from '@/types';
@@ -27,7 +27,9 @@ export const FreehandNode = React.memo(({ id, data, selected, width, height }: F
     const svgWidth = typeof rawWidth === 'number' && rawWidth > 0 ? rawWidth : 1;
     const svgHeight = typeof rawHeight === 'number' && rawHeight > 0 ? rawHeight : 1;
 
-    useEffect(() => {
+    // useLayoutEffect: during a snap-corrected resize the prop size updates
+    // every frame and must win over the raw onResize write before paint.
+    useLayoutEffect(() => {
         if (width && height && width > 0 && height > 0) {
             setNodeSize({ width, height });
         }

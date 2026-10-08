@@ -19,6 +19,7 @@ import { NodeLockBadges } from './NodeLockBadges';
 import { WorkbenchOverlayLayer } from './WorkbenchOverlayLayer';
 import { WorkbenchConnectionLine } from '../nodes/WorkbenchConnectionLine';
 import { FloatingArrowOverlay } from './FloatingArrowOverlay';
+import { SnapGuidesOverlay } from './SnapGuidesOverlay';
 import { WorkbenchCanvasBackground } from './WorkbenchCanvasBackground';
 import { CollabStatusChip } from './CollabStatusChip';
 import { ComputePopover } from '@/components/product-design/ComputePopover';
@@ -28,13 +29,17 @@ import type { WorkbenchNode } from '@/types';
 import { requestImmediateSceneSave } from '@/services/workbench/sceneSyncBus';
 import { WORKBENCH_PAN_MOUSE_BUTTON } from './hooks/workbenchViewportGestures';
 import { getFlowModeProps } from './hooks/workbenchModeProps';
+import { createResizeSnapState } from './hooks/nodeSnapLogic';
 import { nodeTypes, edgeTypes } from './workbenchNodeTypes';
 
 export const WorkbenchContent: React.FC<{ active: boolean }> = ({ active }) => {
     const flowWrapperRef = useRef<HTMLDivElement>(null);
     const draggingNodeIdsRef = useRef<Set<string>>(new Set());
+    // Shared live-resize snap state: written by the canvas projection on every
+    // resize frame, read by `handleResizeEnd` so the commit matches what rendered.
+    const resizeSnapStateRef = useRef(createResizeSnapState());
     const { setCenter, zoomIn, zoomOut, fitView, setViewport, screenToFlowPosition } = useReactFlow();
-    const setup = useWorkbenchCanvasSetup({ active, flowWrapperRef, screenToFlowPosition });
+    const setup = useWorkbenchCanvasSetup({ active, flowWrapperRef, screenToFlowPosition, resizeSnapStateRef: resizeSnapStateRef });
     const { currentProjectId, sceneHydrated, viewMode, isTransitioningToStudio, collabSession } = setup;
     const { workbenchNodes, canUndoWorkbench, canRedoWorkbench, activeNodeId,
         selectedNodeIds, isDrawMode, activeWorkbenchTool, freehandColor, freehandStrokeWidth } = setup.workbench.state;
@@ -60,6 +65,7 @@ export const WorkbenchContent: React.FC<{ active: boolean }> = ({ active }) => {
         workbench: setup.workbench,
         nodeLocks,
         isTransitioningToStudio,
+        resizeSnapStateRef,
     });
     const interactions = useWorkbenchCanvasInteractions({
         screenToFlowPosition,
@@ -71,24 +77,35 @@ export const WorkbenchContent: React.FC<{ active: boolean }> = ({ active }) => {
 
     const handleNodesChangeForFlow = useCallback((changes: NodeChange[]) => {
         type CanvasFlowNode = (typeof projection.nodes)[number];
+        // Route through the snap interceptor so drag position changes carry the
+        // alignment correction before they reach the live projection.
+        const snappedChanges = projection.handleNodesChangeWithSnap(changes);
         projection.setFlowNodes((currentNodes) => applyNodeChanges<CanvasFlowNode>(
-            changes as NodeChange<CanvasFlowNode>[],
+            snappedChanges as NodeChange<CanvasFlowNode>[],
             currentNodes,
         ));
         handleNodesChange(changes);
-    }, [handleNodesChange, projection.setFlowNodes]);
+    }, [handleNodesChange, projection.handleNodesChangeWithSnap, projection.setFlowNodes]);
 
     const handleNodeDragStart = useCallback<OnNodeDrag>((_event, _node, draggedNodes) => {
         draggingNodeIdsRef.current = new Set(draggedNodes.map((node) => node.id));
+        projection.prepareNodeSnap(draggedNodes.map((node) => node.id));
         beginWorkbenchGesture('move', draggedNodes.map((node) => node.id));
-    }, [beginWorkbenchGesture]);
+    }, [beginWorkbenchGesture, projection.prepareNodeSnap]);
 
     const handleNodeDragStop = useCallback<OnNodeDrag>((_event, _node, draggedNodes) => {
-        commitNodePositions(draggedNodes.map((node) => ({ id: node.id, position: node.position })));
+        // React Flow reports the raw pointer position here (pre-correction), so
+        // fold the last applied snap delta back in to commit where it rendered.
+        const snapDelta = projection.getSnapDelta();
+        commitNodePositions(draggedNodes.map((node) => ({
+            id: node.id,
+            position: { x: node.position.x + snapDelta.x, y: node.position.y + snapDelta.y },
+        })));
         draggingNodeIdsRef.current.clear();
+        projection.clearNodeSnap();
         commitWorkbenchGesture();
         if (!collabSession.active) requestImmediateSceneSave();
-    }, [collabSession.active, commitNodePositions, commitWorkbenchGesture]);
+    }, [collabSession.active, commitNodePositions, commitWorkbenchGesture, projection.getSnapDelta, projection.clearNodeSnap]);
 
     const handleUndo = collabSession.active ? collabSession.undo : undoWorkbench;
     const handleRedo = collabSession.active ? collabSession.redo : redoWorkbench;
@@ -134,8 +151,6 @@ export const WorkbenchContent: React.FC<{ active: boolean }> = ({ active }) => {
                 elementsSelectable={flowModeProps.elementsSelectable}
                 nodesDraggable={flowModeProps.nodesDraggable}
                 nodesConnectable={flowModeProps.nodesConnectable}
-                snapToGrid={true}
-                snapGrid={[5, 5]}
                 minZoom={0.1}
                 maxZoom={20}
                 onMoveEnd={projection.handleViewportMoveEnd}
@@ -157,6 +172,7 @@ export const WorkbenchContent: React.FC<{ active: boolean }> = ({ active }) => {
             />
             <WorkbenchCursorLayer viewport={projection.viewport} />
             <NodeLockBadges nodes={projection.nodes} nodeLocks={nodeLocks} viewport={projection.viewport} />
+            <SnapGuidesOverlay guides={projection.snapGuides} viewport={projection.viewport} />
             <WorkbenchOverlayLayer
                 contextMenu={contextMenu}
                 onCloseContextMenu={() => setContextMenu(null)}

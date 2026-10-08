@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { NodeResizer } from '@xyflow/react';
 
 import { NoteWorkbenchNode } from '@/types';
@@ -44,7 +44,9 @@ export const NoteNode = React.memo(({ id, data, selected, width, height }: NoteN
         fontFamily,
     };
 
-    useEffect(() => {
+    // useLayoutEffect: during a snap-corrected resize the prop size updates
+    // every frame and must win over the raw onResize write before paint.
+    useLayoutEffect(() => {
         if (width && height && width > 0 && height > 0) {
             setNodeSize({ width, height });
         }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { Image as ImageIcon, ImageOff } from 'lucide-react';
 import { NodeResizer, useStore } from '@xyflow/react';
 
@@ -26,7 +26,9 @@ export const MediaNode = React.memo(({ id, data, selected, width, height }: Medi
     const src = data.data?.src;
     const alt = data.data?.alt ?? 'Uploaded media';
 
-    useEffect(() => {
+    // useLayoutEffect: during a snap-corrected resize the prop size updates
+    // every frame and must win over the raw onResize write before paint.
+    useLayoutEffect(() => {
         if (width && height && width > 0 && height > 0) {
             setNodeSize({ width, height });
         }

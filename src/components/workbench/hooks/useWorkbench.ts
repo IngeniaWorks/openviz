@@ -10,6 +10,7 @@ import { useWorkbenchPointerTracking } from './useWorkbenchPointerTracking';
 import { useWorkbenchConnectionHandlers } from './useWorkbenchConnectionHandlers';
 import { useWorkbenchBlockCreation } from './useWorkbenchBlockCreation';
 import { useWorkbenchNodeHandlers } from './useWorkbenchNodeHandlers';
+import type { ResizeSnapStateRef } from './nodeSnapLogic';
 import type { SceneNodeJson } from '@/types/collab.types';
 import type { SceneDocCommands } from '@/services/collab/sceneDocCommands';
 
@@ -29,6 +30,8 @@ export interface UseWorkbenchOptions {
     onUploadFromPhone?: () => void;
     /** Called after a studio-capable node is installed in the editor state. */
     onOpenNodeInStudio?: (id: string) => void | Promise<void>;
+    /** Shared live-resize snap state — the last correction is folded into the commit. */
+    resizeSnapStateRef?: ResizeSnapStateRef;
 }
 
 export const useWorkbench = (options?: UseWorkbenchOptions) => {
@@ -168,6 +171,7 @@ export const useWorkbench = (options?: UseWorkbenchOptions) => {
         setActiveNodeId,
         setBasicBlocksMenu,
         commands: options?.commands,
+        resizeSnapStateRef: options?.resizeSnapStateRef,
     });
 
     const { screenToFlowPosition, getViewport, setViewport, zoomIn, zoomOut, fitView } = useReactFlow();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { Handle, NodeResizer, Position, useConnection, useStore } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { ImageNode as ImageNodeType } from '../../types';
@@ -35,7 +35,9 @@ export const ImageNode = React.memo(({ id, data, selected, isConnectable = true,
         data.onSourceClick?.(data.id);
     };
 
-    useEffect(() => {
+    // useLayoutEffect: during a snap-corrected resize the prop size updates
+    // every frame and must win over the raw onResize write before paint.
+    useLayoutEffect(() => {
         if (width && height && width > 0 && height > 0) {
             setNodeSize({ width, height });
         }

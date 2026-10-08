@@ -9,6 +9,7 @@ import { useWorkbenchAddNodeCreation } from './useWorkbenchAddNodeCreation';
 import { useWorkbenchMediaUpload } from './useWorkbenchMediaUpload';
 import { useResizeObserverWarningSuppression } from './useResizeObserverWarningSuppression';
 import { useWorkbench } from './useWorkbench';
+import type { ResizeSnapStateRef } from './nodeSnapLogic';
 import { useWorkbenchCollabSession } from './useWorkbenchCollabSession';
 import { useCollabPresencePublisher } from './useCollabPresencePublisher';
 import { useSceneStream } from './useSceneStream';
@@ -17,12 +18,15 @@ interface WorkbenchCanvasSetupOptions {
     active: boolean;
     flowWrapperRef: RefObject<HTMLDivElement | null>;
     screenToFlowPosition: ReturnType<typeof useReactFlow>['screenToFlowPosition'];
+    /** Shared live-resize snap state (created by the canvas, read on resize commit). */
+    resizeSnapStateRef?: ResizeSnapStateRef;
 }
 
 export function useWorkbenchCanvasSetup({
     active,
     flowWrapperRef,
     screenToFlowPosition,
+    resizeSnapStateRef,
 }: WorkbenchCanvasSetupOptions) {
     const { getNode, setCenter } = useReactFlow();
     const router = useRouter();
@@ -122,6 +126,7 @@ export function useWorkbenchCanvasSetup({
         onUploadImage: mediaUpload.handleMediaUpload,
         onUploadFromPhone: mediaUpload.handleMediaUploadFromPhone,
         onOpenNodeInStudio: openNodeInStudioWithTransition,
+        resizeSnapStateRef,
     });
     const { handleCreateNode } = useWorkbenchAddNodeCreation({
         flowWrapperRef,

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NodeResizer, useStore } from '@xyflow/react';
 import { Play, Pause, Maximize2, X } from 'lucide-react';
@@ -27,7 +27,9 @@ export const VideoNode = React.memo(({ id, data, selected, width, height }: Vide
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [nodeSize, setNodeSize] = useState({ width: width || 256, height: height || 256 });
 
-    useEffect(() => {
+    // useLayoutEffect: during a snap-corrected resize the prop size updates
+    // every frame and must win over the raw onResize write before paint.
+    useLayoutEffect(() => {
         if (width && height && width > 0 && height > 0) {
             setNodeSize({ width, height });
         }

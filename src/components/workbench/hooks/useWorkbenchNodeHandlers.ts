@@ -8,6 +8,7 @@ import { BasicBlocksMenuState } from './useWorkbenchBlockCreation';
 import { useStore } from '@/store/useStore';
 import type { SceneDocCommands } from '@/services/collab/sceneDocCommands';
 import { buildNodeFieldDiff, buildNodeFieldPatches, getNodeResizeUpdates } from './workbenchNodeCommandLogic';
+import type { ResizeSnapStateRef } from './nodeSnapLogic';
 
 type ContextMenuState = { x: number; y: number; nodeId: string | null } | null;
 
@@ -23,6 +24,8 @@ type UseWorkbenchNodeHandlersOptions = {
     setActiveNodeId: (id: string | null) => void;
     setBasicBlocksMenu: (value: BasicBlocksMenuState) => void;
     commands?: SceneDocCommands | null;
+    /** Shared live-resize snap state — the last correction is folded into the commit. */
+    resizeSnapStateRef?: ResizeSnapStateRef;
 };
 
 /**
@@ -44,6 +47,7 @@ export function useWorkbenchNodeHandlers({
     setActiveNodeId,
     setBasicBlocksMenu,
     commands,
+    resizeSnapStateRef,
 }: UseWorkbenchNodeHandlersOptions) {
     const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
     const resizingNodeIdsRef = useRef<Set<string>>(new Set());
@@ -174,12 +178,32 @@ export function useWorkbenchNodeHandlers({
 
     const handleResizeEnd = useCallback((nodeId: string, width: number, height: number, x?: number, y?: number) => {
         const node = workbenchNodesRef.current.find((candidate) => candidate.id === nodeId);
-        handleResize(nodeId, width, height, x, y);
-        const updates = node ? getNodeResizeUpdates(node, width, height, x, y) : null;
+        // Fold the last applied snap correction in so the committed geometry
+        // matches what was rendered. `onResizeEnd` fires with RAW values before
+        // React Flow's final dimensions change, so the projection's shared state
+        // is the only place the corrected geometry is available here.
+        const snapState = resizeSnapStateRef?.current;
+        // Only trust the stored correction when it was computed from exactly the
+        // raw geometry `onResizeEnd` reports (defensive: a mismatch would mean a
+        // stale gesture state — commit raw rather than an unknown offset).
+        const correctedRaw = snapState?.correctedRaw ?? null;
+        const rawMatched = correctedRaw !== null && correctedRaw.width === width
+            && correctedRaw.height === height
+            && correctedRaw.x === (x ?? correctedRaw.x)
+            && correctedRaw.y === (y ?? correctedRaw.y);
+        const corrected = snapState && snapState.nodeId === nodeId && rawMatched ? snapState.corrected : null;
+        const commitWidth = corrected ? corrected.width : width;
+        const commitHeight = corrected ? corrected.height : height;
+        // Only pass a corrected edge position when that edge actually moved —
+        // otherwise the node keeps its existing x/y (avoids redundant patches).
+        const commitX = corrected && snapState?.anchor?.x ? corrected.x : x;
+        const commitY = corrected && snapState?.anchor?.y ? corrected.y : y;
+        handleResize(nodeId, commitWidth, commitHeight, commitX, commitY);
+        const updates = node ? getNodeResizeUpdates(node, commitWidth, commitHeight, commitX, commitY) : null;
         if (commands && updates) commands.updateNodeFields(nodeId, buildNodeFieldPatches(updates));
         commitWorkbenchGesture();
         if (!commands) requestImmediateSceneSave();
-    }, [commands, commitWorkbenchGesture, handleResize]);
+    }, [commands, commitWorkbenchGesture, handleResize, resizeSnapStateRef]);
 
     const handleTransientDataChange = useCallback((nodeId: string, data: Record<string, unknown>) => {
         if (isRemotelyLocked(nodeId)) return;

@@ -3,8 +3,27 @@ import { db } from "@/lib/auth";
 import { projects, workspaces, workspaceMemberships } from "@/lib/db/schema";
 import { ensureUserBootstrap } from "@/lib/services/bootstrap";
 import { ProjectSchema } from "@/lib/schemas/base";
+import { downsampleDataUrls, DATA_URL_DOWNSAMPLE_THRESHOLD } from "@/lib/services/thumbnail";
 import { eq, and, desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
+
+/**
+ * Mock-mode project rows can carry full-resolution base64 thumbnails in
+ * `thumbnailUrl` (S3 mode stores short refs). Downscale them before the list
+ * response so the dashboard doesn't ship multi-MB payloads (LCP decode-bound).
+ */
+async function downsampleProjectThumbnails<T extends { thumbnailUrl: string | null }>(rows: T[]): Promise<void> {
+    const targets = rows.filter(
+        (row): row is T & { thumbnailUrl: string } =>
+            typeof row.thumbnailUrl === "string" &&
+            row.thumbnailUrl.startsWith("data:image") &&
+            row.thumbnailUrl.length > DATA_URL_DOWNSAMPLE_THRESHOLD
+    );
+    if (targets.length === 0) return;
+    const wrappers = targets.map((row) => ({ row, value: row.thumbnailUrl }));
+    await downsampleDataUrls(wrappers);
+    for (const { row, value } of wrappers) row.thumbnailUrl = value;
+}
 
 /**
  * GET /api/projects
@@ -40,7 +59,10 @@ export async function GET(req: Request) {
             .where(eq(workspaceMemberships.userId, userId))
             .orderBy(desc(projects.lastViewedAt));
 
-        return NextResponse.json(userProjects.map(p => p.projects), {
+        const allProjects = userProjects.map(p => p.projects);
+        await downsampleProjectThumbnails(allProjects);
+
+        return NextResponse.json(allProjects, {
             headers: { "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },
         });
     }
@@ -56,6 +78,8 @@ export async function GET(req: Request) {
         .from(projects)
         .where(eq(projects.workspaceId, workspaceId))
         .orderBy(desc(projects.lastViewedAt));
+
+    await downsampleProjectThumbnails(workspaceProjects);
 
     return NextResponse.json(workspaceProjects, {
         headers: { "Cache-Control": "private, max-age=5, stale-while-revalidate=60" },

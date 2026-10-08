@@ -11,6 +11,39 @@ export interface UploadedAsset {
     thumbnailUrl: string | null;
 }
 
+/**
+ * Browser-side ≤512px WebP data-URL thumbnail (mock-mode fallback only).
+ * Keeps `project.thumbnail` small when the asset store is unavailable, so
+ * dashboard previews don't carry full-resolution base64. Returns null when
+ * canvas APIs are missing or the image is already small.
+ */
+export async function makeThumbnailDataUrl(blob: Blob): Promise<string | null> {
+    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return null;
+    try {
+        const bitmap = await createImageBitmap(blob);
+        const scale = Math.min(1, 512 / Math.max(bitmap.width, bitmap.height));
+        if (scale >= 1) {
+            bitmap.close();
+            return null; // already at or below the budget
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            bitmap.close();
+            return null;
+        }
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.85));
+        if (!webp) return null;
+        return blobToDataUrl(webp);
+    } catch {
+        return null; // undecodable image — no variant
+    }
+}
+
 async function requestThumbnail(key: string): Promise<string | null> {
     try {
         const res = await fetch('/api/assets/thumbnail', {
@@ -69,7 +102,11 @@ export async function uploadBlobToAsset(blob: Blob, filename?: string): Promise<
         return { url, thumbnailUrl };
     } catch {
         // No asset store / network failure — keep the app working by inlining.
+        // In mock mode the full-res base64 goes on the layer; a small WebP
+        // variant (when we can make one) drives canvas/dashboard display so
+        // previews don't ship full-resolution payloads.
         const dataUrl = await blobToDataUrl(blob);
-        return { url: dataUrl, thumbnailUrl: null };
+        const thumbnailUrl = blob.type?.startsWith('image/') ? await makeThumbnailDataUrl(blob) : null;
+        return { url: dataUrl, thumbnailUrl };
     }
 }

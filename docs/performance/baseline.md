@@ -127,6 +127,58 @@ Scope decisions (documented per plan constraints):
 - Mock mode unchanged: data-URL fallback still applies; Sprint 2's `?lite=1` + SWR already
   address mock-mode payload bloat.
 
+## Results — Sprint 4 (bundle & runtime) · this commit
+
+**Harness fix first**: Lighthouse's CPU-simulation mode (`throttlingMethod: 'simulate'`)
+miscomputes LCP on this app. Raw-trace analysis of a simulated run showed the LCP image
+(`PaintImage`) painting at **~983ms**, UKM `NavStartToLargestContentfulPaint` duration
+**245ms**, and *zero* trace events after t=2s — yet the simulator reported 10–19s (it
+double-counts navigation bookkeeping events). The harness now runs with
+`throttlingMethod: 'provided'` (real, unthrottled timings — honest on a fixed machine;
+flow captures were always measured). Pre-Sprint-4 simulated LCP numbers are **not
+comparable** to the ones below.
+
+| Item | Before | After |
+|---|---|---|
+| Lighthouse `/files/<ws>/recents` (measured) | score 58, FCP 2715ms, TBT 1253ms | **score 100**, FCP **79ms**, LCP **445ms**, TBT **0ms**, CLS 0 |
+| Dashboard batch previews response (mock mode) | **25.6MB** (19 full-res base64 thumbs) | **0.55MB** (46× smaller, same 19 thumbs, ≤512px WebP) |
+| Project list response (mock mode) | 1.76MB (one 1.7MB PNG data-URL `thumbnailUrl`) | **0.13MB** (13× smaller) |
+
+Dashboard LCP root cause: mock-mode thumbnails were full-resolution base64 in two places —
+scene-node thumbnails (batch previews) and per-project `thumbnailUrl` (project list +
+single-project GET). Fix: shared sharp-based downsample helper (`downsampleDataUrlThumbnail` /
+`downsampleDataUrls`, ≤512px WebP, bounded concurrency, short S3 refs pass through,
+undecodable bytes keep the original) applied to `GET /api/projects/previews`,
+`GET /api/projects`, `GET /api/projects/:id` (read path — fixes existing rows without a
+migration) and `PATCH /api/projects/:id` (write path — keeps the DB lean going forward).
+New mock-mode uploads also get a browser-side ≤512px WebP data-URL thumbnail
+(`makeThumbnailDataUrl`, canvas + `createImageBitmap`, graceful null when canvas APIs are
+missing) so scene JSONB stops accumulating large base64 thumbnails.
+
+Other Sprint 4 items:
+- **AI compute probe deferred to idle**: `useAIComputeStatus` ran its endpoint probe on
+  mount, and `ComputePopover` mounts with the workbench on every project open. The first
+  probe now waits for `requestIdleCallback` (8s timeout; 500ms fallback) — refresh-on-open
+  is unchanged and the header pill still shows live status once the idle probe lands.
+- **Dead code removed**: legacy Vite entry chain (`index.html`, `src/main.tsx`,
+  `src/App.tsx`, ~315 lines) deleted — nothing imports it (Next.js App Router has been the
+  runtime since the migration). `src/index.css` was kept: it is imported by
+  `src/app/globals.css` (Tailwind directives + design tokens).
+- **Bundle**: view-level code splitting (Studio/Workbench via `next/dynamic`) landed in
+  Sprint 1 with idle preloading; studio sub-panels are conditionally mounted per workflow
+  tab. No further splitting done — the konva chunk (~316KB) loads with the view and is
+  warmed by the preloader before navigation.
+
+Flow captures (measured, warm dashboard):
+
+| Project | Open → canvas (cold) | View switch | Heap (both views mounted) |
+|---|---|---|---|
+| Small ("Untitled", ~133KB scene) | 514ms | 67ms / 84ms | 17MB |
+| Heavy ("Test", ~40.9MB mock scene) | **3280ms** (Sprint 0: 3611ms) | 93ms / <100ms | **288MB** (Sprint 0: 412MB) |
+| Heavy, in-app re-open (SWR from IndexedDB) | **357ms** (Sprint 2: 358ms — unchanged) | — | — |
+
+Coverage gate: 172 files / 1144 tests passing, **72.61%** statements (floor 46%).
+
 ## Note: mock-mode payload sizes are not representative
 
 Without S3/MinIO, `assetUpload` falls back to inlining base64 data URLs into

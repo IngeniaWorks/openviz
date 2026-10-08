@@ -175,6 +175,12 @@ async function runLighthouse(chromePort, url) {
         onlyCategories: ["performance"],
         formFactor: "desktop",
         screenEmulation: { disabled: true },
+        // Real (unthrottled) timings. Lighthouse's CPU-simulation mode
+        // miscomputes LCP on this app — trace analysis shows the LCP image
+        // paints at ~1s while the simulator reports 10-19s (it double-counts
+        // UKM navigation bookkeeping events). Measured values are honest and
+        // reproducible on a fixed machine; flow timings below are measured too.
+        throttlingMethod: "provided",
         maxWaitForLoad: 90_000,
     });
     const a = result.lhr.audits;

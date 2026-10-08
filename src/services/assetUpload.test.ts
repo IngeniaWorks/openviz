@@ -85,3 +85,11 @@ describe('uploadBlobToAsset (Sprint 3 asset delivery)', () => {
         expect(result.thumbnailUrl).toBeNull();
     });
 });
+
+describe('makeThumbnailDataUrl (mock-mode browser fallback)', () => {
+    it('returns null when canvas APIs are unavailable (never throws)', async () => {
+        const { makeThumbnailDataUrl } = await import('./assetUpload');
+        // jsdom has no createImageBitmap — the guard must short-circuit.
+        expect(await makeThumbnailDataUrl(new Blob(['x'], { type: 'image/png' }))).toBeNull();
+    });
+});

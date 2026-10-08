@@ -183,13 +183,22 @@ export function useAIComputeStatus(open: boolean) {
         }
     }, [resolved.protocol, resolved.endpoint, resolved.displayEndpoint, computeSettings.imageApiModel, computeSettings.imageApiKey, computeSettings.imageApiKeyless]);
 
-    // Re-check whenever the active endpoint or credentials change.
+    // Re-check whenever the active endpoint or credentials change. The first
+    // probe is deferred to idle time (Sprint 4): ComputePopover mounts with the
+    // workbench on every project open, and probing an external AI endpoint in
+    // that window competes with canvas setup for network + main thread.
     useEffect(() => {
         setStatus((prev) => ({
             ...initialStatus(resolved.protocol, resolved.displayEndpoint),
             lastCheckedAt: prev.lastCheckedAt,
         }));
-        void runCheck();
+        const run = () => void runCheck();
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            const idleId = window.requestIdleCallback(run, { timeout: 8000 });
+            return () => window.cancelIdleCallback(idleId);
+        }
+        const timerId = setTimeout(run, 500);
+        return () => clearTimeout(timerId);
     }, [resolved.protocol, resolved.endpoint, resolved.displayEndpoint, computeSettings.imageApiKey, computeSettings.imageApiKeyless, runCheck]);
 
     // Refresh on open; while the popup is open the shared manager's poll

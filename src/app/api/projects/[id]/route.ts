@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/auth";
 import { projects, scenes, workspaceMemberships } from "@/lib/db/schema";
+import { downsampleDataUrlThumbnail, DATA_URL_DOWNSAMPLE_THRESHOLD } from "@/lib/services/thumbnail";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -92,6 +93,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         body = stripInlineData(body) as typeof body;
     }
 
+    // Non-lite first opens of older mock-mode rows may still carry a large
+    // base64 thumbnailUrl — downscale it (deterministic, so the ETag below
+    // stays stable across revalidations).
+    if (
+        typeof body.thumbnailUrl === "string" &&
+        body.thumbnailUrl.startsWith("data:image") &&
+        body.thumbnailUrl.length > DATA_URL_DOWNSAMPLE_THRESHOLD
+    ) {
+        body.thumbnailUrl = await downsampleDataUrlThumbnail(body.thumbnailUrl);
+    }
+
     // Deterministic, cheap ETag: scene content changes always bump the scene
     // version; project metadata (rename/move) bumps updatedAt. Hashing the
     // full body would be wasteful for multi-MB mock-mode scenes.
@@ -124,6 +136,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
+
+    // Mock-mode uploads send full-resolution base64 thumbnails — downscale
+    // before persisting so the DB stays lean and list responses stay small.
+    if (
+        typeof body.thumbnailUrl === "string" &&
+        body.thumbnailUrl.startsWith("data:image") &&
+        body.thumbnailUrl.length > DATA_URL_DOWNSAMPLE_THRESHOLD
+    ) {
+        body.thumbnailUrl = await downsampleDataUrlThumbnail(body.thumbnailUrl);
+    }
 
     const [updated] = await db
         .update(projects)

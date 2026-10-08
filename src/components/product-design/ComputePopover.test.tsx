@@ -158,7 +158,9 @@ describe('ComputePopover', () => {
         render(<ComputePopover />);
 
         const pill = screen.getByRole('button', { name: 'Compute details' });
-        await waitFor(() => expect(pill).toHaveTextContent('unsloth/Qwen-Image-…'));
+        // The initial probe is deferred to idle time (Sprint 4) — allow the
+        // jsdom setTimeout fallback to fire.
+        await waitFor(() => expect(pill).toHaveTextContent('unsloth/Qwen-Image-…'), { timeout: 3000 });
     });
 
     it('shows a checking state while the endpoint probe is in flight', () => {

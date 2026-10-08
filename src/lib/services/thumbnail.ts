@@ -48,3 +48,43 @@ export async function generateThumbnail(
         return null;
     }
 }
+
+/**
+ * Data-URL thumbnails above this size are full-resolution mock-mode base64
+ * (S3 mode stores short /api/assets refs, which pass through untouched).
+ * Shipping them to the browser makes list responses multi-MB and LCP
+ * decode-bound — so they are downscaled server-side before responding.
+ */
+export const DATA_URL_DOWNSAMPLE_THRESHOLD = 65_536;
+
+/**
+ * Downscale an oversized data-URL thumbnail (mock mode) to a small WebP data
+ * URL. Short refs (S3 mode) and already-small data URLs pass through
+ * unchanged; undecodable bytes return the original rather than nothing.
+ */
+export async function downsampleDataUrlThumbnail(thumbnail: string): Promise<string> {
+    if (!thumbnail.startsWith("data:image") || thumbnail.length <= DATA_URL_DOWNSAMPLE_THRESHOLD) {
+        return thumbnail;
+    }
+    try {
+        const comma = thumbnail.indexOf(",");
+        const contentType = /data:([^;]+)/u.exec(thumbnail)?.[1] ?? "image/png";
+        const result = await generateThumbnail(Buffer.from(thumbnail.slice(comma + 1), "base64"), contentType);
+        if (!result) return thumbnail;
+        return `data:${result.contentType};base64,${result.buffer.toString("base64")}`;
+    } catch {
+        return thumbnail; // undecodable — ship the original rather than nothing
+    }
+}
+
+/** Run downsample with bounded concurrency (sharp decodes are CPU-heavy). */
+export async function downsampleDataUrls(items: Array<{ value: string }>, limit = 8): Promise<void> {
+    let cursor = 0;
+    const worker = async () => {
+        while (cursor < items.length) {
+            const item = items[cursor++];
+            item.value = await downsampleDataUrlThumbnail(item.value);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}

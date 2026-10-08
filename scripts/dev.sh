@@ -80,12 +80,25 @@ compose() {
 }
 
 if [[ -f .env.docker ]]; then
-  compose up -d --wait postgres redis
+  compose up -d --wait postgres redis seaweedfs
   export DATABASE_URL="${DATABASE_URL:-postgres://openviz:openviz@localhost:5434/openviz}"
   export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 else
-  compose up -d --wait postgres redis
+  compose up -d --wait postgres redis seaweedfs
 fi
+
+# Local asset storage (SeaweedFS). Defaults point at the local container so
+# image uploads store small URL refs instead of inline base64. Unset these to
+# fall back to base64 mock mode. Exported here so they take precedence over any
+# empty S3_* values in .env (dotenv does not override already-set vars).
+export S3_ENDPOINT="${S3_ENDPOINT:-http://localhost:${S3_HOST_PORT:-4566}}"
+export S3_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID:-test}"
+export S3_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY:-test}"
+export S3_BUCKET="${S3_BUCKET:-openviz-assets}"
+export S3_REGION="${S3_REGION:-us-east-1}"
+
+echo "[dev] Ensuring asset bucket exists..."
+pnpm run setup:s3 || echo "[dev] Warning: could not verify/create S3 bucket; uploads may fall back to base64." >&2
 
 echo "[dev] Starting Next.js and the collaboration WebSocket server..."
 

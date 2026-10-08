@@ -3,7 +3,7 @@ import type { ChangeEvent, RefObject } from 'react';
 
 import type { ImageNode } from '@/types';
 import { buildImageNode, isImageFile, resolveCenterFlowPoint } from '@/services/workbench/mediaUploadLogic';
-import { fileToDataUrl } from '@/services/imageSource';
+import { uploadBlobToAsset } from '@/services/assetUpload';
 
 interface UseWorkbenchMediaUploadOptions {
     flowWrapperRef: RefObject<HTMLDivElement | null>;
@@ -30,9 +30,11 @@ export function useWorkbenchMediaUpload({ flowWrapperRef, screenToFlowPosition, 
 
     const addImageFile = useCallback(async (file: File | undefined) => {
         if (!file || !isImageFile(file)) return;
-        const dataUrl = await fileToDataUrl(file);
+        // Upload to the asset store and store a short ref URL in node state
+        // (falls back to base64 when the asset store is unavailable).
+        const src = await uploadBlobToAsset(file, file.name);
         const centerPoint = resolveCenterFlowPoint(flowWrapperRef.current?.getBoundingClientRect(), screenToFlowPosition);
-        makeOneShotNode(buildImageNode({ src: dataUrl, fileName: file.name, mimeType: file.type, centerPoint }));
+        makeOneShotNode(buildImageNode({ src, fileName: file.name, mimeType: file.type, centerPoint }));
     }, [flowWrapperRef, makeOneShotNode, screenToFlowPosition]);
 
     const closePhoneUploadModal = useCallback(() => {

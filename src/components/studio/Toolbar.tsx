@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useStore } from "@/store/useStore";
+import { uploadBlobToAsset } from "@/services/assetUpload";
 import { ColorPicker } from "./ColorPicker";
 import { ToolType } from "@/types";
 import { clsx, type ClassValue } from "clsx";
@@ -163,46 +164,48 @@ export const Toolbar: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const base64 = event.target?.result as string;
+        // Measure natural dimensions from a temporary object URL, then upload the
+        // bytes to the asset store and store the short ref in the layer (falls
+        // back to base64 when the asset store is unavailable).
+        const measureUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = async () => {
+            URL.revokeObjectURL(measureUrl);
 
-            const img = new Image();
-            img.onload = () => {
-                const state = useStore.getState();
-                const canvasWidth = state.project.canvas.width;
-                const canvasHeight = state.project.canvas.height;
+            const state = useStore.getState();
+            const canvasWidth = state.project.canvas.width;
+            const canvasHeight = state.project.canvas.height;
 
-                let width = img.naturalWidth;
-                let height = img.naturalHeight;
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
 
-                if (width > canvasWidth || height > canvasHeight) {
-                    const ratio = Math.min(canvasWidth / width, canvasHeight / height);
-                    width *= ratio;
-                    height *= ratio;
-                }
+            if (width > canvasWidth || height > canvasHeight) {
+                const ratio = Math.min(canvasWidth / width, canvasHeight / height);
+                width *= ratio;
+                height *= ratio;
+            }
 
-                const x = (canvasWidth - width) / 2;
-                const y = (canvasHeight - height) / 2;
+            const x = (canvasWidth - width) / 2;
+            const y = (canvasHeight - height) / 2;
 
-                addLayer("image");
-                const updatedState = useStore.getState();
-                if (updatedState.activeLayerId) {
-                    updateLayer(updatedState.activeLayerId, {
-                        image: base64,
-                        name: file.name,
-                        width,
-                        height,
-                        x,
-                        y,
-                        scaleX: 1,
-                        scaleY: 1,
-                    });
-                }
-            };
-            img.src = base64;
+            const image = await uploadBlobToAsset(file, file.name);
+
+            addLayer("image");
+            const updatedState = useStore.getState();
+            if (updatedState.activeLayerId) {
+                updateLayer(updatedState.activeLayerId, {
+                    image,
+                    name: file.name,
+                    width,
+                    height,
+                    x,
+                    y,
+                    scaleX: 1,
+                    scaleY: 1,
+                });
+            }
         };
-        reader.readAsDataURL(file);
+        img.src = measureUrl;
     };
 
     const handleToggleWorkbench = () => {

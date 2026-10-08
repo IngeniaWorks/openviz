@@ -21,7 +21,7 @@ import type {
     TargetHealth,
 } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { blobToDataUrl } from '@/services/imageSource';
+import { uploadBlobToAsset } from '@/services/assetUpload';
 import { endpointRoot, normalizeInputImage } from './openAIImagePayload';
 import {
     NATIVE_VIDEO_OPTIONAL_FIELDS,
@@ -149,7 +149,10 @@ export function createOpenAIVideoTarget(options: OpenAIVideoTargetOptions): Exec
         const response = await fetcher(absolute, { headers: videoHeaders(options) });
         if (!response.ok) throw new Error(`Rendered video download failed (${response.status}).`);
         const contentType = response.headers.get('content-type')?.split(';')[0] ?? 'video/mp4';
-        return { url: await blobToDataUrl(await response.blob()), index: 0, contentType };
+        // Store a short asset ref (S3) instead of inlining base64; falls back to
+        // a data URL when the asset store is unavailable.
+        const assetUrl = await uploadBlobToAsset(await response.blob(), `render-video.mp4`);
+        return { url: assetUrl, index: 0, contentType };
     }
 
     return {

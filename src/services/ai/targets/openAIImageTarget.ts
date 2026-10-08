@@ -19,7 +19,7 @@ import type {
     TargetHealth,
 } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { blobToDataUrl } from '@/services/imageSource';
+import { uploadBlobToAsset } from '@/services/assetUpload';
 import {
     NATIVE_OPTIONAL_FIELDS,
     buildNativeImagePayload,
@@ -103,7 +103,9 @@ async function materializeNativeImageOutputs(
             throw new Error(`Rendered image download failed (${response.status}).`);
         }
         const blob = await response.blob();
-        return { ...output, url: await blobToDataUrl(blob) };
+        // Store a short asset ref (S3) instead of inlining base64; falls back to
+        // a data URL when the asset store is unavailable.
+        return { ...output, url: await uploadBlobToAsset(blob, `render-${output.assetId ?? output.index}.png`) };
     }));
 }
 

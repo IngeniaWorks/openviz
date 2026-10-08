@@ -4,7 +4,7 @@ import { ToolType } from '../../types';
 import { Paintbrush, PaintBucket } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { readClipboardImage } from '@/services/clipboardImage';
-import { fileToDataUrl } from '@/services/imageSource';
+import { uploadBlobToAsset } from '@/services/assetUpload';
 
 interface ToolContextMenuProps {
     x: number;
@@ -28,7 +28,7 @@ export const ToolContextMenu: React.FC<ToolContextMenuProps> = ({ x, y, tool, on
     const handlePasteImage = async () => {
         const file = await readClipboardImage();
         if (!file) return;
-        const image = await fileToDataUrl(file);
+        const image = await uploadBlobToAsset(file, file.name);
         addImageLayer(image, file.name);
         onClose();
     };

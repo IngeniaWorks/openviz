@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Konva from 'konva';
 import { useStore } from '../../store/useStore';
+import { uploadCanvasThumbnail } from '@/services/assetUpload';
 
 export const useCanvasViewport = () => {
     const {
@@ -360,8 +361,10 @@ export const useCanvasViewport = () => {
         await new Promise(resolve => setTimeout(resolve, 400));
         setZoom(exitScale);
         setPan(exitX, exitY);
-        const thumbnail = getFlattenedCanvas();
-        saveCurrentToWorkbench(thumbnail);
+        // Refs-only contract: persist the flattened canvas as a durable S3 ref.
+        // When the asset store is down, keep the previous thumbnail (null).
+        const thumbnailRef = await uploadCanvasThumbnail(getFlattenedCanvas());
+        saveCurrentToWorkbench(thumbnailRef);
         setViewMode('WORKBENCH');
         setTimeout(() => setExitingStudio(false), 100);
     };

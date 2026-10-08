@@ -52,6 +52,15 @@ function installFetchMock(): FetchMock {
         if (url.includes('/api/inference/images/gallery/')) {
             return new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } });
         }
+        if (url === '/api/assets/upload-url') {
+            return jsonResponse({ uploadUrl: 'http://s3.local/uploads/r/render.png', key: 'uploads/r/render.png' });
+        }
+        if (url.startsWith('http://s3.local/')) {
+            return new Response(null, { status: 200 });
+        }
+        if (url.startsWith('/api/assets/thumbnail')) {
+            return jsonResponse({ url: null });
+        }
         return new Response('not found', { status: 404 });
     });
     global.fetch = fetchMock;

@@ -3,7 +3,7 @@ import type { ChangeEvent, RefObject } from 'react';
 
 import type { ImageNode } from '@/types';
 import { buildImageNode, isImageFile, resolveCenterFlowPoint } from '@/services/workbench/mediaUploadLogic';
-import { uploadBlobToAsset } from '@/services/assetUpload';
+import { reportAssetUploadFailure, uploadBlobToAsset } from '@/services/assetUpload';
 
 interface UseWorkbenchMediaUploadOptions {
     flowWrapperRef: RefObject<HTMLDivElement | null>;
@@ -30,12 +30,16 @@ export function useWorkbenchMediaUpload({ flowWrapperRef, screenToFlowPosition, 
 
     const addImageFile = useCallback(async (file: File | undefined) => {
         if (!file || !isImageFile(file)) return;
-        // Upload to the asset store and store short ref URLs in node state
-        // (falls back to base64 when the asset store is unavailable). The
-        // thumbnail variant drives canvas/dashboard display (Sprint 3).
-        const { url, thumbnailUrl } = await uploadBlobToAsset(file, file.name);
-        const centerPoint = resolveCenterFlowPoint(flowWrapperRef.current?.getBoundingClientRect(), screenToFlowPosition);
-        makeOneShotNode(buildImageNode({ src: url, thumbnail: thumbnailUrl, fileName: file.name, mimeType: file.type, centerPoint }));
+        // Upload to the asset store and store short ref URLs in node state.
+        // The thumb/preview variants drive canvas + dashboard display (3-tier
+        // pipeline); full resolution stays on the layer.
+        try {
+            const { url, thumbnailUrl, previewUrl } = await uploadBlobToAsset(file, file.name);
+            const centerPoint = resolveCenterFlowPoint(flowWrapperRef.current?.getBoundingClientRect(), screenToFlowPosition);
+            makeOneShotNode(buildImageNode({ src: url, thumbnail: thumbnailUrl, preview: previewUrl, fileName: file.name, mimeType: file.type, centerPoint }));
+        } catch (error) {
+            reportAssetUploadFailure(error);
+        }
     }, [flowWrapperRef, makeOneShotNode, screenToFlowPosition]);
 
     const closePhoneUploadModal = useCallback(() => {

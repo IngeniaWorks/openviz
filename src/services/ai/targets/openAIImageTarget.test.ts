@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createOpenAIImageTarget, normalizeNativeImageDimensions, parseImageOutputs, parseModels } from './openAIImageTarget';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
+import { mockAssetPipeline } from '@/services/assetPipelineMock';
 
 // Runtime internals that must never leak into any outbound payload (FR-002).
 const RUNTIME_INTERNALS = ['guidance_2', 'quantization', 'offload', 'memory_mode', 'attention_backend', 'cache', 'caches'];
@@ -22,6 +23,14 @@ const request: ProductWorkflowRequest = {
 };
 
 describe('openAIImageTarget', () => {
+    beforeEach(() => {
+        mockAssetPipeline();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('rounds Qwen Image dimensions to multiples of 32', () => {
         expect(normalizeNativeImageDimensions({ width: 1024, height: 688 }, 'unsloth/Qwen-Image-2.1-GGUF'))
             .toEqual({ width: 1024, height: 704 });
@@ -154,6 +163,15 @@ describe('openAIImageTarget', () => {
                 images: [{ url: '/api/inference/images/gallery/79c92d21480b42f6a3031f08a4b5d328' }],
             }), { status: 200 }))
             .mockResolvedValueOnce(new Response('image-bytes', { status: 200, headers: { 'Content-Type': 'image/png' } }));
+        // Asset pipeline (re-host to S3) — refs-only contract.
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url === '/api/assets/upload-url') return new Response(JSON.stringify({ uploadUrl: 'http://s3.local/uploads/r/render.png', key: 'uploads/r/render.png' }), { status: 200 });
+            if (url.startsWith('http://s3.local/')) return new Response(null, { status: 200 });
+            if (url.startsWith('/api/assets/thumbnail')) return new Response(JSON.stringify({ url: null }), { status: 200 });
+            throw new Error(`unexpected fetch: ${url}`);
+        });
+
         const target = createOpenAIImageTarget({
             id: 'unsloth',
             endpoint: 'http://100.85.5.85:8888/v1',
@@ -165,7 +183,66 @@ describe('openAIImageTarget', () => {
         await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=' });
         const outputs = await target.getOutputs('native-edit');
         expect(outputs).toHaveLength(1);
-        expect(outputs[0]?.url.startsWith('data:image/png;base64,')).toBe(true);
+        // Re-hosted to a durable S3 ref — never an inline data URL.
+        expect(outputs[0]?.url).toMatch(/^\/api\/assets\//);
+        vi.restoreAllMocks();
+    });
+
+    it('re-hosts provider data-URL outputs through the asset pipeline (refs-only contract)', async () => {
+        const fetcher = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                images: [{ url: 'data:image/png;base64,ZW5jb2RlZC1pbWFnZQ==' }],
+            }), { status: 200 }));
+        const globalFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            if (url.startsWith('data:image/')) return new Response(new Blob(['image-bytes'], { type: 'image/png' }), { status: 200 });
+            if (url === '/api/assets/upload-url') return new Response(JSON.stringify({ uploadUrl: 'http://s3.local/uploads/r/render.png', key: 'uploads/r/render.png' }), { status: 200 });
+            if (url.startsWith('http://s3.local/')) {
+                expect(init?.method).toBe('PUT');
+                return new Response(null, { status: 200 });
+            }
+            if (url.startsWith('/api/assets/thumbnail')) return new Response(JSON.stringify({ url: null }), { status: 200 });
+            throw new Error(`unexpected fetch: ${url}`);
+        });
+
+        const target = createOpenAIImageTarget({
+            id: 'unsloth',
+            endpoint: 'http://100.85.5.85:8888/v1',
+            model: 'unsloth/Qwen-Image-2.1-GGUF',
+            apiKey: 'secret',
+            fetcher,
+        });
+
+        await target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=' });
+        const outputs = await target.getOutputs('native-edit');
+        expect(outputs[0]?.url).toMatch(/^\/api\/assets\//);
+        // The data URL was decoded locally (global fetch) and PUT to S3.
+        expect(globalFetch.mock.calls.some((c) => String(c[0]).startsWith('data:image/'))).toBe(true);
+        expect(globalFetch.mock.calls.some((c) => String(c[0]) === 'http://s3.local/uploads/r/render.png')).toBe(true);
+    });
+
+    it('fails with a storage-specific error when the asset store is down during re-host (SC-008)', async () => {
+        const fetcher = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                images: [{ url: 'data:image/png;base64,ZW5jb2RlZC1pbWFnZQ==' }],
+            }), { status: 200 }));
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+            // Decode succeeds; the storage round-trip fails.
+            if (String(input).startsWith('data:image/')) return new Response(new Blob(['image-bytes'], { type: 'image/png' }), { status: 200 });
+            return new Response('nope', { status: 503 });
+        });
+
+        const target = createOpenAIImageTarget({
+            id: 'unsloth',
+            endpoint: 'http://100.85.5.85:8888/v1',
+            model: 'unsloth/Qwen-Image-2.1-GGUF',
+            apiKey: 'secret',
+            fetcher,
+        });
+
+        await expect(target.submit({ ...request, initImage: 'data:image/png;base64,aW5wdXQ=' }))
+            .rejects.toThrow(/asset storage is unavailable/i);
+        vi.restoreAllMocks();
     });
 
     it('requires a key unless keyless mode is explicitly enabled', async () => {
@@ -191,6 +268,13 @@ describe('openAIImageTarget', () => {
 });
 
 describe('openAIImageTarget — feature 012 render task pass-through', () => {
+    beforeEach(() => {
+        mockAssetPipeline();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
     const nativeOk = (fetcher: ReturnType<typeof vi.fn>) => {
         fetcher
             .mockResolvedValueOnce(new Response(JSON.stringify({ images: [{ url: '/api/inference/images/gallery/result/file' }] }), { status: 200 }))

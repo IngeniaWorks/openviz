@@ -4,7 +4,7 @@ import { ToolType } from '../../types';
 import { Paintbrush, PaintBucket } from 'lucide-react';
 import { ColorPicker } from './ColorPicker';
 import { readClipboardImage } from '@/services/clipboardImage';
-import { uploadBlobToAsset } from '@/services/assetUpload';
+import { reportAssetUploadFailure, uploadBlobToAsset } from '@/services/assetUpload';
 
 interface ToolContextMenuProps {
     x: number;
@@ -29,7 +29,13 @@ export const ToolContextMenu: React.FC<ToolContextMenuProps> = ({ x, y, tool, on
         const file = await readClipboardImage();
         if (!file) return;
         // Studio edits at full resolution — the thumbnail variant is for canvas previews.
-        const { url: image } = await uploadBlobToAsset(file, file.name);
+        let image: string;
+        try {
+            ({ url: image } = await uploadBlobToAsset(file, file.name));
+        } catch (error) {
+            reportAssetUploadFailure(error);
+            return; // refs-only contract: no layer without a durable ref
+        }
         addImageLayer(image, file.name);
         onClose();
     };

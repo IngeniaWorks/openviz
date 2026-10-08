@@ -3,7 +3,6 @@ import { db } from "@/lib/auth";
 import { projects, workspaceMemberships } from "@/lib/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { downsampleDataUrls } from "@/lib/services/thumbnail";
 
 export const MAX_PREVIEW_IDS = 100;
 const PREVIEWS_PER_PROJECT = 12;
@@ -103,12 +102,6 @@ export async function GET(req: Request) {
         if (!row.project_id || !row.thumbnail) return [];
         return [{ project_id: row.project_id, id: row.id ?? "", thumbnail: row.thumbnail, last_modified_at: row.last_modified_at }];
     });
-
-    // Mock-mode scenes carry full-resolution base64 thumbnails (S3 mode does
-    // not) — downscale them so the dashboard response stays small.
-    const wrappers = rows.map((row) => ({ value: row.thumbnail }));
-    await downsampleDataUrls(wrappers);
-    for (let i = 0; i < rows.length; i += 1) rows[i].thumbnail = wrappers[i].value;
 
     const byProject: Record<string, Array<{ id: string; thumbnail: string; lastModifiedAt: number | null }>> = {};
     for (const row of rows) {

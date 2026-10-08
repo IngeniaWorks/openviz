@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockAssetPipeline } from '@/services/assetPipelineMock';
 import { createOpenAIVideoTarget } from './openAIVideoTarget';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
 
@@ -24,7 +25,13 @@ const request: ProductWorkflowRequest = {
     fps: 24,
 };
 
-const VIDEO_BYTES_B64 = 'dmlkZW8tYnl0ZXM='; // base64 of "video-bytes"
+beforeEach(() => {
+    mockAssetPipeline();
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 describe('openAIVideoTarget — native route (R1)', () => {
     it('emits first/last frame, num_frames, fps and seed on the native video payload', async () => {
@@ -62,7 +69,7 @@ describe('openAIVideoTarget — native route (R1)', () => {
         expect(done).toMatchObject({ status: 'completed', progress: 100 });
         const outputs = await target.getOutputs(submitted.jobId);
         expect(outputs).toHaveLength(1);
-        expect(outputs[0]?.url).toBe(`data:video/mp4;base64,${VIDEO_BYTES_B64}`);
+        expect(outputs[0]?.url).toMatch(/^\/api\/assets\//); // refs-only: re-hosted to S3
     });
 
     it('surfaces the client-safe error when the native job fails', async () => {
@@ -123,7 +130,7 @@ describe('openAIVideoTarget — OpenAI-compatible fallback (R1)', () => {
         const done = await target.getStatus('job-1');
         expect(done).toMatchObject({ status: 'completed', progress: 100 });
         const outputs = await target.getOutputs('job-1');
-        expect(outputs[0]?.url).toBe(`data:video/mp4;base64,${VIDEO_BYTES_B64}`);
+        expect(outputs[0]?.url).toMatch(/^\/api\/assets\//); // refs-only: re-hosted to S3
     });
 
     it('reports the VideoJob failure reason on failed status', async () => {

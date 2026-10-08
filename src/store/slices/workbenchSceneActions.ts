@@ -8,17 +8,24 @@ import type { WorkbenchGet, WorkbenchSet, WorkbenchSlice } from './workbenchSlic
 
 export function createWorkbenchSceneActions(set: WorkbenchSet, get: WorkbenchGet): Pick<WorkbenchSlice, 'saveCurrentToWorkbench' | 'openNodeInStudio' | 'setActiveNodeId' | 'setSelectedNodeIds'> {
     return {
-    saveCurrentToWorkbench: (thumbnail) => {
+    saveCurrentToWorkbench: (thumbnailRef) => {
         const state = get() as AppState;
-        const currentProject = { ...state.project, thumbnail, lastModifiedAt: Date.now() };
+        // Refs-only contract: `thumbnailRef` is a durable S3 ref (or null when
+        // the canvas upload failed). When null, keep the previous thumbnail —
+        // never write an inline data URL into the scene.
+        const currentProject = {
+            ...state.project,
+            ...(thumbnailRef ? { thumbnail: thumbnailRef } : {}),
+            lastModifiedAt: Date.now(),
+        };
         const existingNode = state.workbenchNodes.find(n => n.id === state.activeNodeId);
 
         // Sync to backend using currentProjectId (the real project ID from database)
         // This should work for both the main project and nodes created from it
-        if (state.currentProjectId) {
+        if (state.currentProjectId && thumbnailRef) {
             fetch(`/api/projects/${state.currentProjectId}`, {
                 method: 'PATCH',
-                body: JSON.stringify({ thumbnailUrl: thumbnail }),
+                body: JSON.stringify({ thumbnailUrl: thumbnailRef }),
                 headers: { 'Content-Type': 'application/json' }
             }).catch(err => console.error("Failed to sync thumbnail:", err));
         }

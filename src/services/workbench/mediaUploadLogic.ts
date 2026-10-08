@@ -19,11 +19,13 @@ export function isImageFile(file: MediaFileLike): boolean {
 export interface BuildImageNodeInput {
     src: string;
     /**
-     * Small thumbnail variant (Sprint 3). Stored on `project.thumbnail` so the
-     * workbench canvas and dashboard cards render it instead of downloading
-     * full resolution. Falls back to `src` when absent.
+     * ≤512px thumbnail variant. Stored on `project.thumbnail` so the workbench
+     * canvas and dashboard cards render it instead of downloading full
+     * resolution. Falls back to `src` when absent.
      */
     thumbnail?: string | null;
+    /** ≤1024px preview variant (3-tier pipeline); stored on `project.previewUrl`. */
+    preview?: string | null;
     fileName: string;
     mimeType: string;
     centerPoint: { x: number; y: number };
@@ -33,7 +35,7 @@ const MEDIA_NODE_WIDTH = 260;
 const DEFAULT_CENTER_POINT = { x: 200, y: 200 };
 
 /** Builds a media node centered on the given flow point (data-model Media entity). */
-export function buildImageNode({ src, thumbnail, fileName, centerPoint }: BuildImageNodeInput): ImageNode {
+export function buildImageNode({ src, thumbnail, preview, fileName, centerPoint }: BuildImageNodeInput): ImageNode {
     const id = generateUUID();
     const name = fileName || 'Uploaded image';
     // Canvas/dashboard display prefers the small variant; full res stays on the layer.
@@ -72,6 +74,7 @@ export function buildImageNode({ src, thumbnail, fileName, centerPoint }: BuildI
             modified: Date.now(),
         }],
         thumbnail: displayUrl,
+        ...(preview ? { previewUrl: preview } : {}),
     };
     const scale = MEDIA_NODE_WIDTH / canvas.width;
     const nodeWidth = canvas.width * scale;

@@ -6,6 +6,7 @@ import { renderService } from '../../../services/renderService';
 import { getVideoStyles } from '../../../services/ai/workflowRegistry';
 import { findNonOverlappingPosition } from '../../../services/nodePositioning';
 import { generateUUID } from '@/utils/uuid';
+import { uploadVideoPoster } from '@/services/assetUpload';
 
 export function useAnimateNodeActions(id: string, data: AnimateNodeType) {
     const connection = useConnection();
@@ -161,12 +162,17 @@ export function useAnimateNodeActions(id: string, data: AnimateNodeType) {
 
             if (response.success && response.images.length > 0) {
                 const videoUrl = response.images[0];
+                // 3-tier pipeline: capture a poster frame so the workbench never
+                // downloads the full video just to show a preview (optional —
+                // null falls back to a placeholder tile).
+                const posterUrl = await uploadVideoPoster(videoUrl);
                 const project: Project = {
                     id: placeholderId,
                     name: 'Animation Result',
                     createdAt: Date.now(),
                     lastModifiedAt: Date.now(),
                     thumbnail: videoUrl,
+                    ...(posterUrl ? { posterUrl } : {}),
                     canvas: {
                         width,
                         height,

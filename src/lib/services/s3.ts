@@ -141,10 +141,19 @@ export const s3Paths = {
  * `uploads/<userId>/<ts>-<name>.png` -> `thumbnails/<userId>/<ts>-<name>.webp`
  */
 export function thumbnailKeyFor(uploadKey: string): string | null {
+    return variantKeyFor(uploadKey, 'thumbnails');
+}
+
+/** ≤1024px WebP preview variant key (background-loaded higher quality tier). */
+export function previewKeyFor(uploadKey: string): string | null {
+    return variantKeyFor(uploadKey, 'previews');
+}
+
+function variantKeyFor(uploadKey: string, prefix: string): string | null {
     const match = /^(uploads|renders)\/(.+)$/u.exec(uploadKey);
     if (!match) return null;
     const rest = match[2];
     const dot = rest.lastIndexOf('.');
     if (dot === -1) return null;
-    return `thumbnails/${rest.slice(0, dot)}.webp`;
+    return `${prefix}/${rest.slice(0, dot)}.webp`;
 }

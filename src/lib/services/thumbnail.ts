@@ -8,6 +8,8 @@
  */
 
 export const THUMBNAIL_MAX_DIM = 512;
+/** ≤1024px WebP "preview" tier — the background-loaded higher quality image (Sprint: lazy asset loading). */
+export const PREVIEW_MAX_DIM = 1024;
 export const THUMBNAIL_WEBP_QUALITY = 82;
 
 export interface ThumbnailResult {
@@ -16,15 +18,17 @@ export interface ThumbnailResult {
 }
 
 /**
- * Downscale + re-encode an image buffer to WebP.
+ * Downscale + re-encode an image buffer to a WebP variant with longest side
+ * ≤ `maxDim`px.
  *
  * Returns `null` (never throws) when the input is not a decodable image or is
- * already at or below the thumbnail size — in that case the original IS the
- * cheapest representation and no variant is worth storing.
+ * already at or below the budget — in that case the original IS the cheapest
+ * representation and no variant is worth storing.
  */
-export async function generateThumbnail(
+export async function generateVariant(
     input: Buffer | Uint8Array,
-    contentType: string
+    contentType: string,
+    maxDim: number
 ): Promise<ThumbnailResult | null> {
     if (!contentType.startsWith('image/')) return null;
 
@@ -35,56 +39,26 @@ export async function generateThumbnail(
         const meta = await pipeline.metadata();
         pipeline = sharp(Buffer.from(input)); // metadata() consumes the stream
         const longest = Math.max(meta.width ?? 0, meta.height ?? 0);
-        if (longest === 0 || longest <= THUMBNAIL_MAX_DIM) return null;
+        if (longest === 0 || longest <= maxDim) return null;
 
         const buffer = await pipeline
-            .resize({ width: THUMBNAIL_MAX_DIM, height: THUMBNAIL_MAX_DIM, fit: 'inside', withoutEnlargement: true })
+            .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
             .webp({ quality: THUMBNAIL_WEBP_QUALITY })
             .toBuffer();
 
         return { buffer, contentType: 'image/webp' };
     } catch {
-        // Undecodable bytes (corrupt upload, unsupported codec) — no thumbnail.
+        // Undecodable bytes (corrupt upload, unsupported codec) — no variant.
         return null;
     }
 }
 
-/**
- * Data-URL thumbnails above this size are full-resolution mock-mode base64
- * (S3 mode stores short /api/assets refs, which pass through untouched).
- * Shipping them to the browser makes list responses multi-MB and LCP
- * decode-bound — so they are downscaled server-side before responding.
- */
-export const DATA_URL_DOWNSAMPLE_THRESHOLD = 65_536;
-
-/**
- * Downscale an oversized data-URL thumbnail (mock mode) to a small WebP data
- * URL. Short refs (S3 mode) and already-small data URLs pass through
- * unchanged; undecodable bytes return the original rather than nothing.
- */
-export async function downsampleDataUrlThumbnail(thumbnail: string): Promise<string> {
-    if (!thumbnail.startsWith("data:image") || thumbnail.length <= DATA_URL_DOWNSAMPLE_THRESHOLD) {
-        return thumbnail;
-    }
-    try {
-        const comma = thumbnail.indexOf(",");
-        const contentType = /data:([^;]+)/u.exec(thumbnail)?.[1] ?? "image/png";
-        const result = await generateThumbnail(Buffer.from(thumbnail.slice(comma + 1), "base64"), contentType);
-        if (!result) return thumbnail;
-        return `data:${result.contentType};base64,${result.buffer.toString("base64")}`;
-    } catch {
-        return thumbnail; // undecodable — ship the original rather than nothing
-    }
+/** ≤512px WebP thumbnail variant (dashboard cards, first paint). */
+export async function generateThumbnail(
+    input: Buffer | Uint8Array,
+    contentType: string
+): Promise<ThumbnailResult | null> {
+    return generateVariant(input, contentType, THUMBNAIL_MAX_DIM);
 }
 
-/** Run downsample with bounded concurrency (sharp decodes are CPU-heavy). */
-export async function downsampleDataUrls(items: Array<{ value: string }>, limit = 8): Promise<void> {
-    let cursor = 0;
-    const worker = async () => {
-        while (cursor < items.length) {
-            const item = items[cursor++];
-            item.value = await downsampleDataUrlThumbnail(item.value);
-        }
-    };
-    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-}
+

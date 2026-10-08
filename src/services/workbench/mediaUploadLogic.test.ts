@@ -64,6 +64,36 @@ describe('buildImageNode (uploaded image node)', () => {
         expect(node.project.layers[0].image).toBe('/api/assets/full-token');
     });
 
+    it('stores the ≤1024px preview variant on project.previewUrl (3-tier pipeline)', async () => {
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
+            src: '/api/assets/full-token',
+            thumbnail: '/api/assets/thumb-token',
+            preview: '/api/assets/preview-token',
+            fileName: 'pic.png',
+            mimeType: 'image/png',
+            centerPoint: { x: 100, y: 100 },
+        });
+
+        expect(node.project.previewUrl).toBe('/api/assets/preview-token');
+        expect(node.project.thumbnail).toBe('/api/assets/thumb-token');
+        expect(node.project.layers[0].image).toBe('/api/assets/full-token');
+    });
+
+    it('leaves previewUrl unset when no preview variant is available', async () => {
+        const { buildImageNode } = await import('./mediaUploadLogic');
+        const node = buildImageNode({
+            src: '/api/assets/full-token',
+            thumbnail: null,
+            preview: null,
+            fileName: 'pic.png',
+            mimeType: 'image/png',
+            centerPoint: { x: 100, y: 100 },
+        });
+
+        expect(node.project.previewUrl).toBeUndefined();
+    });
+
     it('falls back to src for the display thumbnail when none is provided', async () => {
         const { buildImageNode } = await import('./mediaUploadLogic');
         const node = buildImageNode({

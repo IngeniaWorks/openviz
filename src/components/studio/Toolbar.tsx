@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useStore } from "@/store/useStore";
-import { uploadBlobToAsset } from "@/services/assetUpload";
+import { reportAssetUploadFailure, uploadBlobToAsset, uploadCanvasThumbnail } from "@/services/assetUpload";
 import { ColorPicker } from "./ColorPicker";
 import { ToolType } from "@/types";
 import { clsx, type ClassValue } from "clsx";
@@ -189,7 +189,13 @@ export const Toolbar: React.FC = () => {
             const y = (canvasHeight - height) / 2;
 
             // Studio edits at full resolution — the thumbnail variant is for canvas previews.
-            const { url: image } = await uploadBlobToAsset(file, file.name);
+            let image: string;
+            try {
+                ({ url: image } = await uploadBlobToAsset(file, file.name));
+            } catch (error) {
+                reportAssetUploadFailure(error);
+                return; // refs-only contract: no layer without a durable ref
+            }
 
             addLayer("image");
             const updatedState = useStore.getState();
@@ -209,7 +215,7 @@ export const Toolbar: React.FC = () => {
         img.src = measureUrl;
     };
 
-    const handleToggleWorkbench = () => {
+    const handleToggleWorkbench = async () => {
         // The URL is the source of truth for project workspaces. Fall back to
         // it while the store is still hydrating so this button cannot become a
         // no-op when the toolbar renders before currentProjectId is available.
@@ -217,10 +223,11 @@ export const Toolbar: React.FC = () => {
         if (!projectId) return;
 
         if (viewMode === "STUDIO") {
+            // Refs-only contract: persist the flattened canvas as a durable S3
+            // ref; when the asset store is down, keep the previous thumbnail.
             const flattenedCanvas = (window as CanvasFlattenWindow).getFlattenedCanvas?.();
-            if (flattenedCanvas) {
-                saveCurrentToWorkbench(flattenedCanvas);
-            }
+            const thumbnailRef = flattenedCanvas ? await uploadCanvasThumbnail(flattenedCanvas) : null;
+            saveCurrentToWorkbench(thumbnailRef);
             setViewMode("WORKBENCH");
             router.push(`/projects/${projectId}/workbench`);
             return;

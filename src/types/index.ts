@@ -62,6 +62,10 @@ export interface Project {
     canvas: CanvasState;
     layers: Layer[];
     thumbnail?: string;
+    /** ≤1024px WebP variant — background-loaded higher quality tier (3-tier pipeline). */
+    previewUrl?: string;
+    /** Poster frame for video nodes; the full video only loads in fullscreen. */
+    posterUrl?: string;
 }
 
 export type NodeType = 'image' | 'modify' | 'animate' | 'render' | 'video' | 'freehand' | 'arrow' | 'text' | 'note' | 'media' | 'variate' | 'new-view' | 'extract' | 'section';

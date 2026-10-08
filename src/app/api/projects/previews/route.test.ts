@@ -10,18 +10,6 @@ let selectQueue: unknown[][] = [];
 let executeCalls: Array<{ args: unknown[] }> = [];
 let executeRows: unknown[] = [];
 
-const downsampleDataUrlsMock = vi.fn(async (items: Array<{ value: string }>) => {
-    // Emulate the real helper: replace oversized data URLs with a small webp.
-    for (const item of items) {
-        if (item.value.startsWith('data:image') && item.value.length > 65_536) {
-            item.value = 'data:image/webp;base64,d2VicA==';
-        }
-    }
-});
-vi.mock('@/lib/services/thumbnail', () => ({
-    downsampleDataUrls: (items: Array<{ value: string }>) => downsampleDataUrlsMock(items),
-}));
-
 vi.mock('@/lib/auth', () => ({
     auth: (...args: unknown[]) => authMock(...args),
     db: {
@@ -118,43 +106,6 @@ describe('GET /api/projects/previews', () => {
             { id: 'n-2', thumbnail: 'https://cdn/b.webp', lastModifiedAt: 100 },
         ]);
         expect(body['p-2']).toEqual([{ id: 'n-3', thumbnail: 'https://cdn/c.webp', lastModifiedAt: null }]);
-    });
-
-    it('downsamples oversized data-URL thumbnails (mock mode) but passes short refs through', async () => {
-        authMock.mockResolvedValue({ user: { id: 'u-1' } });
-        selectQueue = [
-            [{ workspaceId: 'ws-1' }],
-            [{ id: 'p-1' }],
-        ];
-        const bigDataUrl = `data:image/png;base64,${'A'.repeat(70_000)}`; // over the 64KB threshold
-        executeRows = [
-            { project_id: 'p-1', id: 'n-1', thumbnail: bigDataUrl, last_modified_at: 200 },
-            { project_id: 'p-1', id: 'n-2', thumbnail: '/api/assets/short-ref', last_modified_at: 100 },
-        ];
-
-        const res = await get('p-1');
-        const body = (await res.json()) as Record<string, Array<{ id: string; thumbnail: string }>>;
-
-        expect(downsampleDataUrlsMock).toHaveBeenCalledTimes(1);
-        expect(body['p-1'][0].thumbnail).toBe('data:image/webp;base64,d2VicA==');
-        expect(body['p-1'][1].thumbnail).toBe('/api/assets/short-ref');
-    });
-
-    it('keeps the original thumbnail when downsample fails (undecodable bytes)', async () => {
-        authMock.mockResolvedValue({ user: { id: 'u-1' } });
-        selectQueue = [
-            [{ workspaceId: 'ws-1' }],
-            [{ id: 'p-1' }],
-        ];
-        const bigDataUrl = `data:image/png;base64,${'A'.repeat(70_000)}`;
-        executeRows = [{ project_id: 'p-1', id: 'n-1', thumbnail: bigDataUrl, last_modified_at: 200 }];
-        // Undecodable bytes: the real helper returns the original — emulate by
-        // leaving the value untouched.
-        downsampleDataUrlsMock.mockImplementationOnce(async () => undefined);
-
-        const res = await get('p-1');
-        const body = (await res.json()) as Record<string, Array<{ id: string; thumbnail: string }>>;
-        expect(body['p-1'][0].thumbnail).toBe(bigDataUrl);
     });
 
     it('caps the number of requested ids at 100 and dedupes them', async () => {

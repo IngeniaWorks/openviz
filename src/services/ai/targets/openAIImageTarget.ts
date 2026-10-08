@@ -19,7 +19,7 @@ import type {
     TargetHealth,
 } from '@/types/executionTarget.types';
 import type { ProductWorkflowRequest } from '@/types/productWorkflow.types';
-import { uploadBlobToAsset } from '@/services/assetUpload';
+import { AssetStoreUnavailableError, uploadBlobToAsset } from '@/services/assetUpload';
 import {
     NATIVE_OPTIONAL_FIELDS,
     buildNativeImagePayload,
@@ -90,24 +90,51 @@ function headers(options: OpenAIImageTargetOptions, includeJson = false): Header
     };
 }
 
+/**
+ * Re-hosts every rendered image to the S3-backed asset store so scene data
+ * holds durable refs only (refs-only contract). Handles both http(s) outputs
+ * and inline provider data URLs. A storage failure is rethrown as a distinct,
+ * recoverable error — the render can be re-run seed-locked (SC-008).
+ */
 async function materializeNativeImageOutputs(
     outputs: GenerationOutput[],
     options: OpenAIImageTargetOptions,
     fetcher: Fetcher,
 ): Promise<GenerationOutput[]> {
     return Promise.all(outputs.map(async (output) => {
-        if (!/^https?:\/\//.test(output.url)) return output;
-
-        const response = await fetcher(output.url, { headers: headers(options) });
-        if (!response.ok) {
-            throw new Error(`Rendered image download failed (${response.status}).`);
+        let blob: Blob;
+        if (/^https?:\/\//.test(output.url)) {
+            const response = await fetcher(output.url, { headers: headers(options) });
+            if (!response.ok) {
+                throw new Error(`Rendered image download failed (${response.status}).`);
+            }
+            blob = await response.blob();
+        } else if (output.url.startsWith('data:image/')) {
+            // Provider returned an inline data URL — decode and re-host instead
+            // of persisting base64 into scene data. Decoding is local work, so
+            // it uses global fetch rather than the endpoint-bound fetcher.
+            const response = await fetch(output.url);
+            if (!response.ok) {
+                throw new Error('Rendered image decode failed.');
+            }
+            blob = await response.blob();
+        } else {
+            return output; // non-image or unknown scheme — leave untouched
         }
-        const blob = await response.blob();
-        // Store a short asset ref (S3) instead of inlining base64; falls back to
-        // a data URL when the asset store is unavailable. (Render outputs flow
-        // through the render pipeline — thumbnail variants are an upload-path feature.)
-        const { url } = await uploadBlobToAsset(blob, `render-${output.assetId ?? output.index}.png`);
-        return { ...output, url };
+
+        try {
+            const { url } = await uploadBlobToAsset(blob, `render-${output.assetId ?? output.index}.png`);
+            return { ...output, url };
+        } catch (error) {
+            if (error instanceof AssetStoreUnavailableError) {
+                const wrapped: Error & { cause?: unknown } = new Error(
+                    'Render finished but asset storage is unavailable — the image was not saved. Start S3 (docker compose up s3) and re-run with the same seed.',
+                );
+                wrapped.cause = error;
+                throw wrapped;
+            }
+            throw error;
+        }
     }));
 }
 

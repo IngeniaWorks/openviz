@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockAssetPipeline } from '@/services/assetPipelineMock';
 import { createRenderTaskService, RenderTaskCapabilityError } from '@/services/renderTaskService';
 import { RenderTaskValidationError } from '@/services/ai/renderTaskResolver';
 import { BenchmarkGateError } from '@/services/ai/renderTaskCoordinator';
@@ -114,6 +115,14 @@ function makeService(fetcher: Fetcher, repo = makeRepo(), settings: ComputeSetti
     });
     return { service, repo };
 }
+
+beforeEach(() => {
+    mockAssetPipeline();
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 describe('renderTaskService.submit — validation & persistence (T007, FR-019)', () => {
     it('rejects invalid requests before persisting anything', async () => {

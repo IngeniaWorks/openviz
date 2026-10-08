@@ -2,23 +2,16 @@ import { describe, it, expect } from 'vitest';
 import sharp from 'sharp';
 import {
     generateThumbnail,
-    downsampleDataUrlThumbnail,
-    downsampleDataUrls,
-    DATA_URL_DOWNSAMPLE_THRESHOLD,
+    generateVariant,
     THUMBNAIL_MAX_DIM,
+    PREVIEW_MAX_DIM,
 } from './thumbnail';
 
 async function makePng(width: number, height: number): Promise<Buffer> {
     return sharp({ create: { width, height, channels: 3, background: { r: 200, g: 60, b: 40 } } }).png().toBuffer();
 }
 
-/** Incompressible noise PNG — solid colors compress to a few KB and would sit
- * below the downsample threshold. */
-async function makeNoisePng(width: number, height: number): Promise<Buffer> {
-    const raw = Buffer.alloc(width * height * 3);
-    for (let i = 0; i < raw.length; i += 1) raw[i] = Math.floor(Math.random() * 256);
-    return sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer();
-}
+
 
 describe('generateThumbnail (Sprint 3 server-side WebP pipeline)', () => {
     it('downscales a large PNG to WebP within the size budget', async () => {
@@ -51,50 +44,40 @@ describe('generateThumbnail (Sprint 3 server-side WebP pipeline)', () => {
     });
 });
 
-describe('downsampleDataUrlThumbnail (shared mock-mode data-URL guard)', () => {
-    it('passes short non-data refs through untouched (S3 mode)', async () => {
-        expect(await downsampleDataUrlThumbnail('/api/assets/abc')).toBe('/api/assets/abc');
-        expect(await downsampleDataUrlThumbnail('https://cdn.example/x.webp')).toBe('https://cdn.example/x.webp');
-    });
+describe('generateVariant (3-tier pipeline: thumb/preview/full)', () => {
+    it('generates a ≤1024px WebP preview for large images', async () => {
+        const input = await makePng(2400, 1600);
+        const result = await generateVariant(input, 'image/png', PREVIEW_MAX_DIM);
 
-    it('passes small data URLs through untouched (below the threshold)', async () => {
-        const small = `data:image/png;base64,${'A'.repeat(100)}`;
-        expect(await downsampleDataUrlThumbnail(small)).toBe(small);
-    });
-
-    it('downsamples an oversized decodable data URL to a webp data URL', async () => {
-        const png = await makeNoisePng(1200, 800);
-        const big = `data:image/png;base64,${png.toString('base64')}`;
-        expect(big.length).toBeGreaterThan(DATA_URL_DOWNSAMPLE_THRESHOLD);
-
-        const out = await downsampleDataUrlThumbnail(big);
-        expect(out.startsWith('data:image/webp;base64,')).toBe(true);
-        const meta = await sharp(Buffer.from(out.split(',')[1], 'base64')).metadata();
+        expect(result).not.toBeNull();
+        const meta = await sharp(result!.buffer).metadata();
         expect(meta.format).toBe('webp');
-        expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(THUMBNAIL_MAX_DIM);
+        expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(PREVIEW_MAX_DIM);
+        // Proportional: 2400x1600 -> 1024x683 (fit inside, no enlargement)
+        expect(meta.width).toBe(1024);
+        expect(meta.height).toBe(683);
     });
 
-    it('returns the original for oversized but undecodable bytes (never throws)', async () => {
-        const garbage = `data:image/png;base64,${'A'.repeat(DATA_URL_DOWNSAMPLE_THRESHOLD + 1)}`;
-        expect(await downsampleDataUrlThumbnail(garbage)).toBe(garbage);
+    it('returns null for images already at or below the preview budget (original IS the preview)', async () => {
+        const mid = await makePng(800, 600);
+        expect(await generateVariant(mid, 'image/png', PREVIEW_MAX_DIM)).toBeNull();
     });
-});
 
-describe('downsampleDataUrls (bounded-concurrency batch)', () => {
-    it('mutates only oversized values in place', async () => {
-        const png = await makeNoisePng(1200, 800);
-        const big = `data:image/png;base64,${png.toString('base64')}`;
-        const small = `data:image/png;base64,${'A'.repeat(100)}`;
-        const items = [
-            { value: big },
-            { value: '/api/assets/ref' },
-            { value: small },
-        ];
+    it('matches legacy thumbnail behavior at the 512 budget', async () => {
+        const input = await makePng(1600, 900);
+        const [viaVariant, viaLegacy] = await Promise.all([
+            generateVariant(input, 'image/png', THUMBNAIL_MAX_DIM),
+            generateThumbnail(input, 'image/png'),
+        ]);
+        expect(viaVariant).not.toBeNull();
+        expect(viaLegacy).not.toBeNull();
+        const a = await sharp(viaVariant!.buffer).metadata();
+        const b = await sharp(viaLegacy!.buffer).metadata();
+        expect(a.width).toBe(b.width);
+        expect(a.height).toBe(b.height);
+    });
 
-        await downsampleDataUrls(items);
-
-        expect(items[0].value.startsWith('data:image/webp')).toBe(true);
-        expect(items[1].value).toBe('/api/assets/ref');
-        expect(items[2].value).toBe(small);
+    it('returns null for non-image content types at any budget', async () => {
+        expect(await generateVariant(Buffer.from('not an image'), 'application/pdf', PREVIEW_MAX_DIM)).toBeNull();
     });
 });

@@ -51,7 +51,7 @@ export interface WorkbenchSlice {
     reorderWorkbenchNode: (id: string, direction: 'front' | 'back') => void;
     copyToClipboard: (id?: string) => void;
     pasteFromClipboard: (pos: { x: number, y: number }) => void;
-    saveCurrentToWorkbench: (thumbnail: string) => void;
+    saveCurrentToWorkbench: (thumbnailRef: string | null) => void;
     openNodeInStudio: (id: string) => void;
     setActiveNodeId: (id: string | null) => void;
     setSelectedNodeIds: (ids: string[]) => void;

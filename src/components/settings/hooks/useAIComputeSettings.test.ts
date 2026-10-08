@@ -31,7 +31,7 @@ describe('useAIComputeSettings (openai-image protocol)', () => {
             const url = String(input);
             if (url.includes('/api/ai/settings') && init?.method === 'PATCH') return jsonResponse(200, { settings: { hasImageApiKey: false } });
             if (url.includes('/api/ai/settings')) return jsonResponse(200, { settings: null });
-            if (url.includes('/api/ai/proxy/models')) return jsonResponse(200, { data: [{ id: 'flux-1' }] });
+            if (url.includes('/api/ai/proxy/v1/models')) return jsonResponse(200, { data: [{ id: 'flux-1' }] });
             return jsonResponse(404, {});
         });
         vi.stubGlobal('fetch', fetchMock);
@@ -46,7 +46,7 @@ describe('useAIComputeSettings (openai-image protocol)', () => {
             method: (call[1] as RequestInit | undefined)?.method ?? 'GET',
         }));
         const patchIndex = calls.findIndex((entry) => entry.url.includes('/api/ai/settings') && entry.method === 'PATCH');
-        const probeIndex = calls.findIndex((entry) => entry.url.includes('/api/ai/proxy/models'));
+        const probeIndex = calls.findIndex((entry) => entry.url.includes('/api/ai/proxy/v1/models'));
         expect(patchIndex).toBeGreaterThan(-1);
         expect(probeIndex).toBeGreaterThan(-1);
         // The test must run against what the server stores, not stale client state.
@@ -59,7 +59,7 @@ describe('useAIComputeSettings (openai-image protocol)', () => {
             const url = String(input);
             if (url.includes('/api/ai/settings') && init?.method === 'PATCH') return jsonResponse(200, { settings: { hasImageApiKey: true } });
             if (url.includes('/api/ai/settings')) return jsonResponse(200, { settings: null });
-            if (url.includes('/api/ai/proxy/models')) return jsonResponse(401, { error: 'invalid api key' });
+            if (url.includes('/api/ai/proxy/v1/models')) return jsonResponse(401, { error: 'invalid api key' });
             return jsonResponse(404, {});
         });
         vi.stubGlobal('fetch', fetchMock);

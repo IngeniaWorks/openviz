@@ -107,8 +107,8 @@ export const AIComputeSettings: React.FC = () => {
                     </select>
                 </div>
                 </>}
-                <div className="flex items-end gap-3">
-                    <div className="flex-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-1">
                         <label htmlFor="comfy-endpoint" className="mb-2 block text-xs font-medium text-zinc-400">{targetKind === 'hosted' ? 'Hosted endpoint' : 'Local endpoint'}</label>
                         <input
                             id="comfy-endpoint"
@@ -122,7 +122,7 @@ export const AIComputeSettings: React.FC = () => {
                         type="button"
                         onClick={testConnection}
                         disabled={status === 'checking'}
-                        className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-wait disabled:opacity-60"
+                        className="w-full rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
                     >
                         {status === 'checking' ? 'Testing…' : 'Test connection'}
                     </button>
@@ -146,7 +146,7 @@ export const AIComputeSettings: React.FC = () => {
                         <Settings2 size={16} />
                     </button>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-600">Device</p><p className="mt-2 truncate text-sm text-zinc-300">{capabilities?.devices[0]?.name ?? 'Not detected'}</p></div>
                     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-600">Free VRAM</p><p className="mt-2 text-sm text-zinc-300">{capabilities?.devices[0]?.vramFreeBytes ? `${Math.round(capabilities.devices[0].vramFreeBytes / 1024 ** 3)} GB` : '—'}</p></div>
                     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"><p className="text-[10px] uppercase tracking-wider text-zinc-600">Backend</p><p className="mt-2 text-sm capitalize text-zinc-300">{capabilities?.devices[0]?.type ?? 'Automatic'}</p></div>

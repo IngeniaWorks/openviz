@@ -34,7 +34,7 @@ export const createAIComputeSlice: StateCreator<AppState, [], [], AIComputeSlice
         imageApiModel: '',
         imageApiSize: '1024x1024',
         endpointConcurrency: 2,
-        benchmarkGateEnabled: true,
+        benchmarkGateEnabled: false,
     },
     setComputePreference: (preference) => set((state) => ({ computeSettings: { ...state.computeSettings, preference } })),
     setLocalComfyEndpoint: (localEndpoint) => set((state) => ({ computeSettings: { ...state.computeSettings, localEndpoint } })),

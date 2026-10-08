@@ -14,13 +14,13 @@ describe('aiComputeSlice', () => {
         });
     });
 
-    it('defaults the FR-021 benchmark launch gate to enabled and toggles it', () => {
-        expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(true);
-
-        useStore.getState().setBenchmarkGateEnabled(false);
+    it('defaults the FR-021 benchmark launch gate to disabled and toggles it', () => {
         expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(false);
 
-        useStore.getState().applyComputeSettings({ benchmarkGateEnabled: true });
+        useStore.getState().setBenchmarkGateEnabled(true);
         expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(true);
+
+        useStore.getState().applyComputeSettings({ benchmarkGateEnabled: false });
+        expect(useStore.getState().computeSettings.benchmarkGateEnabled).toBe(false);
     });
 });

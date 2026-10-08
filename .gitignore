@@ -57,3 +57,4 @@ coverage/
 
 # Local development launcher state
 .run/
+docs/performance/runs/

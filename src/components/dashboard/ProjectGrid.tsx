@@ -175,6 +175,7 @@ function FolderCard({ folder, onClick }: { folder: FolderItem; onClick: () => vo
 
 function ProjectCard({ project }: { project: Project }) {
     const router = useRouter();
+    const projectHref = `/projects/${project.id}`;
     const { updateProject, deleteProject } = useProjects();
     const { thumbnails: allThumbnails, triggerFetch } = useProjectPreview(project.id);
 
@@ -263,8 +264,19 @@ function ProjectCard({ project }: { project: Project }) {
         <>
             <div
                 ref={containerRef}
-                className="group cursor-pointer space-y-3 relative"
-                onDoubleClick={() => router.push(`/projects/${project.id}`)}
+                role="link"
+                tabIndex={0}
+                aria-label={`Open project ${project.name}`}
+                className="group cursor-pointer space-y-3 relative rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-500"
+                onMouseEnter={() => router.prefetch(projectHref)}
+                onFocus={() => router.prefetch(projectHref)}
+                onDoubleClick={() => router.push(projectHref)}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(projectHref);
+                    }
+                }}
             >
                 <div
                     ref={thumbnailRef}

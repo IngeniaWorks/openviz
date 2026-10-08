@@ -42,6 +42,23 @@ const nextConfig = {
             },
         ];
     },
+    async headers() {
+        return [
+            {
+                // Fonts are served from /public with no cache headers by
+                // default (max-age=0) — 728KB re-downloaded on every page.
+                // Cache one day, then revalidate while serving stale up to a
+                // week so an updated font file can't be pinned for a year.
+                source: '/fonts/:path*',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'public, max-age=86400, stale-while-revalidate=604800',
+                    },
+                ],
+            },
+        ];
+    },
 };
 
 export default nextConfig;

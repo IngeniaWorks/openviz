@@ -148,8 +148,19 @@ function ProjectRow({ project }: { project: Project }) {
     return (
         <>
             <div
-                className="grid grid-cols-12 gap-4 items-center px-3 py-3 hover:bg-[#1A1A1A] rounded-lg cursor-pointer transition-colors group border-b border-[#1A1A1A]/50 last:border-0"
+                role="link"
+                tabIndex={0}
+                aria-label={`Open project ${project.name}`}
+                className="grid grid-cols-12 gap-4 items-center px-3 py-3 hover:bg-[#1A1A1A] rounded-lg cursor-pointer transition-colors group border-b border-[#1A1A1A]/50 last:border-0 focus-visible:outline-2 focus-visible:outline-indigo-500"
+                onMouseEnter={() => router.prefetch(`/projects/${project.id}`)}
+                onFocus={() => router.prefetch(`/projects/${project.id}`)}
                 onDoubleClick={() => router.push(`/projects/${project.id}`)}
+                onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/projects/${project.id}`);
+                    }
+                }}
             >
                 {/* Name (merged preview + filename) */}
                 <div className="col-span-4 flex items-center gap-3">

@@ -7,11 +7,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { SceneData, WorkbenchNode, Connection } from "@/types";
 import { useShallow } from "zustand/react/shallow";
+import { studioModule, workbenchModule } from "@/lib/viewImports";
 
-const workbenchImport = import("@/components/workbench/workbench");
-const studioImport = import("@/components/Studio");
-const Workbench = dynamic(() => workbenchImport.then(mod => mod.Workbench), { ssr: false });
-const Studio = dynamic(() => studioImport.then(mod => mod.Studio), { ssr: false });
+// Built from the shared import promises (see viewImports.ts) so the idle
+// preloader and this page load exactly the same chunks.
+const Workbench = dynamic(() => workbenchModule.then((mod) => mod.Workbench), { ssr: false });
+const Studio = dynamic(() => studioModule.then((mod) => mod.Studio), { ssr: false });
 
 type ProjectApiResponse = {
     scene: SceneData | null;
@@ -58,11 +59,6 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             return res.json();
         },
     });
-
-    useEffect(() => {
-        void studioImport;
-        void workbenchImport;
-    }, []);
 
     // Keep the store's viewMode aligned with the URL segment. Runs after child
     // effects on mount, so hooks that detect the STUDIO -> WORKBENCH transition

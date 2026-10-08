@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { describe, expect, it, vi, type Mock } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { GenerationModifyMode } from '@/components/generation-lab/GenerationModifyMode';
 import type { RenderTaskReference, RenderTaskUiStatus } from '@/store/slices/renderTaskSlice';
 import type { GenerationPlaygroundState } from '@/components/generation-lab/generationNodeMockup.types';
@@ -22,12 +22,12 @@ const INITIAL_STATE: GenerationPlaygroundState = {
     animate: { styleId: 'standard_video', duration: '4s' },
     variation: {
         kind: 'form',
-        axisLabels: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' },
-        position: 'center',
-        preset: 'Balanced',
+        preset: 'Expression',
+        axisLabels: { top: 'Complex', bottom: 'Simple', left: 'Geometric', right: 'Organic' },
+        position: { x: 50, y: 50 },
         magnitude: 0.5,
-        paletteName: 'Untitled palette',
-        swatches: ['stone', 'moss', 'sea', 'ember'],
+        paletteName: '',
+        swatches: ['#111111', '#52627b', '#9fa8d0', '#313236'],
         colorCount: 4,
         formCount: 4,
     },
@@ -38,6 +38,7 @@ const INITIAL_STATE: GenerationPlaygroundState = {
 };
 
 interface TaskApiShape {
+    taskId: string | null;
     status: RenderTaskUiStatus;
     queuePosition: number | null;
     error: string | null;
@@ -51,6 +52,7 @@ interface TaskApiShape {
 
 function makeTaskApi(overrides: Partial<Pick<TaskApiShape, 'status' | 'queuePosition' | 'error'>> = {}): TaskApiShape {
     return {
+        taskId: null,
         status: overrides.status ?? 'idle',
         queuePosition: overrides.queuePosition ?? null,
         error: overrides.error ?? null,
@@ -148,10 +150,17 @@ describe('GenerationModifyMode — US1 behavior (T008)', () => {
         expect(editor.value).toBe('repaint @2 ');
     });
 
-    it('shows a connected-reference chip per attached image', () => {
+    it('shows a square reference thumbnail with a numbered badge per attached image, without name text', () => {
         renderModify({ prompt: 'x' });
-        expect(screen.getByText('Arc Lamp')).toBeInTheDocument();
-        expect(screen.getByText('Desk Chair')).toBeInTheDocument();
+        const chip1 = screen.getByLabelText('Reference image 1');
+        const chip2 = screen.getByLabelText('Reference image 2');
+        expect(within(chip1).getByText('1')).toBeInTheDocument();
+        expect(within(chip2).getByText('2')).toBeInTheDocument();
+        // The badge morphs into the remove x on hover/focus.
+        expect(within(chip1).getByRole('button', { name: /remove reference image/i })).toBeInTheDocument();
+        // No image title text next to the thumbnail.
+        expect(screen.queryByText('Arc Lamp')).not.toBeInTheDocument();
+        expect(screen.queryByText('Desk Chair')).not.toBeInTheDocument();
     });
 
     it('disables Generate until a reference image is connected (spec edge case)', () => {
@@ -161,16 +170,6 @@ describe('GenerationModifyMode — US1 behavior (T008)', () => {
         expect(onGenerate).not.toHaveBeenCalled();
     });
 
-    it('shows queue position while the task is queued (FR-022 visibility)', () => {
-        renderModify({ prompt: 'make the base matte black', task: makeTaskApi({ status: 'queued', queuePosition: 2 }) });
-        expect(screen.getByText(/queued · position 2/i)).toBeInTheDocument();
-    });
-
-    it('surfaces a task-level error with a retry action (spec edge case)', () => {
-        const task = makeTaskApi({ status: 'failed', error: 'The image backend returned no outputs.' });
-        renderModify({ prompt: 'make the base matte black', task });
-        expect(screen.getByText(/the image backend returned no outputs/i)).toBeInTheDocument();
-        fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-        expect(task.retry).toHaveBeenCalled();
-    });
+    // Task status (queue position, issues, retry) moved to the top-right
+    // GenerationStatusPill — covered in GenerationStatusPill.test.tsx.
 });

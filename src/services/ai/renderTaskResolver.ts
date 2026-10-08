@@ -39,8 +39,8 @@ function assertValid(request: RenderTaskRequest): void {
     }
 
     const variationCount = request.variationCount;
-    if (variationCount !== undefined && ![2, 4, 8].includes(variationCount)) {
-        fail(`Invalid variation count ${String(variationCount)}: must be 2, 4 or 8.`);
+    if (variationCount !== undefined && ![1, 2, 3, 4].includes(variationCount)) {
+        fail(`Invalid variation count ${String(variationCount)}: must be 1, 2, 3 or 4.`);
     }
 
     if (request.seed !== undefined && variationCount !== undefined && variationCount > 1) {

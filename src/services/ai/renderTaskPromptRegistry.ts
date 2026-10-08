@@ -58,12 +58,19 @@ const INSTANT_RENDER_PRESERVATION =
 const INSTANT_RENDER_NEGATIVE =
     'product distortion, distorted surfaces, missing components, duplicated components, malformed surfaces, broken edges, warped proportions, unwanted text, watermarks, logo artifacts, low detail';
 
-/** FR-015 — documented direction phrasings for the four form presets. */
+/** FR-015 — documented direction phrasings for the form presets. */
 const FORM_PRESET_PHRASINGS: Record<FormDirection['preset'], string> = {
     balanced: 'a balanced refinement of the overall form',
     'soft-sculpt': 'a soft, organic sculpting of the silhouette and surface curvature',
     geometric: 'a more geometric, faceted reinterpretation of the form with crisper edges',
     organic: 'an organic, flowing deformation with smooth natural curves',
+    expression: 'an expressive restatement of the overall character of the form',
+    proportion: 'a re-proportioning of the silhouette dimensions of the form',
+    massing: 'a shift in the massing and visual weight of the form',
+    'edge-quality': 'a change in edge quality across the surfaces of the form',
+    'symmetry-balance': 'a rebalancing of the symmetry and stability of the composition',
+    'flow-continuity': 'a change in the flow and continuity of the surfaces of the form',
+    custom: 'a form variation along the specified direction axes',
 };
 
 /** FR-007 — results must remain the same product concept. */

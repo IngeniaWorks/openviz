@@ -18,12 +18,12 @@ const INITIAL_STATE: GenerationPlaygroundState = {
     animate: { styleId: 'standard_video', duration: '4s' },
     variation: {
         kind: 'form',
-        axisLabels: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' },
-        position: 'center',
-        preset: 'Balanced',
+        preset: 'Expression',
+        axisLabels: { top: 'Complex', bottom: 'Simple', left: 'Geometric', right: 'Organic' },
+        position: { x: 50, y: 50 },
         magnitude: 0.5,
-        paletteName: 'Untitled palette',
-        swatches: ['stone', 'moss', 'sea', 'ember'],
+        paletteName: '',
+        swatches: ['#111111', '#52627b', '#9fa8d0', '#313236'],
         colorCount: 4,
         formCount: 4,
     },
@@ -46,6 +46,7 @@ const harnessClient = new QueryClient({ defaultOptions: { queries: { retry: fals
 
 function makeTaskApi() {
     return {
+        taskId: null,
         status: 'idle' as const,
         queuePosition: null,
         error: null,
@@ -101,7 +102,7 @@ describe('GenerationVariationMode — US3 behavior (T014)', () => {
         expect(request.kind).toBe('form-variate');
         expect(request.referenceImageId).toBe('ref-1');
         expect(request.variationCount).toBe(4);
-        expect(request.formDirection?.preset).toBe('balanced');
+        expect(request.formDirection?.preset).toBe('expression');
         expect(request.formDirection?.magnitude).toBe(0.5);
     });
 
@@ -152,6 +153,75 @@ describe('GenerationVariationMode — US3 behavior (T014)', () => {
         expect(generate).toBeDisabled();
         fireEvent.click(generate);
         expect(onGenerate).not.toHaveBeenCalled();
+    });
+});
+
+/** Stateful color-mode harness for interacting with the palette editor. */
+function ColorStateHarness({ onGenerate }: { onGenerate: (request: RenderTaskRequest) => void }) {
+    const [state, setState] = useState<GenerationPlaygroundState>({ ...INITIAL_STATE, variation: { ...INITIAL_STATE.variation, kind: 'color' } });
+    return (
+        <QueryClientProvider client={harnessClient}>
+            <GenerationVariationMode
+                state={state}
+                onUpdate={(patch) => setState((current) => ({ ...current, ...patch }))}
+                references={[REFERENCE]}
+                task={makeTaskApi()}
+                onGenerate={onGenerate}
+                onBack={vi.fn()}
+            />
+        </QueryClientProvider>
+    );
+}
+
+describe('GenerationVariationMode — studio variate panel internals (parity)', () => {
+    it('offers exactly 1/2/3/4 outputs (no silent remap)', () => {
+        renderVariation();
+        const select = screen.getByLabelText('Outputs');
+        expect(Array.from(select.querySelectorAll('option')).map((option) => Number(option.value))).toEqual([1, 2, 3, 4]);
+    });
+
+    it("lists the studio panel's seven direction presets", () => {
+        renderVariation();
+        const options = Array.from(screen.getByLabelText('Preset').querySelectorAll('option')).map((option) => option.textContent);
+        expect(options).toEqual(['Expression', 'Proportion', 'Massing', 'Edge Quality', 'Symmetry & Balance', 'Flow / Continuity', 'Custom']);
+    });
+
+    it('editing an axis label switches the preset to Custom and sends the new label', () => {
+        const onGenerate = vi.fn();
+        render(<Harness onGenerate={onGenerate} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Complex' }));
+        const input = screen.getByDisplayValue('Complex');
+        fireEvent.change(input, { target: { value: 'Bold' } });
+        fireEvent.blur(input);
+        fireEvent.click(screen.getByRole('button', { name: /generate 4 variations/i }));
+
+        const request = onGenerate.mock.calls[0][0] as RenderTaskRequest;
+        expect(request.formDirection?.preset).toBe('custom');
+        expect(request.formDirection?.axisLabels?.top).toBe('Bold');
+    });
+
+    it('adds and removes palette swatches in color mode', () => {
+        render(<ColorStateHarness onGenerate={vi.fn()} />);
+        expect(screen.getByText('4 colors')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Add palette color' }));
+        expect(screen.getByText('5 colors')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Edit palette color 1' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Remove selected palette color' }));
+        expect(screen.getByText('4 colors')).toBeInTheDocument();
+    });
+
+    it('applies a named color preset to the swatches for generation', () => {
+        const onGenerate = vi.fn();
+        render(<ColorStateHarness onGenerate={onGenerate} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Soft Pink' }));
+        fireEvent.click(screen.getByRole('button', { name: /generate 4 variations/i }));
+
+        const request = onGenerate.mock.calls[0][0] as RenderTaskRequest;
+        expect(request.palette?.swatches).toEqual(['#f9e6eb', '#f7bac9', '#f29ab4', '#ef668c']);
     });
 });
 

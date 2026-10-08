@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { RenderTaskRequest } from '@/types/renderTask.types';
+import type { RenderTaskRequest, VariationCount } from '@/types/renderTask.types';
 import { resolveRenderTask } from './renderTaskResolver';
 
 const ALL_KINDS: RenderTaskRequest['kind'][] = [
@@ -156,7 +156,7 @@ describe('resolveRenderTask — fidelity → strength (FR-012)', () => {
 });
 
 describe('resolveRenderTask — seeds (FR-014, R6)', () => {
-    it.each([2, 4, 8] as const)('produces exactly %i unique seeds for a variation batch', (count) => {
+    it.each([1, 2, 3, 4] as const)('produces exactly %i unique seeds for a variation batch', (count) => {
         let next = 1000;
         const resolved = resolveRenderTask(
             baseRequest({ kind: 'form-variate', variationCount: count }),
@@ -181,7 +181,7 @@ describe('resolveRenderTask — seeds (FR-014, R6)', () => {
     });
 
     it('generates unique seeds with real randomness across several batches', () => {
-        for (const count of [2, 4, 8] as const) {
+        for (const count of [1, 2, 3, 4] as const) {
             for (let batch = 0; batch < 5; batch += 1) {
                 const resolved = resolveRenderTask(baseRequest({ kind: 'color-variate', variationCount: count }));
                 expect(resolved.seeds).toHaveLength(count);
@@ -191,7 +191,7 @@ describe('resolveRenderTask — seeds (FR-014, R6)', () => {
     });
 
     it('keeps generated seeds within the 32-bit unsigned range', () => {
-        const resolved = resolveRenderTask(baseRequest({ kind: 'form-variate', variationCount: 8 }));
+        const resolved = resolveRenderTask(baseRequest({ kind: 'form-variate', variationCount: 4 }));
         for (const seed of resolved.seeds) {
             expect(Number.isInteger(seed)).toBe(true);
             expect(seed).toBeGreaterThanOrEqual(0);
@@ -200,9 +200,9 @@ describe('resolveRenderTask — seeds (FR-014, R6)', () => {
     });
 
     it('uses the default Math.random-based generator when none is injected', () => {
-        const resolved = resolveRenderTask(baseRequest({ kind: 'form-variate', variationCount: 8 }));
-        expect(resolved.seeds).toHaveLength(8);
-        expect(new Set(resolved.seeds).size).toBe(8);
+        const resolved = resolveRenderTask(baseRequest({ kind: 'form-variate', variationCount: 4 }));
+        expect(resolved.seeds).toHaveLength(4);
+        expect(new Set(resolved.seeds).size).toBe(4);
     });
 });
 
@@ -246,7 +246,7 @@ describe('resolveRenderTask — validation (data-model.md §Validation rules)', 
     it('rejects an invalid variation count at the runtime boundary', () => {
         expect(() =>
             resolveRenderTask(
-                baseRequest({ kind: 'color-variate', variationCount: 3 as 2, palette: { swatches: ['#111111'] } }),
+                baseRequest({ kind: 'color-variate', variationCount: 5 as unknown as VariationCount, palette: { swatches: ['#111111'] } }),
             ),
         ).toThrow(/variation/i);
     });

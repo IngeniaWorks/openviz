@@ -3,13 +3,12 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { WandSparkles } from 'lucide-react';
 import { nodeCardBodyClass } from '@/components/nodes/nodeUi';
+import { composeStylePrompt, type RenderStyleId } from '@/services/ai/stylePromptRegistry';
 import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
 import type { RenderTaskAspectRatio, RenderTaskRequest } from '@/types/renderTask.types';
 import type { GenerationTaskApi } from './useRenderTask';
-import { ModeHeader, NODE_BUTTON_CLASS, PromptEditor, SectionLabel } from './GenerationModeControls';
-import { GenerationAdvancedPanel } from './GenerationAdvancedPanel';
-import { GenerationTaskStatus } from './GenerationTaskStatus';
+import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, ReferenceThumb, SectionLabel } from './GenerationModeControls';
 
 interface GenerationInstantRenderModeProps {
     state: GenerationPlaygroundState;
@@ -22,18 +21,30 @@ interface GenerationInstantRenderModeProps {
 
 const RATIO_OPTIONS: RenderTaskAspectRatio[] = ['1:1', '4:3', '3:4', '16:9', '9:16', '3:2', '2:3'];
 
+/** The three Instant Render styles, resolved through the studio legacy renderer's style registry. */
+const STYLE_OPTIONS: Array<{ id: RenderStyleId; label: string }> = [
+    { id: 'cinematic', label: 'Cinematic' },
+    { id: 'ultra_realistic', label: 'Ultra Realistic' },
+    { id: 'sketch', label: 'Sketch' },
+];
+
+const DEFAULT_STYLE: RenderStyleId = 'cinematic';
+
 export function GenerationInstantRenderMode({ state, onUpdate, references, task, onGenerate, onBack }: GenerationInstantRenderModeProps) {
     const reduceMotion = useReducedMotion();
-    const hasPrompt = state.prompt.trim().length > 0;
-    const hasReference = references.length > 0;
-    const canGenerate = hasPrompt && hasReference && (task.status === 'idle' || task.status === 'completed' || task.status === 'partial' || task.status === 'failed');
+    const reference = references[0];
+    const hasReference = Boolean(reference);
+    const style = state.instantStyle ?? DEFAULT_STYLE;
+    const canGenerate = hasReference && (task.status === 'idle' || task.status === 'completed' || task.status === 'partial' || task.status === 'failed');
 
     const generate = () => {
-        if (!canGenerate) return;
+        if (!canGenerate || !reference) return;
         onGenerate({
             kind: 'instant-render',
-            prompt: state.prompt.trim(),
-            referenceImageId: references[0]?.id,
+            // The style selector replaces the free-form prompt: the selected preset is
+            // composed through the studio legacy renderer's style registry.
+            prompt: composeStylePrompt('the referenced product', style),
+            referenceImageId: reference.id,
             aspectRatio: state.instantRatio,
             advanced: { steps: state.advanced.steps, guidance: state.advanced.guidance, referenceResolution: state.advanced.referenceResolution },
         });
@@ -45,18 +56,28 @@ export function GenerationInstantRenderMode({ state, onUpdate, references, task,
             <div className={nodeCardBodyClass()}>
                 <div className="space-y-1.5">
                     <SectionLabel>Reference image</SectionLabel>
-                    {hasReference ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-viz-border bg-viz-surface p-1.5">
-                            <img src={references[0]?.dataUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
-                            <span className="min-w-0 flex-1 truncate text-xs text-white/90">{references[0]?.name}</span>
-                            <span className="shrink-0 rounded bg-viz-panel px-1.5 py-1 text-[9px] text-viz-muted">1 ref</span>
+                    {reference ? (
+                        <div className="flex items-center rounded-lg border border-viz-border bg-viz-surface p-1.5">
+                            <ReferenceThumb reference={reference} number={1} trailing />
                         </div>
                     ) : (
                         <p role="note" className="rounded-lg border border-dashed border-viz-border bg-viz-panel px-2.5 py-2 text-[10px] text-viz-muted">Connect an image before generating.</p>
                     )}
                 </div>
 
-                <PromptEditor id="instant-render-prompt" autoFocus value={state.prompt} onChange={(prompt) => onUpdate({ prompt })} />
+                <div className="mt-2 space-y-1">
+                    <label htmlFor="instant-style" className="text-[10px] font-bold uppercase tracking-wider text-viz-muted">Style</label>
+                    <select
+                        id="instant-style"
+                        value={style}
+                        onChange={(event) => onUpdate({ instantStyle: event.target.value })}
+                        className={NODE_CONTROL_CLASS}
+                    >
+                        {STYLE_OPTIONS.map((option) => (
+                            <option key={option.id} value={option.id}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
 
                 <div className="mt-2 space-y-1">
                     <label htmlFor="instant-ratio" className="text-[10px] font-bold uppercase tracking-wider text-viz-muted">Aspect ratio</label>
@@ -72,10 +93,6 @@ export function GenerationInstantRenderMode({ state, onUpdate, references, task,
                     </select>
                 </div>
 
-                {!hasPrompt && (
-                    <p role="note" className="mt-2 text-center text-[10px] text-viz-muted">A description is required to generate.</p>
-                )}
-
                 <motion.button
                     type="button"
                     disabled={!canGenerate}
@@ -87,9 +104,6 @@ export function GenerationInstantRenderMode({ state, onUpdate, references, task,
                 >
                     <WandSparkles size={14} aria-hidden="true" />Generate
                 </motion.button>
-
-                <GenerationAdvancedPanel value={state.advanced} onChange={(patch) => onUpdate({ advanced: { ...state.advanced, ...patch } })} />
-                <GenerationTaskStatus task={task} />
             </div>
         </>
     );

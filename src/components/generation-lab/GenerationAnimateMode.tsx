@@ -6,8 +6,7 @@ import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
 import type { RenderTaskDuration, RenderTaskRequest } from '@/types/renderTask.types';
 import type { GenerationTaskApi } from './useRenderTask';
-import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, PromptEditor, SectionLabel } from './GenerationModeControls';
-import { GenerationTaskStatus } from './GenerationTaskStatus';
+import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, PromptEditor, ReferenceThumb, SectionLabel } from './GenerationModeControls';
 
 interface GenerationAnimateModeProps {
     state: GenerationPlaygroundState;
@@ -57,7 +56,7 @@ export function GenerationAnimateMode({ state, onUpdate, references, task, onGen
                         <div className={`flex flex-1 items-center gap-2 rounded-lg border bg-viz-surface p-1.5 ${startFrame ? 'border-viz-border' : 'border-dashed border-viz-border opacity-60'}`}>
                             {startFrame ? (
                                 <>
-                                    <img src={startFrame.dataUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                                    <ReferenceThumb reference={startFrame} number={1} sizeClass="h-8 w-8 rounded-md" />
                                     <span className="min-w-0 flex-1 truncate text-xs font-medium text-white">Start</span>
                                 </>
                             ) : (
@@ -70,7 +69,7 @@ export function GenerationAnimateMode({ state, onUpdate, references, task, onGen
                         <div className={`flex flex-1 items-center gap-2 rounded-lg border bg-viz-surface/50 p-1.5 ${endFrame ? 'border-viz-border' : 'border-dashed border-viz-border opacity-60'}`}>
                             {endFrame ? (
                                 <>
-                                    <img src={endFrame.dataUrl} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                                    <ReferenceThumb reference={endFrame} number={2} sizeClass="h-8 w-8 rounded-md" />
                                     <span className="min-w-0 flex-1 truncate text-xs font-medium text-white">End</span>
                                 </>
                             ) : (
@@ -111,8 +110,6 @@ export function GenerationAnimateMode({ state, onUpdate, references, task, onGen
                 <button type="button" disabled={!canGenerate} onClick={generate} className={`${NODE_BUTTON_CLASS} mt-2 flex w-full items-center justify-center gap-1.5`}>
                     <Play size={14} aria-hidden="true" />Animate
                 </button>
-
-                <GenerationTaskStatus task={task} />
             </div>
         </>
     );

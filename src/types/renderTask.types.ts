@@ -40,9 +40,24 @@ export interface FormDirectionAxisLabels {
     right?: string;
 }
 
+/** Variate batch size (FR-014): exactly the configured count of outputs. */
+export type VariationCount = 1 | 2 | 3 | 4;
+
 /** Form-variate direction control (FR-015): preset + magnitude 0–1. */
 export interface FormDirection {
-    preset: 'balanced' | 'soft-sculpt' | 'geometric' | 'organic';
+    /** The four documented presets plus the studio variate panel's seven direction templates. */
+    preset:
+        | 'balanced'
+        | 'soft-sculpt'
+        | 'geometric'
+        | 'organic'
+        | 'expression'
+        | 'proportion'
+        | 'massing'
+        | 'edge-quality'
+        | 'symmetry-balance'
+        | 'flow-continuity'
+        | 'custom';
     /** 0–1; maps to a bounded edit-strength band, capped below full-redraw. */
     magnitude: number;
     axisLabels?: FormDirectionAxisLabels;
@@ -71,7 +86,7 @@ export interface RenderTaskRequest {
     aspectRatio?: RenderTaskAspectRatio;
     /** 0–1; monotonic map to edit strength (lower = closer to source, FR-012). */
     referenceFidelity?: number;
-    variationCount?: 2 | 4 | 8;
+    variationCount?: VariationCount;
     formDirection?: FormDirection;
     palette?: RenderTaskPalette;
     targetView?: ViewName;

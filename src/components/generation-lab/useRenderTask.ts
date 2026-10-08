@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { isImageBackendReady } from '@/services/ai/computeStatusService';
 import { useStore } from '@/store/useStore';
 import { imageApiProxyFetcher } from '@/services/ai/proxyFetcher';
@@ -31,6 +31,8 @@ function getRenderTaskService(): RenderTaskService {
  * status polling and store updates live here.
  */
 export interface GenerationTaskApi {
+    /** Coordinator task id — set as soon as a task is created (queue/cancel handle). */
+    taskId: string | null;
     status: ReturnType<typeof useStore.getState>['renderTaskStatus'];
     queuePosition: number | null;
     error: string | null;
@@ -122,5 +124,10 @@ export function useRenderTask(service?: RenderTaskService): GenerationTaskApi {
         submit({ ...request, seed: output.seed, variationCount: undefined });
     }, [submit]);
 
-    return { status, queuePosition, error, outputs, extraction, submit, cancel, retry, regenerateWithSeed };
+    // Memoized: consumers (e.g. the lab canvas) rely on a stable task identity to
+    // keep React Flow node data references stable across renders.
+    return useMemo(
+        () => ({ taskId, status, queuePosition, error, outputs, extraction, submit, cancel, retry, regenerateWithSeed }),
+        [taskId, status, queuePosition, error, outputs, extraction, submit, cancel, retry, regenerateWithSeed],
+    );
 }

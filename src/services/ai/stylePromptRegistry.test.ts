@@ -12,6 +12,8 @@ describe('stylePromptRegistry', () => {
 
         expect(styles.map((style) => style.id)).toEqual([
             'photorealistic',
+            'cinematic',
+            'ultra_realistic',
             'sketch',
             'cyberpunk',
             'minimalist',
@@ -23,6 +25,10 @@ describe('stylePromptRegistry', () => {
     });
 
     it('resolves stable IDs and legacy display names', () => {
+        expect(resolveStylePromptId('cinematic')).toBe('cinematic');
+        expect(resolveStylePromptId('Cinematic')).toBe('cinematic');
+        expect(resolveStylePromptId('ultra_realistic')).toBe('ultra_realistic');
+        expect(resolveStylePromptId('Ultra Realistic')).toBe('ultra_realistic');
         expect(resolveStylePromptId('sketch')).toBe('sketch');
         expect(resolveStylePromptId('Sketch / Line Art')).toBe('sketch');
         expect(resolveStylePromptId('3D Render')).toBe('product');

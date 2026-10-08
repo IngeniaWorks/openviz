@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { ChevronLeft, Info } from 'lucide-react';
+import { ChevronLeft, Info, X } from 'lucide-react';
 import { Fragment } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { useStore } from '@/store/useStore';
+import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { GenerationMode } from './generationNodeMockup.types';
 
 export const NODE_CONTROL_CLASS = 'nodrag nowheel w-full rounded-lg border border-viz-border bg-viz-surface px-2.5 py-2 text-xs text-white outline-none transition-colors placeholder:text-viz-muted focus:border-viz-accent';
@@ -137,4 +139,34 @@ export function PromptEditor({ value, onChange, id = 'node-prompt', label = 'Pro
 
 export function SectionLabel({ children }: { children: ReactNode }) {
     return <p className="text-[10px] font-bold uppercase tracking-wider text-viz-muted">{children}</p>;
+}
+
+/**
+ * The shared reference treatment for every generation mode: a square (1:1)
+ * thumbnail without text, plus the numbered badge that morphs into the remove
+ * x on hover/focus. `number` is the 1-based position (Modify @-mention numbering).
+ */
+export function ReferenceThumb({ reference, number, sizeClass = 'h-9 w-9 rounded-md', trailing = false }: {
+    reference: RenderTaskReference;
+    number: number;
+    /** Square thumbnail sizing (1:1 by contract). */
+    sizeClass?: string;
+    /** Push the badge to the far end of a full-width row. */
+    trailing?: boolean;
+}) {
+    const removeRenderReference = useStore((store) => store.removeRenderReference);
+    return (
+        <span className="group/thumb inline-flex shrink-0 items-center gap-1">
+            <img src={reference.dataUrl} alt="" className={`${sizeClass} object-cover`} />
+            <button
+                type="button"
+                aria-label={`Remove reference image ${reference.name}`}
+                onClick={() => removeRenderReference(reference.id)}
+                className={`nodrag relative flex h-5 min-w-5 items-center justify-center rounded-full bg-viz-panel px-1 text-[9px] font-bold text-white transition-colors group-hover/thumb:bg-red-500/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-viz-accent ${trailing ? 'ml-auto' : ''}`}
+            >
+                <span className="transition-all duration-150 group-focus-visible/thumb:scale-50 group-focus-visible/thumb:opacity-0 group-hover/thumb:scale-50 group-hover/thumb:opacity-0">{number}</span>
+                <X size={11} aria-hidden="true" className="absolute inset-0 m-auto scale-50 opacity-0 transition-all duration-150 group-focus-visible/thumb:scale-100 group-focus-visible/thumb:opacity-100 group-hover/thumb:scale-100 group-hover/thumb:opacity-100" />
+            </button>
+        </span>
+    );
 }

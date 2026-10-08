@@ -21,8 +21,8 @@ function makeCoordinator(): ReturnType<typeof createRenderTaskCoordinator> {
 }
 
 describe('createRenderTaskCoordinator — FR-021 benchmark launch gate', () => {
-    it('rejects submissions whose resolved defaults are still starting (gate on by default)', async () => {
-        const coordinator = createRenderTaskCoordinator();
+    it('rejects submissions whose resolved defaults are still starting when the gate is enabled', async () => {
+        const coordinator = createRenderTaskCoordinator({ benchmarkGateEnabled: true });
         await expect(
             coordinator.submit({ request: request({ kind: 'animate' }) }, async () => ({
                 outputIds: ['out-1'],
@@ -74,7 +74,7 @@ describe('createRenderTaskCoordinator — FR-021 benchmark launch gate', () => {
     });
 
     it('names the unvalidated task kind in the gate error', async () => {
-        const coordinator = createRenderTaskCoordinator();
+        const coordinator = createRenderTaskCoordinator({ benchmarkGateEnabled: true });
         await expect(
             coordinator.submit({ request: request({ kind: 'new-view' }) }, async () => ({
                 outputIds: ['out-1'],

@@ -7,8 +7,7 @@ import type { ExtractKind, GenerationPlaygroundState, GenerationStatePatch } fro
 import type { RenderTaskRequest } from '@/types/renderTask.types';
 import type { GenerationTaskApi } from './useRenderTask';
 import type { ExtractionOutput } from '@/services/ai/extractionService';
-import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, SectionLabel } from './GenerationModeControls';
-import { GenerationTaskStatus } from './GenerationTaskStatus';
+import { ModeHeader, NODE_BUTTON_CLASS, NODE_CONTROL_CLASS, ReferenceThumb, SectionLabel } from './GenerationModeControls';
 
 interface GenerationExtractModeProps {
     state: GenerationPlaygroundState;
@@ -56,10 +55,8 @@ export function GenerationExtractMode({ state, onUpdate, references, task, onGen
                     </select>
                 </label>
                 {reference ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-viz-border bg-viz-surface p-1.5">
-                        <img src={reference.dataUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
-                        <span className="min-w-0 flex-1 truncate text-xs text-white/90">{reference.name}</span>
-                        <span className="shrink-0 rounded bg-viz-panel px-1.5 py-1 text-[9px] text-viz-muted">source</span>
+                    <div className="flex items-center rounded-lg border border-viz-border bg-viz-surface p-1.5">
+                        <ReferenceThumb reference={reference} number={1} trailing />
                     </div>
                 ) : (
                     <p role="note" className="rounded-lg border border-dashed border-viz-border bg-viz-surface/40 px-3 py-3 text-center text-xs text-viz-muted">
@@ -71,10 +68,6 @@ export function GenerationExtractMode({ state, onUpdate, references, task, onGen
                     <Scissors size={13} aria-hidden="true" />{actionLabel}
                 </button>
 
-                {task.status === 'active' && (
-                    <p role="status" className="mt-2 text-center text-[10px] text-viz-muted">Analyzing {reference?.name ?? 'image'}…</p>
-                )}
-                <GenerationTaskStatus task={task} />
                 {task.extraction && <ExtractionResults extraction={task.extraction} />}
             </div>
         </>

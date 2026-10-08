@@ -37,8 +37,9 @@ export interface RenderTaskHandle {
 
 export interface RenderTaskCoordinatorOptions {
     /**
-     * FR-021 launch gate; default `true` (R8). Accepts a getter so live
-     * settings changes take effect without recreating the coordinator.
+     * FR-021 launch gate; default `false` (disabled by default, R8). Accepts a
+     * getter so live settings changes take effect without recreating the
+     * coordinator.
      */
     benchmarkGateEnabled?: boolean | (() => boolean);
     /**
@@ -84,7 +85,7 @@ const EMPTY_OUTCOME: RenderTaskOutcome = { outputIds: [], allOutputsSucceeded: f
 
 export function createRenderTaskCoordinator(options: RenderTaskCoordinatorOptions = {}) {
     const isBenchmarkGateEnabled = (): boolean => {
-        const gate = options.benchmarkGateEnabled ?? true;
+        const gate = options.benchmarkGateEnabled ?? false;
         return typeof gate === 'function' ? gate() : gate;
     };
     const getSupportsCancel = options.getSupportsCancel ?? (() => true);

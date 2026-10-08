@@ -17,12 +17,12 @@ const INITIAL_STATE: GenerationPlaygroundState = {
     animate: { styleId: 'standard_video', duration: '4s' },
     variation: {
         kind: 'form',
-        axisLabels: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' },
-        position: 'center',
-        preset: 'Balanced',
+        preset: 'Expression',
+        axisLabels: { top: 'Complex', bottom: 'Simple', left: 'Geometric', right: 'Organic' },
+        position: { x: 50, y: 50 },
         magnitude: 0.5,
-        paletteName: 'Untitled palette',
-        swatches: ['stone', 'moss', 'sea', 'ember'],
+        paletteName: '',
+        swatches: ['#111111', '#52627b', '#9fa8d0', '#313236'],
         colorCount: 4,
         formCount: 4,
     },
@@ -48,6 +48,7 @@ function makeTaskApi(overrides: Partial<ReturnType<typeof baseTaskApi>> = {}) {
 
 function baseTaskApi() {
     return {
+        taskId: null,
         status: 'idle' as const,
         queuePosition: null,
         error: null,

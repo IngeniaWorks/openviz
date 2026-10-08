@@ -1,5 +1,7 @@
 export const renderStyleIds = [
     'photorealistic',
+    'cinematic',
+    'ultra_realistic',
     'sketch',
     'cyberpunk',
     'minimalist',
@@ -19,6 +21,14 @@ const STYLE_PROMPT_LAYERS: Record<RenderStyleId, StylePromptLayer> = {
     photorealistic: {
         id: 'photorealistic',
         promptLayer: 'A highly photorealistic render with physically accurate materials, natural proportions, realistic textures, soft studio lighting, and crisp fine detail.',
+    },
+    cinematic: {
+        id: 'cinematic',
+        promptLayer: 'A cinematic render with dramatic directional lighting, shallow depth of field, filmic color grading, and a moody atmospheric mood.',
+    },
+    ultra_realistic: {
+        id: 'ultra_realistic',
+        promptLayer: 'An ultra realistic render with hyper-detailed physically based materials, true-to-life textures, micro-surface detail, and natural light response.',
     },
     sketch: {
         id: 'sketch',
@@ -48,6 +58,8 @@ const STYLE_PROMPT_LAYERS: Record<RenderStyleId, StylePromptLayer> = {
 
 const STYLE_NAME_ALIASES: Record<string, RenderStyleId> = {
     Photorealistic: 'photorealistic',
+    Cinematic: 'cinematic',
+    'Ultra Realistic': 'ultra_realistic',
     'Sketch / Line Art': 'sketch',
     Cyberpunk: 'cyberpunk',
     'Cyberpunk / Neon': 'cyberpunk',

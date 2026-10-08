@@ -7,9 +7,7 @@ import type { RenderTaskReference } from '@/store/slices/renderTaskSlice';
 import type { GenerationPlaygroundState, GenerationStatePatch } from './generationNodeMockup.types';
 import type { RenderTaskAspectRatio, RenderTaskRequest } from '@/types/renderTask.types';
 import type { GenerationTaskApi } from './useRenderTask';
-import { ModeHeader, NODE_BUTTON_CLASS, PromptEditor } from './GenerationModeControls';
-import { GenerationAdvancedPanel } from './GenerationAdvancedPanel';
-import { GenerationTaskStatus } from './GenerationTaskStatus';
+import { ModeHeader, NODE_BUTTON_CLASS, PromptEditor, ReferenceThumb } from './GenerationModeControls';
 
 interface GenerationModifyModeProps {
     state: GenerationPlaygroundState;
@@ -105,12 +103,8 @@ export function GenerationModifyMode({ state, onUpdate, references, task, onGene
                         topContent={
                             references.length > 0 ? (
                                 references.map((reference, index) => (
-                                    <span key={reference.id} className="inline-flex items-center gap-1.5 rounded-lg border border-viz-border bg-viz-panel py-0.5 pl-1 pr-2" aria-label={`Reference image ${index + 1}`}>
-                                        <span className="relative">
-                                            <img src={reference.dataUrl} alt="" className="h-5 w-5 rounded object-cover" />
-                                            <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-viz-accent px-0.5 text-[8px] font-bold text-white">{index + 1}</span>
-                                        </span>
-                                        <span className="text-[10px] text-white/90">{reference.name}</span>
+                                    <span key={reference.id} className="inline-flex items-center rounded-lg border border-viz-border bg-viz-panel p-0.5" aria-label={`Reference image ${index + 1}`}>
+                                        <ReferenceThumb reference={reference} number={index + 1} sizeClass="h-5 w-5 rounded" />
                                     </span>
                                 ))
                             ) : (
@@ -224,9 +218,6 @@ export function GenerationModifyMode({ state, onUpdate, references, task, onGene
                 >
                     <WandSparkles size={14} aria-hidden="true" />Generate
                 </button>
-
-                <GenerationAdvancedPanel value={state.advanced} onChange={(patch) => onUpdate({ advanced: { ...state.advanced, ...patch } })} />
-                <GenerationTaskStatus task={task} />
             </div>
         </>
     );

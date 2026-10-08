@@ -1,3 +1,7 @@
+import type { VariationCount } from '@/types/renderTask.types';
+
+export type { VariationCount };
+
 export type GenerationMode = 'base' | 'modify' | 'animate' | 'instant-render' | 'variation' | 'new-view' | 'extract';
 
 export interface ModifyConfiguration {
@@ -22,20 +26,33 @@ export interface AnimateConfiguration {
 }
 export type VariationKind = 'form' | 'color';
 export type ExtractKind = 'color' | 'material' | 'parts';
-export type VariationCount = 2 | 4 | 8;
-export type VariationPreset = 'Balanced' | 'Soft sculpt' | 'Geometric' | 'Organic';
-export type FormPosition = 'top-left' | 'top' | 'top-right' | 'left' | 'center' | 'right' | 'bottom-left' | 'bottom' | 'bottom-right';
+/** The studio variate panel's seven direction templates (VariationPanel parity). */
+export type VariationPreset =
+    | 'Expression'
+    | 'Proportion'
+    | 'Massing'
+    | 'Edge Quality'
+    | 'Symmetry & Balance'
+    | 'Flow / Continuity'
+    | 'Custom';
+/** Continuous 0–100 position on the form-variation slider (studio panel parity). */
+export interface FormSliderPosition {
+    x: number;
+    y: number;
+}
 export type VariationAxis = 'top' | 'bottom' | 'left' | 'right';
 export type ExtractSampleBy = 'Hierarchy' | 'Region';
 
 export interface VariationConfiguration {
     kind: VariationKind;
     axisLabels: Record<VariationAxis, string>;
-    position: FormPosition;
+    /** Continuous 0–100 knob position on the form-variation slider. */
+    position: FormSliderPosition;
     preset: VariationPreset;
     /** 0–1 form-morph magnitude (FR-015). */
     magnitude: number;
     paletteName: string;
+    /** Hex swatches (`#rrggbb`), studio panel parity. */
     swatches: string[];
     colorCount: VariationCount;
     formCount: VariationCount;
@@ -46,6 +63,8 @@ export interface GenerationPlaygroundState {
     prompt: string;
     /** Instant Render output ratio (FR-013). */
     instantRatio: import('@/types/renderTask.types').RenderTaskAspectRatio;
+    /** Instant Render style preset — a studio legacy renderer style id (`stylePromptRegistry`). */
+    instantStyle?: string;
     advanced: AdvancedConfiguration;
     modify: ModifyConfiguration;
     animate: AnimateConfiguration;

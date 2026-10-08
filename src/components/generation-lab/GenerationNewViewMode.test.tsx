@@ -17,12 +17,12 @@ const INITIAL_STATE: GenerationPlaygroundState = {
     animate: { styleId: 'standard_video', duration: '4s' },
     variation: {
         kind: 'form',
-        axisLabels: { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' },
-        position: 'center',
-        preset: 'Balanced',
+        preset: 'Expression',
+        axisLabels: { top: 'Complex', bottom: 'Simple', left: 'Geometric', right: 'Organic' },
+        position: { x: 50, y: 50 },
         magnitude: 0.5,
-        paletteName: 'Untitled palette',
-        swatches: ['stone', 'moss', 'sea', 'ember'],
+        paletteName: '',
+        swatches: ['#111111', '#52627b', '#9fa8d0', '#313236'],
         colorCount: 4,
         formCount: 4,
     },
@@ -34,6 +34,7 @@ const INITIAL_STATE: GenerationPlaygroundState = {
 
 function makeTaskApi() {
     return {
+        taskId: null,
         status: 'idle' as const,
         queuePosition: null,
         error: null,
@@ -51,7 +52,6 @@ function renderNewView(props: { references?: RenderTaskReference[]; selectedView
     render(
         <GenerationNewViewMode
             state={{ ...INITIAL_STATE, selectedView: props.selectedView ?? '' }}
-            referenceCount={(props.references ?? [REFERENCE]).length}
             onUpdate={vi.fn()}
             references={props.references ?? [REFERENCE]}
             task={makeTaskApi()}
@@ -68,7 +68,6 @@ function Harness({ references = [REFERENCE], onGenerate }: { references?: Render
     return (
         <GenerationNewViewMode
             state={state}
-            referenceCount={references.length}
             onUpdate={(patch) => setState((current) => ({ ...current, ...patch }))}
             references={references}
             task={makeTaskApi()}
@@ -115,5 +114,37 @@ describe('GenerationNewViewMode — US4 behavior (T016)', () => {
 
         expect(onGenerate).toHaveBeenCalledTimes(1);
         expect((onGenerate.mock.calls[0][0] as RenderTaskRequest).targetView).toBe('Top');
+    });
+
+    it('offers exactly the NewViewNode view list (VIEW_NAMES parity), grouped by cube visibility', () => {
+        renderNewView();
+        fireEvent.click(screen.getByRole('button', { name: 'Select a view' }));
+        const options = screen.getAllByRole('option').map((option) => option.textContent);
+        expect(options).toEqual([
+            'Front',
+            'Front Right 3/4 view',
+            'Front Left 3/4 view',
+            'Bottom Front Left 3/4 view',
+            'Bottom Front Right 3/4 view',
+            'Left',
+            'Bottom Rear Left 3/4 view',
+            'Rear Left 3/4 view',
+            'Rear Right 3/4 view',
+            'Top',
+            'Rear',
+            'Right',
+            'Bottom',
+            'Bottom Rear Right 3/4 view',
+        ]);
+        // The ten cube-visible views come first; the four dropdown-only views sit below the separator.
+        expect(screen.getByText('Hidden views')).toBeInTheDocument();
+        expect(options.slice(0, 10)).toEqual(['Front', 'Front Right 3/4 view', 'Front Left 3/4 view', 'Bottom Front Left 3/4 view', 'Bottom Front Right 3/4 view', 'Left', 'Bottom Rear Left 3/4 view', 'Rear Left 3/4 view', 'Rear Right 3/4 view', 'Top']);
+        expect(options.slice(10)).toEqual(['Rear', 'Right', 'Bottom', 'Bottom Rear Right 3/4 view']);
+    });
+
+    it('previews the hovered cube view in the label, like NewViewNode (US4 parity)', () => {
+        renderNewView();
+        fireEvent.mouseEnter(screen.getByTestId('view-cube-front'));
+        expect(screen.getByRole('button', { name: 'Front' })).toBeInTheDocument();
     });
 });

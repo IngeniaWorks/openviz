@@ -1,6 +1,6 @@
 /**
- * Feature 006 (OpenViz Workbench UI Parity) — client-only state shapes.
- * Source of truth: specs/006-OpenViz-workbench-parity/data-model.md
+ * Feature 006 (OpenViz Workbench UI) — client-only state shapes.
+ * Source of truth: specs/006-openviz-workbench-ui/data-model.md
  */
 
 // FR-015 — canvas theme preference (per-user, localStorage; not scene data)

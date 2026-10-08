@@ -38,7 +38,7 @@ function createImageSourceNode(overrides: Partial<ImageNode> = {}): ImageNode {
 }
 
 describe('workbench block creation logic', () => {
-    it('creates a OpenViz-style modify node with a connected source reference', () => {
+    it('creates an OpenViz modify node with a connected source reference', () => {
         const sourceNode = createImageSourceNode();
         const modifyNode = createModifyNodeFromSource(sourceNode, 'modify-1');
 

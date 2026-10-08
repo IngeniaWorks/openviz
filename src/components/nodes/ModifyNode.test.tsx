@@ -28,7 +28,7 @@ const data = {
 };
 
 describe('ModifyNode', () => {
-    it('renders OpenViz-style prompt controls and source reference', () => {
+    it('renders OpenViz prompt controls and source reference', () => {
         render(<ModifyNode id="modify-1" data={data} selected={false} />);
 
         expect(screen.getByRole('heading', { name: 'Modify' })).toBeInTheDocument();

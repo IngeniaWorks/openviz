@@ -6,11 +6,15 @@ import { createSceneDoc, extractSceneFromDoc, getSceneName, seedSceneFromJson, s
 import { scenes } from '../../src/lib/db/schema';
 import { getDb } from './db';
 
-/** A `scenes` row narrowed to what the persistence layer needs. */
+/**
+ * A `scenes` row narrowed to what the persistence layer needs. `data` is null
+ * on the fast path (a stored ydoc is authoritative, so the JSONB column is
+ * never read) and populated on the seed path.
+ */
 export interface SceneRow {
     id: string;
     name: string;
-    data: SceneDataJson;
+    data: SceneDataJson | null;
     ydoc: Uint8Array | null;
 }
 
@@ -91,20 +95,42 @@ export function createStore(deps: PersistenceDependencies) {
     };
 }
 
-/** Default dependencies wired to Postgres via Drizzle. */
-export function createDbPersistence(): PersistenceDependencies {
+/** A Drizzle client compatible with the queries below (test seam). */
+type SceneDb = ReturnType<typeof getDb>;
+
+/**
+ * Loads a scene row for room creation. Fast path: when an encoded ydoc exists
+ * it is authoritative, so the multi-MB `data` JSONB column is never read.
+ * Seed path (legacy JSON-only rows): one extra query loads the full row.
+ */
+export async function loadSceneRow(db: SceneDb, sceneId: string): Promise<SceneRow | null> {
+    const probe = await db
+        .select({ id: scenes.id, name: scenes.name, ydoc: scenes.ydoc })
+        .from(scenes)
+        .where(eq(scenes.id, sceneId))
+        .limit(1);
+    const [probeRow] = probe;
+    if (!probeRow) return null;
+
+    if (probeRow.ydoc && probeRow.ydoc.byteLength > 0) {
+        return { id: probeRow.id, name: probeRow.name, data: null, ydoc: new Uint8Array(probeRow.ydoc) };
+    }
+
+    const full = await db.select().from(scenes).where(eq(scenes.id, sceneId)).limit(1);
+    const [row] = full;
+    if (!row) return null;
     return {
-        getScene: async (sceneId) => {
-            const db = getDb();
-            const [row] = await db.select().from(scenes).where(eq(scenes.id, sceneId)).limit(1);
-            if (!row) return null;
-            return {
-                id: row.id,
-                name: row.name,
-                data: (row.data as SceneDataJson | null) ?? { nodes: [], connections: [] },
-                ydoc: row.ydoc ? new Uint8Array(row.ydoc) : null,
-            };
-        },
+        id: row.id,
+        name: row.name,
+        data: (row.data as SceneDataJson | null) ?? { nodes: [], connections: [] },
+        ydoc: row.ydoc ? new Uint8Array(row.ydoc) : null,
+    };
+}
+
+/** Default dependencies wired to Postgres via Drizzle. */
+export function createDbPersistence(getDbFn: () => SceneDb = getDb): PersistenceDependencies {
+    return {
+        getScene: async (sceneId) => loadSceneRow(getDbFn(), sceneId),
         saveScene: async ({ sceneId, name, data, ydoc, updatedBy }) => {
             const db = getDb();
             await db

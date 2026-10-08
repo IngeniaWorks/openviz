@@ -189,6 +189,55 @@ upper bound. `GET /api/projects/:id?lite=1` returns the same scene with inline
 data URLs stripped for lighter fetches, and dev-mode logs record each scene's
 payload size on project GET (`[perf] scene payload ...`).
 
+---
+
+# Collab streaming & lazy asset loading (plan v2)
+
+Supersedes the mock-mode note above: Sprint 1 of this plan removed the base64
+upload fallback entirely (uploads now fail loud when S3 is down) and wiped all
+base64-bloated test scenes from the DB, so every scene in the dev database is
+refs-only (KB-sized).
+
+## Results — Collab Sprint 1 (refs-only contract + 3-tier pipeline)
+
+- `uploadBlobToAsset` returns `{url, thumbnailUrl, previewUrl}` — sharp-generate
+  `:thumb.webp` (≤512px) + `:preview.webp` (≤1024px) at upload time; scene data
+  stores refs only.
+- AI render outputs (http **and** provider data-URLs) are re-hosted to S3;
+  storage failure = distinct recoverable error, never a base64 fallback.
+- Studio exit thumbnails upload as S3 refs (`uploadCanvasThumbnail`); on failure
+  the previous thumbnail is kept.
+- All `downsample*` safety nets removed from read/write paths (full purge).
+
+## Results — Collab Sprint 2 (streaming readiness + column pruning) · commit pending
+
+**Server fetch** (`server/collab/persistence.ts`): room creation now selects
+only `{id, name, ydoc}` when a saved Y.Doc exists (the 40MB `data` JSONB is
+never loaded); the full row is read only to seed a brand-new room.
+
+**Client readiness** (`ProjectWorkspace` + `projectReadiness.ts`): the page
+gates on `GET /api/projects/:id?lite=1` (KB-sized, inline data stripped) while
+the collab join starts in parallel. The full scene is fetched **only** when the
+join is terminally unavailable (token endpoint down → `failed`, auth denied,
+or still pending after a 5s bounded wait) and nothing was painted from cache.
+`resolveSceneHydration` + `settleCollabOutcome` are pure, table-tested.
+
+**Measured (CDP, cold profile, dev server, welcome scene ≈ 1.3KB JSONB):**
+
+| Path | Requests on open | WS sync (recv) | First node painted |
+|---|---|---|---|
+| Collab **up** | `?lite=1` ×2 + collab-token; **no full-scene GET** | 15.4 KB total (max frame 11.2 KB ≈ doc size) | ~2.2s |
+| Collab **down** (token 500 / WS unreachable) | `?lite=1` ×2 → **one** full GET after the 5s wait | — | ~9s (dev; bounded by the wait, then single-user) |
+
+Before this sprint the same open serialized a full-scene REST fetch (MB-sized
+when scenes were base64-bloated) *and* a full Y.Doc WS sync of the same bytes.
+Both are now KB-sized and parallel; the REST payload on the critical path is
+the lite variant only.
+
+Remaining long-lived traffic on open: `POST /viewed` (side-effect moved out of
+GET), scene-list GETs (metadata) and the legacy `/scenes/stream` SSE presence
+channel (out of scope for this plan — hocuspocus awareness owns presence).
+
 ## How to re-run
 
 ```bash

@@ -9,13 +9,26 @@ import { SceneData, WorkbenchNode, Connection } from "@/types";
 import { useShallow } from "zustand/react/shallow";
 import { studioModule, workbenchModule } from "@/lib/viewImports";
 import { prefetchRoomToken } from "@/services/collab/roomTokenPrefetch";
-import { shouldHydrateFromServer, shouldPaintFromCache } from "./projectReadiness";
+import {
+    COLLAB_FALLBACK_WAIT_MS,
+    resolveSceneHydration,
+    settleCollabOutcome,
+    shouldHydrateFromServer,
+    shouldPaintFromCache,
+} from "./projectReadiness";
 
 // Built from the shared import promises (see viewImports.ts) so the idle
 // preloader and this page load exactly the same chunks.
 const Workbench = dynamic(() => workbenchModule.then((mod) => mod.Workbench), { ssr: false });
 const Studio = dynamic(() => studioModule.then((mod) => mod.Studio), { ssr: false });
 
+/** `?lite=1` response — KB-sized readiness payload (inline data stripped). */
+type LiteProjectResponse = {
+    name?: string;
+    sceneVersion?: number;
+};
+
+/** Full scene payload — fetched only for the single-user fallback path. */
 type ProjectApiResponse = {
     scene: SceneData | null;
     sceneVersion?: number;
@@ -105,14 +118,52 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             setViewMode: state.setViewMode,
         }))
     );
-    const { data: projectData, error } = useQuery<ProjectApiResponse>({
-        queryKey: ["projects", id],
+    // Sprint 2: readiness rides the KB-sized lite variant — the full scene is
+    // never on the critical path. The collab join (started by Workbench below)
+    // streams the live document in parallel; only a terminally unavailable
+    // session with no cache paint triggers the one-off full fetch.
+    const { data: liteData, error } = useQuery<LiteProjectResponse>({
+        queryKey: ["projects-lite", id],
         queryFn: async () => {
-            const res = await fetch(`/api/projects/${id}`);
+            const res = await fetch(`/api/projects/${id}?lite=1`);
             if (!res.ok) throw new Error("Project not found");
             return res.json();
         },
     });
+
+    const collabSessionActive = useStore((state) => state.collabSessionActive);
+    const collabUnavailable = useStore((state) => state.collabUnavailable);
+    const [fullScene, setFullScene] = useState<ProjectApiResponse | null>(null);
+    // The provider's retry budget can take minutes to exhaust; after this
+    // bounded wait a still-pending join no longer blocks single-user content.
+    const [fallbackWaitElapsed, setFallbackWaitElapsed] = useState(false);
+
+    useEffect(() => {
+        if (!liteData || collabSessionActive) return;
+        const timer = window.setTimeout(() => setFallbackWaitElapsed(true), COLLAB_FALLBACK_WAIT_MS);
+        return () => window.clearTimeout(timer);
+    }, [liteData, collabSessionActive]);
+
+    useEffect(() => {
+        if (!liteData) return;
+        const outcome = settleCollabOutcome(
+            collabSessionActive ? "active" : collabUnavailable ? "unavailable" : "pending",
+            fallbackWaitElapsed,
+        );
+        if (resolveSceneHydration({ payloadKind: "lite", collabOutcome: outcome, paintedFromCache }) !== "fallback-fetch") {
+            return;
+        }
+        let cancelled = false;
+        fetch(`/api/projects/${id}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+                if (!cancelled && json) setFullScene(json);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [liteData, collabSessionActive, collabUnavailable, fallbackWaitElapsed, paintedFromCache, id]);
 
     // Keep the store's viewMode aligned with the URL segment. Runs after child
     // effects on mount, so hooks that detect the STUDIO -> WORKBENCH transition
@@ -160,15 +211,22 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             setConnections([]);
         }
 
-        const scene = projectData?.scene ?? null;
+        // The full scene only exists on the fallback path; a lite payload never
+        // hydrates (the live document or the cache paint owns the content).
+        const scene = fullScene?.scene ?? null;
         const hydrateFromServer =
             !!scene &&
-            !!projectData &&
+            !!fullScene &&
+            resolveSceneHydration({
+                payloadKind: "full",
+                collabOutcome: collabOwnsScene ? "active" : "unavailable",
+                paintedFromCache,
+            }) === "hydrate" &&
             shouldHydrateFromServer({
                 paintedFromCache,
                 collabOwnsScene,
                 localVersion: state.currentSceneVersion ?? null,
-                serverVersion: projectData.sceneVersion ?? null,
+                serverVersion: fullScene.sceneVersion ?? null,
             });
 
         if (hydrateFromServer && scene) {
@@ -180,7 +238,7 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             })) || [];
             if (nodesWithProjectId.length > 0) setNodes(nodesWithProjectId);
             if (scene.connections) setConnections(scene.connections as Connection[]);
-        } else if (projectData && !collabOwnsScene && !paintedFromCache) {
+        } else if (fullScene && !collabOwnsScene && !paintedFromCache) {
             // Older projects may predate the database-backed scene record. Restore
             // their locally cached Workbench nodes so the first autosave can migrate
             // them into the current main-scene persistence path instead of dropping
@@ -191,8 +249,10 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             }
         }
 
-        if (projectData) {
-            const serverVersion = projectData.sceneVersion ?? 0;
+        if (liteData || fullScene) {
+            // The lite payload carries the authoritative sceneVersion — no full
+            // fetch needed to track it.
+            const serverVersion = fullScene?.sceneVersion ?? liteData?.sceneVersion ?? 0;
             // Never downgrade: when we painted from cache with a strictly newer
             // local version, keep it so autosave continues from the right base.
             const localVersion = state.currentSceneVersion ?? 0;
@@ -206,7 +266,7 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
             // cacheable) — a failed ping must not affect the workspace.
             fetch(`/api/projects/${id}/viewed`, { method: "POST" }).catch(() => undefined);
         }
-    }, [projectData, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id, paintedFromCache]);
+    }, [liteData, fullScene, setNodes, setConnections, setCurrentSceneVersion, setSceneHydrated, id, paintedFromCache]);
 
     if (!isProjectReady && !error) {
         return (

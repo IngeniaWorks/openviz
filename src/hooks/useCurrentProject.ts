@@ -4,11 +4,14 @@ import { Project } from "@/lib/schemas/base";
 export function useCurrentProject(projectId: string | null) {
     const queryClient = useQueryClient();
 
+    // Lite variant: the header only needs project metadata (name, workspace,
+    // thumbnail ref). The full scene payload belongs to the workbench
+    // hydration / collab paths — never fetched by chrome components (Sprint 2).
     const projectQuery = useQuery<Project>({
         queryKey: ["project", projectId],
         queryFn: async () => {
             if (!projectId) throw new Error("No project ID provided");
-            const res = await fetch(`/api/projects/${projectId}`);
+            const res = await fetch(`/api/projects/${projectId}?lite=1`);
             if (!res.ok) throw new Error("Failed to fetch project");
             return res.json();
         },

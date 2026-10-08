@@ -92,10 +92,19 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
         let wasSynced = false;
         let sessionLocalPersistenceAvailable = true;
 
+        // A fresh join attempt clears any prior terminal outcome so the
+        // single-user fallback (Sprint 2) can re-arm on retry.
+        useStore.getState().setCollabUnavailable(false);
+
         const updateStatus = (next: CollabSessionStatus): void => {
             if (cancelled) return;
             sessionStatus = next;
             setStatus(next);
+            // Terminal outcomes without a sync: the workspace falls back to the
+            // full-scene fetch instead of waiting on a dead session.
+            if (next === 'failed' || next === 'denied') {
+                useStore.getState().setCollabUnavailable(true);
+            }
         };
 
         // Frozen/suspended tabs can exhaust the provider's retry budget while
@@ -234,7 +243,10 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
                 disposeBenchControl?.();
                 setCommands(null);
                 useStore.getState().setCollabDocumentCommands(null);
-                updateStatus('idle');
+                // Terminal failure (e.g. the token endpoint is down with the
+                // collab server): surface `failed` so the workspace falls back
+                // to the full-scene fetch instead of sitting on an empty canvas.
+                updateStatus('failed');
             }
         })();
 
@@ -250,6 +262,7 @@ export function useCollabSession(options: UseCollabSessionOptions): UseCollabSes
             undoRef.current = null;
             handle?.destroy();
             useStore.getState().setCollabSessionActive(false);
+            useStore.getState().setCollabUnavailable(false);
             useStore.getState().setCollabDocumentCommands(null);
             setCommands(null);
             setDoc(null);

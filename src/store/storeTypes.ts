@@ -81,6 +81,9 @@ export interface AppState {
     sceneHydrated: boolean;
     /** True while a real-time collaboration session owns this scene's writes. */
     collabSessionActive: boolean;
+    /** Join attempt ended terminally without syncing — single-user fallback should fetch the full scene. */
+    collabUnavailable: boolean;
+    setCollabUnavailable: (unavailable: boolean) => void;
     collabDocumentCommands: SceneDocCommands | null;
     nodeLocks: Record<string, NodeLockState>;
     presenceByUser: Record<string, CollabPresencePeer>;

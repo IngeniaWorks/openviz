@@ -11,7 +11,8 @@ import {
     getSceneName,
     setSceneName,
 } from '../../src/services/collab/sceneDocMapping';
-import { createFetch, createStore, parseOriginUser } from './persistence';
+import { createFetch, createStore, loadSceneRow, parseOriginUser } from './persistence';
+import { scenes } from '../../src/lib/db/schema';
 import { createCollabUndoManager } from '../../src/services/collab/undoOrigin';
 
 const SCENE_ID = 'scene-1';
@@ -214,5 +215,68 @@ describe('parseOriginUser', () => {
         expect(parseOriginUser('hocuspocus')).toBeNull();
         expect(parseOriginUser(null)).toBeNull();
         expect(parseOriginUser({})).toBeNull();
+    });
+});
+
+describe('loadSceneRow (Sprint 2 column pruning)', () => {
+    function makeFakeDb(rows: unknown[]) {
+        const calls: Array<{ fields?: Record<string, unknown> }> = [];
+        return {
+            calls,
+            select(fields?: Record<string, unknown>) {
+                calls.push({ fields });
+                const chain = {
+                    from: () => chain,
+                    where: () => chain,
+                    limit: async () => rows,
+                };
+                return chain;
+            },
+        } as never;
+    }
+
+    it('skips the data column when a ydoc exists (fast path)', async () => {
+        const ydocBytes = new Uint8Array([1, 2, 3]);
+        const db = makeFakeDb([{ id: SCENE_ID, name: 'S', ydoc: ydocBytes }]);
+
+        const row = await loadSceneRow(db, SCENE_ID);
+
+        expect(row).not.toBeNull();
+        expect(row!.ydoc).toEqual(new Uint8Array([1, 2, 3]));
+        expect(row!.data).toBeNull(); // not loaded — the ydoc is authoritative
+        expect(db.calls).toHaveLength(1);
+        expect(Object.values(db.calls[0].fields!)).not.toContain(scenes.data);
+    });
+
+    it('loads the full row only on the seed path (ydoc null)', async () => {
+        const db = makeFakeDb([
+            { id: SCENE_ID, name: 'S', ydoc: null },
+            { id: SCENE_ID, name: 'S', data: sampleData, ydoc: null },
+        ]);
+        // First call (probe) returns the no-ydoc row; second (full) returns JSONB.
+        const dbWithQueue = {
+            calls: [] as Array<{ fields?: Record<string, unknown> }>,
+            select(fields?: Record<string, unknown>) {
+                this.calls.push({ fields });
+                const rows = this._queue.shift();
+                const chain = { from: () => chain, where: () => chain, limit: async () => rows };
+                return chain;
+            },
+            _queue: [[{ id: SCENE_ID, name: 'S', ydoc: null }], [{ id: SCENE_ID, name: 'S', data: sampleData, ydoc: null }]],
+        } as never;
+
+        const row = await loadSceneRow(dbWithQueue, SCENE_ID);
+
+        expect(row!.data).toEqual(sampleData);
+        expect(row!.ydoc).toBeNull();
+        expect(dbWithQueue.calls).toHaveLength(2);
+        // Probe skips data; the seed path selects all columns (no field filter).
+        expect(Object.values(dbWithQueue.calls[0].fields!)).not.toContain(scenes.data);
+        expect(dbWithQueue.calls[1].fields).toBeUndefined();
+    });
+
+    it('returns null when the scene does not exist', async () => {
+        const db = makeFakeDb([]);
+        await expect(loadSceneRow(db, 'missing')).resolves.toBeNull();
     });
 });

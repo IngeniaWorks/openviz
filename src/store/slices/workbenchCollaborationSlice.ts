@@ -53,6 +53,13 @@ export interface WorkbenchCollaborationSlice {
     sceneHydrated: boolean;
     /** True while a real-time collaboration session owns this scene's writes (single-writer rule). */
     collabSessionActive: boolean;
+    /**
+     * True once the join attempt for this scene ended terminally (auth denied
+     * or retries exhausted) without ever syncing. Drives the single-user
+     * fallback: fetch the full scene instead of waiting on a dead session.
+     */
+    collabUnavailable: boolean;
+    setCollabUnavailable: (unavailable: boolean) => void;
     collabDocumentCommands: SceneDocCommands | null;
     nodeLocks: Record<string, NodeLockState>;
     /** Remote peers keyed by user id (derived from awareness; one entry per user). */
@@ -81,6 +88,8 @@ export const createWorkbenchCollaborationSlice: StateCreator<AppState, [], [], W
     currentSceneVersion: 0,
     sceneHydrated: false,
     collabSessionActive: false,
+    collabUnavailable: false,
+    setCollabUnavailable: (unavailable) => set({ collabUnavailable: unavailable }),
     collabDocumentCommands: null,
     nodeLocks: {},
     presenceByUser: {},
@@ -182,6 +191,7 @@ export const createWorkbenchCollaborationSlice: StateCreator<AppState, [], [], W
     clearCollaborationState: () =>
         set({
             collabSessionActive: false,
+            collabUnavailable: false,
             collabDocumentCommands: null,
             nodeLocks: {},
             presenceByUser: {},

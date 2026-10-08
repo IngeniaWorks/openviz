@@ -47,3 +47,48 @@ export function shouldHydrateFromServer(state: ReconcileState): boolean {
     if (localVersion === null || serverVersion === null) return true;
     return serverVersion >= localVersion;
 }
+
+/** How the readiness fetch was made: `lite` (KB-sized, no inline data) or `full`. */
+export type ScenePayloadKind = 'lite' | 'full';
+
+/** Settled outcome of the collab join attempt for this scene. */
+export type CollabOutcome = 'pending' | 'active' | 'unavailable';
+
+export interface HydrationDecisionInput {
+    payloadKind: ScenePayloadKind;
+    collabOutcome: CollabOutcome;
+    paintedFromCache: boolean;
+}
+
+/** What the workspace should do when a scene payload arrives / collab settles. */
+export type HydrationAction = 'hydrate' | 'skip' | 'fallback-fetch';
+
+/**
+ * Sprint 2 readiness matrix. A `lite` payload never hydrates — it only flips
+ * readiness so the workbench mounts and the collab join starts in parallel.
+ * When the join is terminally unavailable and nothing was painted from cache,
+ * fetch the full scene once (single-user fallback). A `full` payload hydrates
+ * unless the live document owns the scene (cache-paint version reconciliation
+ * stays in {@link shouldHydrateFromServer}).
+ */
+export function resolveSceneHydration(input: HydrationDecisionInput): HydrationAction {
+    if (input.payloadKind === 'lite') {
+        return input.collabOutcome === 'unavailable' && !input.paintedFromCache ? 'fallback-fetch' : 'skip';
+    }
+    if (input.collabOutcome === 'active') return 'skip';
+    return 'hydrate';
+}
+
+/**
+ * Settles the live collab status into a fallback decision. The provider's own
+ * retry budget can take minutes to exhaust, so a join that is still `pending`
+ * after {@link COLLAB_FALLBACK_WAIT_MS} is treated as unavailable: the
+ * single-user fallback fetches the full scene while the join keeps retrying in
+ * the background (if it syncs later, the live document takes over).
+ */
+export const COLLAB_FALLBACK_WAIT_MS = 5000;
+
+export function settleCollabOutcome(status: CollabOutcome, fallbackWaitElapsed: boolean): CollabOutcome {
+    if (status === 'pending' && fallbackWaitElapsed) return 'unavailable';
+    return status;
+}

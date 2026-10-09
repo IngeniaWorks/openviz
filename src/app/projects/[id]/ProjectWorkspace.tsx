@@ -298,18 +298,28 @@ export function ProjectWorkspace({ id, activeView }: { id: string; activeView: "
 
     return (
         <div className="relative h-screen w-screen overflow-hidden">
+            {/* Workbench stays mounted across view switches on purpose: the
+                collaboration session (WebSocket + Y.Doc) lives inside it, and
+                unmounting would tear down / re-join the room on every switch.
+                It is only hidden — not removed — while Studio is active. */}
             <div
                 className={activeView === "WORKBENCH" ? "absolute inset-0 z-10" : "pointer-events-none invisible absolute inset-0 z-0"}
                 aria-hidden={activeView !== "WORKBENCH"}
             >
                 <Workbench active={activeView === "WORKBENCH"} />
             </div>
-            <div
-                className={activeView === "STUDIO" ? "absolute inset-0 z-10" : "pointer-events-none invisible absolute inset-0 z-0"}
-                aria-hidden={activeView !== "STUDIO"}
-            >
-                <Studio active={activeView === "STUDIO"} />
-            </div>
+            {/* Studio is unmounted when inactive (not just CSS-hidden). Its Konva
+                canvas, ~15 selector-less store subscribers, and stage/resize
+                listeners otherwise stay live during workbench node drags — the
+                dominant source of heap growth + listener churn. Both view chunks
+                are preloaded at idle (see lib/viewImports.ts), so mounting it on
+                switch-in does not flash; the image-transition overlay rides on
+                document.body and is completed from CanvasViewport's mount effect. */}
+            {activeView === "STUDIO" && (
+                <div className="absolute inset-0 z-10">
+                    <Studio active />
+                </div>
+            )}
         </div>
     );
 }

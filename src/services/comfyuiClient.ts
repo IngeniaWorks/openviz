@@ -1,8 +1,8 @@
 import { generateUUID } from '@/utils/uuid';
 
-// Using Vite proxy to avoid CORS issues
+// Using the Next.js rewrite proxy to avoid CORS issues
 let comfyUrl = '/comfy-api';
-// We use the same protocol and host as the current page, but Vite will proxy /comfy-api to the backend
+// We use the same protocol and host as the current page, but Next.js rewrites /comfy-api to the ComfyUI backend (see next.config.mjs)
 const browserWindow = typeof window !== 'undefined' ? window : null;
 let wsUrl = browserWindow
     ? `${browserWindow.location.protocol === 'http:' ? 'ws:' : 'wss:'}//${browserWindow.location.host}/comfy-api`

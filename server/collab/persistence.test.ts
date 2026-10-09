@@ -249,10 +249,6 @@ describe('loadSceneRow (Sprint 2 column pruning)', () => {
     });
 
     it('loads the full row only on the seed path (ydoc null)', async () => {
-        const db = makeFakeDb([
-            { id: SCENE_ID, name: 'S', ydoc: null },
-            { id: SCENE_ID, name: 'S', data: sampleData, ydoc: null },
-        ]);
         // First call (probe) returns the no-ydoc row; second (full) returns JSONB.
         const dbWithQueue = {
             calls: [] as Array<{ fields?: Record<string, unknown> }>,

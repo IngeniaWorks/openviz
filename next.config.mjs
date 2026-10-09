@@ -12,6 +12,7 @@ const extraDevOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? '')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'standalone',
     // Allow remote dev access (e.g. Tailscale IP, LAN IP) so HMR websocket and
     // cross-origin dev resource requests from those hosts are not blocked.
     allowedDevOrigins: ['100.77.89.74', ...extraDevOrigins],

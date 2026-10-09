@@ -39,6 +39,12 @@ pnpm run docker:logs
 pnpm run docker:down
 ```
 
+### Production container image
+
+Pull requests build the production image as a check but do not publish it. Pushes to `main` publish `ghcr.io/ingeniaworks/openviz:main` and `:latest`; version tags such as `v1.2.3` publish versioned tags.
+
+The image runs the Next.js application on port 3000. Configure production services and environment variables separately; PostgreSQL, Redis, object storage, ComfyUI, and the collaboration WebSocket server are not bundled in this image. See [environment variables](docs/operations/environment-variables.md) for application configuration.
+
 ### Manual setup
 
 ```bash

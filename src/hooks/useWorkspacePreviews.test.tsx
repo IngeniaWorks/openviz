@@ -8,9 +8,11 @@ function makeWrapper() {
     const client = new QueryClient({
         defaultOptions: { queries: { retry: false } },
     });
-    return ({ children }: { children: ReactNode }) => (
+    return function QueryClientWrapper({ children }: { children: ReactNode }) {
+        return (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
+        );
+    };
 }
 
 describe("useWorkspacePreviews", () => {

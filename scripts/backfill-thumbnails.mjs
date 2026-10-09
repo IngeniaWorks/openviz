@@ -57,12 +57,6 @@ function thumbnailKeyFor(uploadKey) {
     return `thumbnails/${rest.slice(0, dot)}.webp`;
 }
 
-function contentTypeFor(key) {
-    const ext = key.toLowerCase().slice(key.lastIndexOf(".") + 1);
-    const map = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", avif: "image/avif" };
-    return map[ext] ?? "application/octet-stream";
-}
-
 async function objectExists(key) {
     try {
         await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));

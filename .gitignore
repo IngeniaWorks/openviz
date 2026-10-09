@@ -4,7 +4,6 @@
 
 # EXCEPTIONS: These hidden directories MUST be tracked in Git
 !.github/
-!.vscode/
 
 # ==============================================================================
 # NODE.JS / WEB APPLICATION

@@ -238,6 +238,24 @@ Remaining long-lived traffic on open: `POST /viewed` (side-effect moved out of
 GET), scene-list GETs (metadata) and the legacy `/scenes/stream` SSE presence
 channel (out of scope for this plan — hocuspocus awareness owns presence).
 
+### Sprint 3 — tiered asset delivery (measured 2026-10-09, CDP cold profile)
+
+Scene seeded with a 2000×1200 PNG (S3) + a 640×360 MP4, both uploaded through
+the 3-tier pipeline. Asset requests observed per flow:
+
+| Flow | Requests (order) | Full-res / video bytes |
+|---|---|---|
+| Workbench open | thumb (t+2.7s) → preview after idle (t+2.8s) + video poster | **none** — full PNG and MP4 not fetched |
+| Workbench, zoom to 207% (>200% threshold) | + full PNG ×1 (browser-cached after) | full PNG only on demand |
+| Studio hidden (dual-mounted, workbench active) | workbench tiers only | **zero** Konva layer fetches while hidden (`useVisibilityLatch`) |
+| Open node in Studio (dblclick → /studio) | + full PNG at first visibility | layers load once the latch arms |
+
+Video cards render the captured poster (`<img>`); the MP4 is requested only
+when the fullscreen modal opens (unit-tested: no `<video>` element inline).
+Before this sprint, opening a workbench with an image node fetched the
+full-res asset immediately, and the dual-mounted Studio fetched every layer's
+full image at mount — both are now gated.
+
 ## How to re-run
 
 ```bash

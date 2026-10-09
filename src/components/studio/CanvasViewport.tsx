@@ -8,6 +8,7 @@ import { useCanvasViewport } from '../hooks/useCanvasViewport';
 import type { Layer } from '../../types';
 import { createAdjustmentsFilter, hasAdjustments } from '../../types/adjustments';
 import { completeImageCanvasTransition } from '@/services/workbench/imageCanvasTransition';
+import { useVisibilityLatch } from './visibilityLatch';
 
 interface URLImageProps {
     src: string;
@@ -102,9 +103,11 @@ interface LayerGroupProps {
     updateLayer: (id: string, updates: Partial<Layer>) => void;
     canvasWidth: number;
     canvasHeight: number;
+    /** Sprint 3: layer images load only once the Studio view has been visible. */
+    imagesArmed: boolean;
 }
 
-const LayerGroup = ({ layer, activeLayerId, activeTool, previewShape, updateLayer, canvasWidth, canvasHeight }: LayerGroupProps) => {
+export const LayerGroup = ({ layer, activeLayerId, activeTool, previewShape, updateLayer, canvasWidth, canvasHeight, imagesArmed }: LayerGroupProps) => {
     const groupRef = useRef<Konva.Group>(null);
     const width = layer.width ?? canvasWidth;
     const height = layer.height ?? canvasHeight;
@@ -141,7 +144,12 @@ const LayerGroup = ({ layer, activeLayerId, activeTool, previewShape, updateLaye
                 setTimeout(() => (window as unknown as { updateLayerThumbnail?: (id: string) => void }).updateLayerThumbnail?.(layer.id), 100);
             }}
         >
-            {layer.image && <URLImage src={layer.image} x={0} y={0} width={width} height={height} />}
+            {/* Sprint 3: skip the image until Studio is visible at least once
+                (dual-mount keeps this canvas mounted while Workbench shows);
+                hidden layers stay unloaded until unhidden. */}
+            {layer.image && imagesArmed && layer.visible !== false && (
+                <URLImage src={layer.image} x={0} y={0} width={width} height={height} />
+            )}
             {layer.strokes.map((stroke, index) => <RenderStroke key={index} stroke={stroke} i={index} />)}
             {previewShape && activeLayerId === layer.id && <RenderStroke stroke={previewShape} i={-1} />}
         </Group>
@@ -150,9 +158,14 @@ const LayerGroup = ({ layer, activeLayerId, activeTool, previewShape, updateLaye
 
 interface CanvasViewportProps {
     onRasterizeReady?: (rasterize: () => boolean) => void;
+    /** True while the Studio view is the visible one (dual-mount). */
+    active?: boolean;
 }
 
-export const CanvasViewport = ({ onRasterizeReady }: CanvasViewportProps) => {
+export const CanvasViewport = ({ onRasterizeReady, active = true }: CanvasViewportProps) => {
+    // Sprint 3: layer images load only after first visibility — one-way latch,
+    // so switching back to Workbench never unloads or re-fetches them.
+    const imagesArmed = useVisibilityLatch(active);
     const {
         project,
         toolSettings,
@@ -302,6 +315,7 @@ export const CanvasViewport = ({ onRasterizeReady }: CanvasViewportProps) => {
                             updateLayer={updateLayer}
                             canvasWidth={canvas.width}
                             canvasHeight={canvas.height}
+                            imagesArmed={imagesArmed}
                         />
                     </KonvaLayer>
                 ))}

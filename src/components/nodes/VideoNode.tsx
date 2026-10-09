@@ -1,7 +1,7 @@
-import React, { useRef, useState, useLayoutEffect } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NodeResizer, useStore } from '@xyflow/react';
-import { Play, Pause, Maximize2, X } from 'lucide-react';
+import { Play, Maximize2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VideoNode as VideoNodeType } from '../../types';
 import { mediaNodeFrameClass, resizeHandleClassName } from './nodeUi';
@@ -22,10 +22,15 @@ interface VideoNodeProps {
 export const VideoNode = React.memo(({ id, data, selected, width, height }: VideoNodeProps) => {
     const internalSelected = useStore((state) => state.nodeLookup.get(id)?.selected === true);
     const isSelected = selected || internalSelected;
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [nodeSize, setNodeSize] = useState({ width: width || 256, height: height || 256 });
+
+    // Sprint 3: the card shows the captured poster (or a placeholder) — no
+    // <video> element and no video bytes in the workbench. The full video URL
+    // lives on the Studio layer; `project.thumbnail` carries it for legacy
+    // nodes. Only the fullscreen modal ever mounts a <video>.
+    const posterUrl = data.project?.posterUrl ?? null;
+    const videoUrl = data.project?.layers?.find((layer) => layer.image)?.image ?? data.project?.thumbnail ?? null;
 
     // useLayoutEffect: during a snap-corrected resize the prop size updates
     // every frame and must win over the raw onResize write before paint.
@@ -35,20 +40,9 @@ export const VideoNode = React.memo(({ id, data, selected, width, height }: Vide
         }
     }, [width, height]);
 
-    const togglePlay = (e: React.MouseEvent) => {
+    const openFullscreen = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (videoRef.current) {
-            if (isPlaying) {
-                videoRef.current.pause();
-            } else {
-                videoRef.current.play();
-            }
-            setIsPlaying(!isPlaying);
-        }
-    };
-
-    const handleVideoEnded = () => {
-        setIsPlaying(false);
+        setIsFullscreen(true);
     };
 
     return (
@@ -61,52 +55,38 @@ export const VideoNode = React.memo(({ id, data, selected, width, height }: Vide
                         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-2"></div>
                         <span className="text-gray-400 text-xs font-medium">Rendering Video...</span>
                     </div>
-                ) : data.project.thumbnail ? (
+                ) : videoUrl ? (
                     <div className="relative w-full h-full group">
-                        <video
-                            ref={videoRef}
-                            src={data.project.thumbnail}
-                            className="w-full h-full object-cover"
-                            loop
-                            muted
-                            playsInline
-                            onEnded={handleVideoEnded}
-                            onPlay={() => setIsPlaying(true)}
-                            onPause={() => setIsPlaying(false)}
-                        />
-                        <div 
-                            className="absolute inset-0 flex items-center justify-center cursor-pointer transition-opacity duration-200"
-                            style={{
-                                backgroundColor: isPlaying ? 'transparent' : 'rgba(0,0,0,0.3)'
-                            }}
+                        {posterUrl ? (
+                            <img
+                                src={posterUrl}
+                                alt={data.name}
+                                className="w-full h-full object-cover"
+                                draggable={false}
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                                <Play size={28} className="text-gray-500 fill-gray-500" />
+                            </div>
+                        )}
+                        <button
+                            onClick={openFullscreen}
+                            aria-label="Play video"
+                            className="absolute inset-0 flex items-center justify-center cursor-pointer transition-opacity duration-200 bg-black/30 hover:bg-black/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                         >
-                             <button
-                                onClick={togglePlay}
-                                className={`
-                                w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center 
-                                hover:bg-white/30 transition-all transform hover:scale-110
-                                ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}
-                             `}>
-                                {isPlaying ? (
-                                    <Pause size={24} className="text-white fill-white" />
-                                ) : (
-                                    <Play size={24} className="text-white fill-white ml-1" />
-                                )}
-                             </button>
-                        </div>
+                            <span className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition-all transform hover:scale-110">
+                                <Play size={24} className="text-white fill-white ml-1" />
+                            </span>
+                        </button>
 
                         <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsFullscreen(true);
-                            }}
+                            onClick={openFullscreen}
                             className="absolute bottom-3 right-3 p-2 bg-black/40 backdrop-blur-md rounded-lg text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-black z-10"
                             title="Fullscreen Preview"
                         >
                             <Maximize2 size={16} />
                         </button>
-                    </div>
-                ) : (
+                    </div>                ) : (
                     <div className="w-full h-full bg-gray-900 flex items-center justify-center">
                         <span className="text-gray-400 text-sm">No video</span>
                     </div>
@@ -163,7 +143,7 @@ export const VideoNode = React.memo(({ id, data, selected, width, height }: Vide
                                 }}
                             >
                                 <video
-                                    src={data.project.thumbnail}
+                                    src={videoUrl ?? undefined}
                                     className="w-full h-full object-cover"
                                     autoPlay
                                     loop
@@ -176,6 +156,7 @@ export const VideoNode = React.memo(({ id, data, selected, width, height }: Vide
                                         e.stopPropagation();
                                         setIsFullscreen(false);
                                     }}
+                                    aria-label="Close fullscreen"
                                     className="absolute top-8 right-8 p-3 bg-black/60 hover:bg-white hover:text-black text-white rounded-2xl transition-all z-50 shadow-lg border border-white/10 backdrop-blur-xl"
                                 >
                                     <X size={24} />

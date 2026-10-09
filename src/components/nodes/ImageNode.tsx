@@ -1,9 +1,10 @@
 import React, { useState, useLayoutEffect } from 'react';
-import { Handle, NodeResizer, Position, useConnection, useStore } from '@xyflow/react';
+import { Handle, NodeResizer, Position, useConnection, useStore, useViewport } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { ImageNode as ImageNodeType } from '../../types';
 import { cn, imageLikeHandleStyle, mediaNodeFrameClass, mediaNodeTitleClass, resizeHandleClassName } from './nodeUi';
 import { getGenerationRetry } from '@/services/workbench/generationRetryRegistry';
+import { useNodeImageTier } from '@/components/workbench/hooks/useNodeImageTier';
 
 interface ImageNodeData extends ImageNodeType {
     onSourceClick?: (nodeId: string) => void;
@@ -29,6 +30,18 @@ export const ImageNode = React.memo(({ id, data, selected, isConnectable = true,
     const connection = useConnection();
     const [isHovered, setIsHovered] = useState(false);
     const [nodeSize, setNodeSize] = useState({ width: width || 256, height: height || 256 });
+
+    // Sprint 3: progressive tiers — the in-doc thumbnail paints first, the
+    // preview upgrades after idle, full-res only above the zoom threshold.
+    const { zoom } = useViewport();
+    const imageSrc = useNodeImageTier({
+        tiers: {
+            thumb: data.project?.thumbnail ?? null,
+            preview: data.project?.previewUrl ?? null,
+            full: data.project?.layers?.find((layer) => layer.image)?.image ?? data.project?.thumbnail ?? null,
+        },
+        zoom,
+    });
     
     const handleSourceClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -88,9 +101,9 @@ export const ImageNode = React.memo(({ id, data, selected, isConnectable = true,
                             </button>
                         )}
                     </div>
-                ) : data.project.thumbnail ? (
+                ) : imageSrc ? (
                     <img
-                        src={data.project.thumbnail}
+                        src={imageSrc}
                         alt={data.name}
                         className="block h-full w-full object-cover"
                         draggable={false}

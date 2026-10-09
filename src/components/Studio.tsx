@@ -49,7 +49,7 @@ export const Studio: React.FC<{ active?: boolean }> = ({ active = true }) => {
         <div className="relative w-screen h-screen overflow-hidden bg-neutral-100 flex flex-col antialiased selection:bg-primary/30">
             {/* Canvas Layer - Background */}
             <div className="absolute inset-0 overflow-hidden">
-                <CanvasViewport onRasterizeReady={(rasterize) => { rasterizeActiveLayerRef.current = rasterize; }} />
+                <CanvasViewport active={active} onRasterizeReady={(rasterize) => { rasterizeActiveLayerRef.current = rasterize; }} />
             </div>
 
             {/* UI Overlay Layers */}

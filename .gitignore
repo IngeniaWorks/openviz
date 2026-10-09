@@ -1,20 +1,35 @@
-# Logs
-logs
+# Ignore ALL hidden directories by default
+.*/
+.github/skills/
+
+# EXCEPTIONS: These hidden directories MUST be tracked in Git
+!.github/
+!.vscode/
+
+# ==============================================================================
+# NODE.JS / WEB APPLICATION
+# ==============================================================================
+node_modules/
+dist/
+dist-ssr/
+.next/
+coverage/
+.tsbuildinfo
+*.local
+
+# ==============================================================================
+# LOGS AND CACHES
+# ==============================================================================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# ==============================================================================
+# SYSTEM & EDITOR FILES (Individual files)
+# ==============================================================================
 .DS_Store
 *.code-workspace
 *.suo
@@ -23,38 +38,29 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local agent tooling (not part of the public repo)
-.specify/
-.github/skills/
-.pi/
-.opencode/
-.venv/
+# ==============================================================================
+# DEPLOYMENT STATE & OUTPUTS
+# ==============================================================================
+specs/
+plans/
+AGENTS/
+.run/
+docs/performance/runs/
 
-# Deployment state
-.foundry/
-
-# Environment files and local secrets
+# ==============================================================================
+# ENVIRONMENT VARIABLES AND SECRETS (Crucial for security)
+# ==============================================================================
 .env
 .env.*
 !.env.example
 !.env.docker.example
 
-# Private key and credential files
+# Private keys and credential files
 *.pem
 *.key
 *.p12
 *.pfx
 *.jks
 *.keystore
-.secrets/
 secrets/
 credentials/
-
-# Build output, caches and test reports
-.next/
-coverage/
-.tsbuildinfo
-
-# Local development launcher state
-.run/
-docs/performance/runs/
